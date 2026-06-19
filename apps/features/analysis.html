@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Analyse your Chess games, free of charge.">
+  <meta name="theme-color" content="#e8a03e">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>ChessAnalyzer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/theme.css">
+  <style>
+    .root {
+      min-height: calc(100vh - 60px);
+      width: 100%;
+    }
+    .main-content {
+      width: 100%;
+    }
+    body {
+      background: #1a1a1e;
+      color: #f0f0f5;
+      font-family: 'Roboto', sans-serif;
+      min-height: 100vh;
+      line-height: 1.5;
+      overflow-x: hidden;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="nav-logo">
+      <span class="logo-icon">♔</span>
+      <span class="logo-text">ChessAnalyzer</span>
+    </div>
+    <ul class="nav-links">
+      <li><span id="navbar-settings-target"></span></li>
+    </ul>
+  </nav>
+  <main class="main-content">
+    <div class="root"></div>
+  </main>
+  <script src="/analysis.bundle.js"></script>
+</body>
+</html>

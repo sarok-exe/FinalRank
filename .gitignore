@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.local
+.DS_Store
+@handsoff.md
+pawn-appetit/
+wintrchess/
+Thumbs.db
+Desktop.ini
