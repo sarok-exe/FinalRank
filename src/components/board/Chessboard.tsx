@@ -199,11 +199,10 @@ export default function Chessboard({
       <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-lg bg-[#2a2a2a] border-4 border-[#2a2a2a] overflow-hidden relative select-none">
         
         {displayRows.map((rowArr, rowIndex) => {
-          const rank = RANKS[rowIndex];
-
           return rowArr.map((piece, colIndex) => {
-            const file = FILES[colIndex];
-            const squareName = `${file}${rank}`;
+            const logicalRowIndex = flipped ? 7 - rowIndex : rowIndex;
+            const logicalColIndex = flipped ? 7 - colIndex : colIndex;
+            const squareName = `${FILES[logicalColIndex]}${RANKS[logicalRowIndex]}`;
             const isDark = (rowIndex + colIndex) % 2 === 1;
             const isSelected = selectedSquare === squareName;
             const isValidDest = validMoves.includes(squareName);

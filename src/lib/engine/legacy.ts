@@ -47,7 +47,9 @@ export async function analyzePositionLocally(
         pv: topLine.moves.slice(0, 6).map(m => m.san || m.uci),
       };
     }
-  } catch {}
+  } catch {
+    destroyEngine();
+  }
   return {
     score: 0,
     isMate: false,
