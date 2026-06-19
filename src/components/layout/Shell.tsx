@@ -11,6 +11,7 @@ import {
   Flame,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
+import { useUIStore } from '../../stores/uiStore';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ interface ShellProps {
 
 export default function Shell({ children }: ShellProps) {
   const { user, logout, loginAsGuest } = useAuthStore();
+  const { fullscreenMode, focusMode } = useUIStore();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -34,7 +36,7 @@ export default function Shell({ children }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-[#2a2a2a] text-white flex flex-col font-sans" id="app-shell">
-      <header className="border-b border-[#4a4a4a] bg-[#333333] sticky top-0 z-50 px-6 h-16 flex items-center justify-between">
+      <header className={`border-b border-[#4a4a4a] bg-[#333333] sticky top-0 z-50 px-6 h-16 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
         <div className="flex items-center space-x-6">
           <Link to="/" className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-[#606c38] rounded flex items-center justify-center font-bold text-white">
@@ -180,11 +182,11 @@ export default function Shell({ children }: ShellProps) {
         </div>
       )}
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6" id="main-stage">
+      <main className={`flex-1 w-full mx-auto p-4 md:p-6 ${fullscreenMode ? 'max-w-full' : 'max-w-7xl'}`} id="main-stage">
         {children}
       </main>
 
-      <footer className="border-t border-[#4a4a4a] bg-[#333333] py-4 text-center text-xs text-[#666666] flex flex-col sm:flex-row items-center justify-between px-6 max-w-7xl w-full mx-auto">
+      <footer className={`border-t border-[#4a4a4a] bg-[#333333] py-4 text-center text-xs text-[#666666] flex flex-col sm:flex-row items-center justify-between px-6 max-w-7xl w-full mx-auto ${fullscreenMode ? 'hidden' : ''}`}>
         <p>&copy; 2026 FinalRank. Powered by Stockfish 17 Lite via WebAssembly.</p>
         <div className="flex items-center space-x-4 mt-1 sm:mt-0">
           <span className="text-[#4a4a4a]">|</span>

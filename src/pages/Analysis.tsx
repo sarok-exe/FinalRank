@@ -18,9 +18,14 @@ import {
   ChevronDown,
   RotateCcw,
   Keyboard,
+  Maximize,
+  Minimize,
+  Focus,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
+import { useFullscreen } from '../hooks/useFullscreen';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
 import { LEGENDARY_PRESET_GAMES } from '../lib/chessCom';
@@ -47,6 +52,8 @@ export default function Analysis() {
   } = useGameStore();
 
   const { settings, updateSettings } = useSettingsStore();
+  const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
+  const { toggleFullscreen } = useFullscreen();
   const { play, playFromSan, playGameEnd } = useSound();
 
   const [usernameInput, setUsernameInput] = useState('');
@@ -148,6 +155,16 @@ export default function Analysis() {
       key: '?',
       description: 'Show keyboard shortcuts',
       handler: () => setShowShortcuts(true),
+    },
+    {
+      key: 'z',
+      description: 'Toggle focus mode',
+      handler: () => toggleFocusMode(),
+    },
+    {
+      key: 'F11',
+      description: 'Toggle fullscreen',
+      handler: () => toggleFullscreen(),
     },
   ]);
 
@@ -367,20 +384,25 @@ export default function Analysis() {
     );
   }
 
+  const boardWidth = focusMode ? 700 : fullscreenMode ? 660 : 550;
+
   return (
     <div className="space-y-5" id="analysis-viewport">
-      <button
-        onClick={handleBackToImport}
-        className="flex items-center space-x-1.5 text-xs text-[#bc6c25] mb-1"
-        id="back-to-import-btn"
-      >
-        <ArrowLeft className="w-3.5 h-3.5" />
-        <span>Back to import</span>
-      </button>
+      {!focusMode && (
+        <button
+          onClick={handleBackToImport}
+          className="flex items-center space-x-1.5 text-xs text-[#bc6c25] mb-1"
+          id="back-to-import-btn"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>Back to import</span>
+        </button>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="game-arena-grid">
-        <div className="lg:col-span-7 space-y-4 flex flex-col items-center">
-          <div className="w-full max-w-[500px] bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 flex items-center justify-between" id="game-header-card">
+      <div className={`grid grid-cols-1 gap-5 ${focusMode ? '' : 'lg:grid-cols-12'}`} id="game-arena-grid">
+        <div className={`space-y-4 flex flex-col items-center ${focusMode ? 'w-full' : 'lg:col-span-7'}`}>
+          {!focusMode && (
+          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 flex items-center justify-between" id="game-header-card" style={{ maxWidth: boardWidth }}>
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs text-[#a0a0a0] font-semibold">
                 <TrendingUp className="w-3.5 h-3.5 text-[#606c38]" />
@@ -413,8 +435,9 @@ export default function Analysis() {
               </div>
             )}
           </div>
+          )}
 
-          <div className="flex w-full max-w-[500px] gap-3">
+          <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
             <div className="self-stretch min-h-[300px]">
               <EvalBar
                 score={currentMove?.evaluation?.score ?? null}
@@ -433,7 +456,7 @@ export default function Analysis() {
             </div>
           </div>
 
-          <div className="w-full max-w-[500px] flex items-center justify-between bg-[#333333] border border-[#4a4a4a] rounded-xl p-3" id="game-controls-console">
+          <div className="w-full flex items-center justify-between bg-[#333333] border border-[#4a4a4a] rounded-xl p-3" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex space-x-1">
               <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[#3d3d3d] text-[#a0a0a0] rounded-lg disabled:opacity-30" title="First Move">
                 <ChevronsLeft className="w-5 h-5" />
@@ -455,7 +478,7 @@ export default function Analysis() {
             </div>
           </div>
 
-          <div className="w-full max-w-[500px] flex items-center gap-2">
+          <div className="w-full flex items-center gap-2" style={{ maxWidth: boardWidth }}>
             <button
               onClick={toggleOrientation}
               className="flex items-center gap-1.5 bg-[#3d3d3d] border border-[#4a4a4a] px-3 py-2 rounded-lg text-xs text-[#a0a0a0]"
@@ -473,9 +496,29 @@ export default function Analysis() {
               <Keyboard className="w-3.5 h-3.5" />
               <span>Shortcuts</span>
             </button>
+            <button
+              onClick={toggleFocusMode}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border ${
+                focusMode
+                  ? 'bg-[#606c38] text-white border-[#606c38]'
+                  : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+              }`}
+              title="Toggle focus mode (Z)"
+            >
+              <Focus className="w-3.5 h-3.5" />
+              <span>Focus</span>
+            </button>
+            <button
+              onClick={toggleFullscreen}
+              className="flex items-center gap-1.5 bg-[#3d3d3d] border border-[#4a4a4a] px-3 py-2 rounded-lg text-xs text-[#a0a0a0]"
+              title="Toggle fullscreen (F11)"
+            >
+              <Maximize className="w-3.5 h-3.5" />
+            </button>
           </div>
 
-          <div className="w-full max-w-[500px] bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel">
+          {!focusMode && (
+          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
@@ -528,8 +571,11 @@ export default function Analysis() {
               </div>
             )}
           </div>
+          )}
+
         </div>
 
+        {!focusMode && (
         <div className="lg:col-span-5 space-y-4 flex flex-col h-[580px]">
           {legendaryData && !notificationDismissed && (
             <div className="bg-[#3d3d3d] border border-[#bc6c25] rounded-xl p-4 text-[#bc6c25] relative" id="legendary-achievement-banner">
@@ -672,8 +718,12 @@ export default function Analysis() {
             ) : null}
           </div>
         </div>
+        )}
+
       </div>
 
+      {!focusMode && (
+      <>
       <button
         onClick={() => setShowGameList(!showGameList)}
         className="flex items-center space-x-1.5 text-xs text-[#a0a0a0]"
@@ -715,6 +765,8 @@ export default function Analysis() {
           </div>
         </div>
       )}
+      </>
+      )}
 
       {showShortcuts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
@@ -754,6 +806,18 @@ export default function Analysis() {
               <div className="flex justify-between text-sm py-1.5">
                 <span className="text-white">Show shortcuts</span>
                 <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">?</span>
+              </div>
+              <div className="flex justify-between text-sm py-1.5 border-t border-[#4a4a4a] pt-3 mt-1">
+                <span className="text-[#606c38] font-bold text-xs">Display</span>
+                <span />
+              </div>
+              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+                <span className="text-white">Toggle focus mode</span>
+                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">Z</span>
+              </div>
+              <div className="flex justify-between text-sm py-1.5">
+                <span className="text-white">Toggle fullscreen</span>
+                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">F11</span>
               </div>
             </div>
             <p className="text-xs text-[#666666] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>

@@ -15,3 +15,8 @@
   --color-slate-500: #888888;
   --color-slate-600: #666666;
 }
+
+#app-shell:fullscreen {
+  width: 100vw;
+  height: 100vh;
+}

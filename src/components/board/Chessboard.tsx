@@ -9,6 +9,7 @@ interface ChessboardProps {
   onMove?: (from: string, to: string) => void;
   playable?: boolean;
   orientation?: 'white' | 'black';
+  className?: string;
   highlightSquares?: {
     from?: string;
     to?: string;
@@ -28,6 +29,7 @@ export default function Chessboard({
   onMove,
   playable = true,
   orientation = 'white',
+  className = '',
   highlightSquares,
   bestMoveArrow,
 }: ChessboardProps) {
@@ -195,7 +197,7 @@ export default function Chessboard({
     : boardGrid;
 
   return (
-    <div className="relative aspect-square w-full max-w-[500px]">
+    <div className={`relative aspect-square w-full ${className}`}>
       <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-lg bg-[#2a2a2a] border-4 border-[#2a2a2a] overflow-hidden relative select-none">
         
         {displayRows.map((rowArr, rowIndex) => {

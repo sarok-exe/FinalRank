@@ -9,13 +9,18 @@ import {
   Cpu,
   Timer,
   Layers,
+  Maximize,
+  Focus,
 } from 'lucide-react';
 import { useClockStore } from '../stores/clockStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useUIStore } from '../stores/uiStore';
+import { useFullscreen } from '../hooks/useFullscreen';
 import { analyzePositionLocally, destroyEngine } from '../lib/engine/legacy';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import type { EngineGoMode, EvaluationResult } from '../types';
 
 interface PresetCategory {
@@ -97,6 +102,8 @@ export default function Tools() {
   } = useClockStore();
 
   const { settings } = useSettingsStore();
+  const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
+  const { toggleFullscreen } = useFullscreen();
   const { play, playFromSan, playGameEnd } = useSound();
   const [clockCategory, setClockCategory] = useState(0);
   const [playVsEngineMode, setPlayVsEngineMode] = useState(false);
@@ -220,9 +227,24 @@ export default function Tools() {
 
   const currentCategoryPresets = presetCategories[clockCategory]?.presets || [];
 
+  useKeyboardShortcuts([
+    {
+      key: 'z',
+      description: 'Toggle focus mode',
+      handler: () => toggleFocusMode(),
+    },
+    {
+      key: 'F11',
+      description: 'Toggle fullscreen',
+      handler: () => toggleFullscreen(),
+    },
+  ]);
+
+  const boardWidth = focusMode ? 480 : fullscreenMode ? 450 : 375;
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="tools-view">
-      <div className="lg:col-span-5 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col" id="clock-panel">
+    <div className={`grid grid-cols-1 gap-5 ${focusMode ? '' : 'lg:grid-cols-12'}`} id="tools-view">
+      <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col ${focusMode ? 'hidden' : 'lg:col-span-5'}`} id="clock-panel">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-extrabold text-white flex items-center space-x-2">
             <Clock className="w-5 h-5 text-[#bc6c25]" />
@@ -341,7 +363,7 @@ export default function Tools() {
         </div>
       </div>
 
-      <div className="lg:col-span-7 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col" id="engine-play-panel">
+      <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col ${focusMode ? 'w-full' : 'lg:col-span-7'}`} id="engine-play-panel">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-base font-extrabold text-white flex items-center space-x-2">
             <Gamepad2 className="w-5 h-5 text-[#bc6c25]" />
@@ -366,8 +388,8 @@ export default function Tools() {
 
         {playVsEngineMode ? (
           <div className="flex flex-col md:flex-row items-center md:items-start gap-5 flex-1">
-            <div className="flex-1 flex justify-center w-full max-w-[340px]">
-              <div className="flex gap-2 w-full">
+            <div className="flex flex-col items-center gap-2">
+              <div className="flex gap-2 w-full" style={{ maxWidth: boardWidth }}>
                 <div className="h-[300px]">
                   <EvalBar
                     score={lastEngineEval?.score ?? null}
@@ -383,8 +405,30 @@ export default function Tools() {
                   />
                 </div>
               </div>
+              <div className="flex items-center gap-1.5 w-full justify-end">
+                <button
+                  onClick={toggleFocusMode}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+                    focusMode
+                      ? 'bg-[#606c38] text-white border-[#606c38]'
+                      : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+                  }`}
+                  title="Toggle focus mode (Z)"
+                >
+                  <Focus className="w-3 h-3" />
+                  <span>Focus</span>
+                </button>
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+                  title="Toggle fullscreen (F11)"
+                >
+                  <Maximize className="w-3 h-3" />
+                </button>
+              </div>
             </div>
 
+            {!focusMode && (
             <div className="flex-1 flex flex-col self-stretch space-y-3">
               <div>
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5 mb-2">
@@ -493,6 +537,7 @@ export default function Tools() {
                 New Game
               </button>
             </div>
+            )}
           </div>
         ) : (
           <div className="flex-1 border border-dashed border-[#4a4a4a] bg-[#2a2a2a] flex flex-col items-center justify-center p-8 rounded-2xl text-center space-y-4 min-h-[300px]">
