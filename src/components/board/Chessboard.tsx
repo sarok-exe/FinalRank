@@ -230,12 +230,12 @@ export default function Chessboard({
                   <>
                     {colIndex === 0 && (
                       <span className="absolute top-1 left-1 text-[9px] font-semibold opacity-60 leading-none">
-                        {rank}
+                        {RANKS[flipped ? 7 - rowIndex : rowIndex]}
                       </span>
                     )}
                     {rowIndex === 7 && (
                       <span className="absolute bottom-1 right-1 text-[9px] font-semibold opacity-60 leading-none">
-                        {file}
+                        {FILES[flipped ? 7 - colIndex : colIndex]}
                       </span>
                     )}
                   </>

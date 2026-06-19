@@ -24,8 +24,8 @@ export class Engine {
     endCondition: (logMessage: string) => boolean,
     onLogReceived?: (logMessage: string) => void,
   ): Promise<string[]> {
-    this.worker.postMessage(command);
     const logMessages: string[] = [];
+    const worker = this.worker;
     return new Promise((res, rej) => {
       function onMessageReceived(event: MessageEvent) {
         const message = String(event.data);
@@ -38,11 +38,13 @@ export class Engine {
         }
       }
       function onError() {
+        worker.removeEventListener('message', onMessageReceived);
+        worker.removeEventListener('error', onError);
         rej(new Error('worker error'));
       }
-      const worker = this.worker;
       worker.addEventListener('message', onMessageReceived);
       worker.addEventListener('error', onError);
+      worker.postMessage(command);
     });
   }
 
@@ -76,6 +78,7 @@ export class Engine {
   }
 
   setPosition(fen: string, uciMoves?: string[]) {
+    this.worker.postMessage('ucinewgame');
     if (uciMoves?.length) {
       this.worker.postMessage(`position fen ${fen} moves ${uciMoves.join(' ')}`);
       const board = new Chess(fen);
