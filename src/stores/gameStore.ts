@@ -58,12 +58,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   importChessComGames: async (username) => {
     set({ loadingGames: true, importError: null });
     try {
-      const { fetchChessComGames } = await import('../lib/chessCom');
+      const { fetchChessComGames, fetchAvatarsForGames } = await import('../lib/chessCom');
       const loaded = await fetchChessComGames(username);
       if (loaded.length === 0) {
         set({ importError: 'No recent games found for this user.', loadingGames: false });
       } else {
-        set({ games: loaded, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
+        const withAvatars = await fetchAvatarsForGames(loaded);
+        set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
         get().selectGame(loaded[0].id);
       }
     } catch (err: any) {

@@ -399,51 +399,63 @@ export default function Analysis() {
         </button>
       )}
 
-      <div className={`grid grid-cols-1 gap-5 ${focusMode ? '' : 'lg:grid-cols-12'}`} id="game-arena-grid">
-        <div className={`space-y-4 flex flex-col items-center ${focusMode ? 'w-full' : 'lg:col-span-7'}`}>
-          {!focusMode && (
-          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 flex items-center justify-between" id="game-header-card" style={{ maxWidth: boardWidth }}>
-            <div className="space-y-1">
-              <div className="flex items-center gap-1.5 text-xs text-[#a0a0a0] font-semibold">
-                <TrendingUp className="w-3.5 h-3.5 text-[#606c38]" />
-                <span>Result: </span>
-                <span className="text-white bg-[#3d3d3d] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
-                <span className="mx-1">&bull;</span>
-                <span>{selectedGame.date}</span>
-              </div>
-              <div className="text-sm font-bold text-white flex flex-col">
-                <div className="flex items-center space-x-2">
-                  <span className="w-2.5 h-2.5 rounded bg-white border border-[#a0a0a0] flex-shrink-0" />
-                  <span>{selectedGame.white.username} {selectedGame.white.rating && <span className="text-[#a0a0a0]">({selectedGame.white.rating})</span>}</span>
-                </div>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className="w-2.5 h-2.5 rounded bg-[#2a2a2a] border border-[#888888] flex-shrink-0" />
-                  <span>{selectedGame.black.username} {selectedGame.black.rating && <span className="text-[#a0a0a0]">({selectedGame.black.rating})</span>}</span>
-                </div>
-              </div>
-            </div>
-            {selectedGame.accuracy && (
-              <div className="flex items-center space-x-4 border-l border-[#4a4a4a] pl-4">
-                <div className="text-center">
-                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">White</div>
-                  <div className="text-lg font-black text-white">{selectedGame.accuracy.white}%</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">Black</div>
-                  <div className="text-lg font-black text-white">{selectedGame.accuracy.black}%</div>
-                </div>
-              </div>
+      <div className={`
+        ${focusMode
+          ? 'flex flex-row justify-center items-center gap-6'
+          : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}
+      `.trim()} id="game-arena-grid">
+        {focusMode && selectedGame && (
+        <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 flex flex-col items-center gap-3" id="focus-players-panel">
+          <div className="flex flex-col items-center gap-1.5">
+            {selectedGame.black.avatar ? (
+              <img src={selectedGame.black.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[#888888] flex-shrink-0" />
+            ) : (
+              <span className="w-[34px] h-[34px] rounded-[10px] bg-[#2a2a2a] border border-[#888888] flex-shrink-0 block" />
             )}
+            <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
+              {selectedGame.black.username}
+              {selectedGame.black.rating && <span className="text-[#a0a0a0] ml-1">({selectedGame.black.rating})</span>}
+            </div>
           </div>
+          {selectedGame.accuracy && (
+            <div className="text-center -mt-1">
+              <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Accuracy</div>
+              <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
+            </div>
           )}
-
+          <div className="text-xs text-[#606c38] font-bold uppercase tracking-widest">VS</div>
+          {selectedGame.accuracy && (
+            <div className="text-center -mt-1">
+              <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Accuracy</div>
+              <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
+            </div>
+          )}
+          <div className="flex flex-col items-center gap-1.5 mt-[10px]">
+            {selectedGame.white.avatar ? (
+              <img src={selectedGame.white.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[#a0a0a0] flex-shrink-0" />
+            ) : (
+              <span className="w-[34px] h-[34px] rounded-[10px] bg-white border border-[#a0a0a0] flex-shrink-0 block" />
+            )}
+            <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
+              {selectedGame.white.username}
+              {selectedGame.white.rating && <span className="text-[#a0a0a0] ml-1">({selectedGame.white.rating})</span>}
+            </div>
+          </div>
+          <div className="mt-2 pt-3 border-t border-[#4a4a4a] w-full text-center">
+            <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Result</div>
+            <div className="text-sm font-bold text-white font-mono">{selectedGame.result}</div>
+            <div className="text-[10px] text-[#a0a0a0]">{selectedGame.date}</div>
+          </div>
+        </div>
+        )}
+        <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
           <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
             <div className="self-stretch min-h-[300px]">
-              <EvalBar
-                score={currentMove?.evaluation?.score ?? null}
-                mate={currentMove?.evaluation?.mateIn ?? null}
-                flipped={settings.boardOrientation === 'black'}
-              />
+                <EvalBar
+                  score={currentMove?.evaluation?.score ?? null}
+                  mate={currentMove?.evaluation?.mateIn ?? null}
+                  flipped={false}
+                />
             </div>
             <div className="flex-1">
               <Chessboard
@@ -576,7 +588,7 @@ export default function Analysis() {
         </div>
 
         {!focusMode && (
-        <div className="lg:col-span-5 space-y-4 flex flex-col h-[580px]">
+        <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
           {legendaryData && !notificationDismissed && (
             <div className="bg-[#3d3d3d] border border-[#bc6c25] rounded-xl p-4 text-[#bc6c25] relative" id="legendary-achievement-banner">
               <button
@@ -603,7 +615,51 @@ export default function Analysis() {
             </div>
           )}
 
-          <div className="flex-1 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[380px] min-h-[220px]">
+          {!focusMode && selectedGame && (
+          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 flex items-start justify-between" id="game-info-card">
+            <div className="space-y-1.5 flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 text-xs text-[#a0a0a0] font-semibold">
+                <TrendingUp className="w-3.5 h-3.5 text-[#606c38]" />
+                <span>Result: </span>
+                <span className="text-white bg-[#3d3d3d] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
+                <span className="mx-1">&bull;</span>
+                <span className="truncate">{selectedGame.date}</span>
+              </div>
+              <div className="text-sm font-bold text-white flex flex-col gap-1">
+                <div className="flex items-center space-x-2.5">
+                  {selectedGame.white.avatar ? (
+                    <img src={selectedGame.white.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[#a0a0a0] flex-shrink-0" />
+                  ) : (
+                    <span className="w-[44px] h-[44px] rounded-[10px] bg-white border border-[#a0a0a0] flex-shrink-0 block" />
+                  )}
+                  <span className="truncate">{selectedGame.white.username} {selectedGame.white.rating && <span className="text-[#a0a0a0]">({selectedGame.white.rating})</span>}</span>
+                </div>
+                <div className="flex items-center space-x-2.5 mt-[3px]">
+                  {selectedGame.black.avatar ? (
+                    <img src={selectedGame.black.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[#888888] flex-shrink-0" />
+                  ) : (
+                    <span className="w-[44px] h-[44px] rounded-[10px] bg-[#2a2a2a] border border-[#888888] flex-shrink-0 block" />
+                  )}
+                  <span className="truncate">{selectedGame.black.username} {selectedGame.black.rating && <span className="text-[#a0a0a0]">({selectedGame.black.rating})</span>}</span>
+                </div>
+              </div>
+            </div>
+            {selectedGame.accuracy && (
+              <div className="flex items-center space-x-3 border-l border-[#4a4a4a] pl-3.5 ml-2 shrink-0">
+                <div className="text-center">
+                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">W</div>
+                  <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">B</div>
+                  <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
+                </div>
+              </div>
+            )}
+          </div>
+          )}
+
+          <div className="flex-1 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
             <h3 className="text-xs font-bold text-[#a0a0a0] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[#bc6c25]" />
               <span>Move Log</span>

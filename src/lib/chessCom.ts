@@ -117,6 +117,35 @@ export function parsePgnToMoves(pgn: string): AnalyzedMove[] {
 /**
  * Elite tournament chess games provided as elegant presets
  */
+export async function fetchChessComPlayerAvatar(username: string): Promise<string | undefined> {
+  if (!username) return undefined;
+  try {
+    const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}`);
+    if (!res.ok) return undefined;
+    const data = await res.json();
+    return data.avatar || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function fetchAvatarsForGames(games: ChessGame[]): Promise<ChessGame[]> {
+  const uniqueUsernames = new Set<string>();
+  games.forEach(g => {
+    uniqueUsernames.add(g.white.username);
+    uniqueUsernames.add(g.black.username);
+  });
+  const cache = new Map<string, string | undefined>();
+  await Promise.all(Array.from(uniqueUsernames).map(async (name) => {
+    cache.set(name, await fetchChessComPlayerAvatar(name));
+  }));
+  return games.map(g => ({
+    ...g,
+    white: { ...g.white, avatar: cache.get(g.white.username) },
+    black: { ...g.black, avatar: cache.get(g.black.username) },
+  }));
+}
+
 export const LEGENDARY_PRESET_GAMES: ChessGame[] = [
   {
     id: 'legend-fischer',

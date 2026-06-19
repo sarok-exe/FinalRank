@@ -118,8 +118,8 @@ export interface AnalyzedMove {
 
 export interface ChessGame {
   id: string;
-  white: { username: string; rating?: number };
-  black: { username: string; rating?: number };
+  white: { username: string; rating?: number; avatar?: string };
+  black: { username: string; rating?: number; avatar?: string };
   result: string;
   date: string;
   initialPosition?: string;
