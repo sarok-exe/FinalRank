@@ -1,8 +1,19 @@
-import { ChessGame, EngineLine, STARTING_FEN } from '../../types';
+import { ChessGame, EngineLine, EvaluationResult, STARTING_FEN } from '../../types';
 import { getTopEngineLine } from '../engine';
 import { AnalysisOptions } from './types';
 import { getMoveAccuracy } from './accuracy';
 import { classifyMove } from './classify';
+
+function extractEvaluation(line: EngineLine): EvaluationResult {
+  return {
+    score: line.evaluation.type === 'centipawn' ? line.evaluation.value / 100 : (line.evaluation.value > 0 ? 10 : -10),
+    isMate: line.evaluation.type === 'mate',
+    mateIn: line.evaluation.type === 'mate' ? line.evaluation.value : undefined,
+    depthReached: line.depth,
+    bestMove: line.moves[0]?.san || line.moves[0]?.uci,
+    pv: line.moves.slice(0, 6).map(m => m.san || m.uci),
+  };
+}
 
 export function getGameAnalysis(
   game: ChessGame,
@@ -31,7 +42,9 @@ export function getGameAnalysis(
       accuracy = getMoveAccuracy(prevTopLine.evaluation, currTopLine.evaluation, move.color === 'w' ? 'w' : 'b');
     }
 
-    return { ...move, engineLines: currEngineLines, classification: result.classification, opening: result.opening, accuracy };
+    const evaluation = currTopLine ? extractEvaluation(currTopLine) : undefined;
+
+    return { ...move, engineLines: currEngineLines, evaluation, classification: result.classification, opening: result.opening, accuracy };
   });
 
   const whiteMoves = updatedMoves.filter(m => m.color === 'w' && m.accuracy !== undefined);

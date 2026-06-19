@@ -415,7 +415,7 @@ export default function Analysis() {
           </div>
 
           <div className="flex w-full max-w-[500px] gap-3">
-            <div className="h-full min-h-[300px]">
+            <div className="self-stretch min-h-[300px]">
               <EvalBar
                 score={currentMove?.evaluation?.score ?? null}
                 mate={currentMove?.evaluation?.mateIn ?? null}
