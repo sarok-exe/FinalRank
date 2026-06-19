@@ -14,8 +14,9 @@ import { useClockStore } from '../stores/clockStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { analyzePositionLocally, destroyEngine } from '../lib/engine/legacy';
 import Chessboard from '../components/board/Chessboard';
+import EvalBar from '../components/eval/EvalBar';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
-import type { EngineGoMode } from '../types';
+import type { EngineGoMode, EvaluationResult } from '../types';
 
 interface PresetCategory {
   name: string;
@@ -106,6 +107,7 @@ export default function Tools() {
   const [engineGoMode, setEngineGoMode] = useState<EngineGoMode>('depth');
   const [engineThinkingTime, setEngineThinkingTime] = useState(2000);
   const [engineThinking, setEngineThinking] = useState(false);
+  const [lastEngineEval, setLastEngineEval] = useState<EvaluationResult | null>(null);
   const [engineGameHistory, setEngineGameHistory] = useState<string[]>([]);
   const [engineFeedback, setEngineFeedback] = useState('');
 
@@ -147,6 +149,7 @@ export default function Tools() {
     setEngineGame(freshGame);
     setEngineFen(freshGame.fen());
     setEngineGameHistory([]);
+    setLastEngineEval(null);
     setEngineFeedback('Game started. Make your move.');
     setEngineThinking(false);
     play('game-start');
@@ -172,6 +175,7 @@ export default function Tools() {
         depth: engineDepth,
         timeLimit: engineThinkingTime,
       });
+      setLastEngineEval(computedMoveResult);
 
       const legalComputerMoves = engineGame.moves({ verbose: true });
       if (legalComputerMoves.length > 0) {
@@ -363,11 +367,22 @@ export default function Tools() {
         {playVsEngineMode ? (
           <div className="flex flex-col md:flex-row items-center md:items-start gap-5 flex-1">
             <div className="flex-1 flex justify-center w-full max-w-[340px]">
-              <Chessboard
-                fen={engineFen}
-                playable={!engineThinking}
-                onMove={handlePlayerMoveInEngineMode}
-              />
+              <div className="flex gap-2 w-full">
+                <div className="h-[300px]">
+                  <EvalBar
+                    score={lastEngineEval?.score ?? null}
+                    mate={lastEngineEval?.mateIn ?? null}
+                    flipped={false}
+                  />
+                </div>
+                <div className="flex-1">
+                  <Chessboard
+                    fen={engineFen}
+                    playable={!engineThinking}
+                    onMove={handlePlayerMoveInEngineMode}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="flex-1 flex flex-col self-stretch space-y-3">

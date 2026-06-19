@@ -22,6 +22,7 @@ import {
 import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import Chessboard from '../components/board/Chessboard';
+import EvalBar from '../components/eval/EvalBar';
 import { LEGENDARY_PRESET_GAMES } from '../lib/chessCom';
 import { classificationImages, classificationColours, classificationNames } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
@@ -414,27 +415,13 @@ export default function Analysis() {
           </div>
 
           <div className="flex w-full max-w-[500px] gap-3">
-            <div className="w-6 bg-[#333333] rounded overflow-hidden border border-[#4a4a4a] flex flex-col justify-end relative">
-              {(() => {
-                const rawScore = currentMove?.evaluation?.score ?? 0.35;
-                const capped = Math.max(-8, Math.min(8, rawScore));
-                const percentage = ((capped + 8) / 16) * 100;
-                return (
-                  <>
-                    <div
-                      className="w-full bg-white flex items-end justify-center pb-2 relative"
-                      style={{ height: `${percentage}%` }}
-                    >
-                      <span className="absolute bottom-2 left-0 right-0 text-[8px] font-black font-mono text-[#2a2a2a] text-center select-none">
-                        {rawScore > 0 ? `+${rawScore.toFixed(1)}` : rawScore.toFixed(1)}
-                      </span>
-                    </div>
-                    <div className="flex-1 bg-[#333333]" />
-                  </>
-                );
-              })()}
+            <div className="h-full min-h-[300px]">
+              <EvalBar
+                score={currentMove?.evaluation?.score ?? null}
+                mate={currentMove?.evaluation?.mateIn ?? null}
+                flipped={settings.boardOrientation === 'black'}
+              />
             </div>
-
             <div className="flex-1">
               <Chessboard
                 fen={getCurrentFen()}
