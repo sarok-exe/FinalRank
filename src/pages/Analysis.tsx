@@ -87,6 +87,12 @@ export default function Analysis() {
   const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
+  const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  useEffect(() => {
+    const onResize = () => setVpW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -595,12 +601,6 @@ function formatDuration(ms: number | undefined): string {
     );
   }
 
-  const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
-  useEffect(() => {
-    const onResize = () => setVpW(window.innerWidth);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
   const pad = 32;
   const desiredW = focusMode ? 700 : fullscreenMode ? 660 : 550;
   const boardWidth = Math.min(desiredW, vpW - pad);

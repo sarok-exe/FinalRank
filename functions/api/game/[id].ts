@@ -47,6 +47,19 @@ export async function onRequest(context: { request: Request; env: Env; params: {
           {
             type: 'execute',
             stmt: {
+              sql: `CREATE TABLE IF NOT EXISTS shared_games (
+                short_id TEXT PRIMARY KEY,
+                game_data TEXT NOT NULL,
+                uid TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+              )`,
+              args: [],
+            },
+          },
+          {
+            type: 'execute',
+            stmt: {
               sql: 'SELECT game_data FROM shared_games WHERE short_id = ?',
               args: [shortId],
             },
@@ -56,7 +69,7 @@ export async function onRequest(context: { request: Request; env: Env; params: {
     });
 
     const result = await response.json<any>();
-    const rows = result?.results?.[0]?.response?.result?.rows;
+    const rows = result?.results?.[1]?.response?.result?.rows;
 
     if (rows && rows.length > 0) {
       const cell = rows[0];

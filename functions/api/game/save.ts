@@ -49,6 +49,19 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
           {
             type: 'execute',
             stmt: {
+              sql: `CREATE TABLE IF NOT EXISTS shared_games (
+                short_id TEXT PRIMARY KEY,
+                game_data TEXT NOT NULL,
+                uid TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT (datetime('now')),
+                updated_at TEXT DEFAULT (datetime('now'))
+              )`,
+              args: [],
+            },
+          },
+          {
+            type: 'execute',
+            stmt: {
               sql: `INSERT INTO shared_games (short_id, game_data, uid, updated_at)
                     VALUES (?, ?, ?, datetime('now'))
                     ON CONFLICT(short_id) DO UPDATE SET
