@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
+import { signInWithGoogle, handleRedirectResult, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
 import { syncUserProfile, fetchUserSettings, isSupabaseConfigured } from '../lib/supabase';
-import { initTursoSchema } from '../lib/turso';
 
 interface AuthState {
   user: User | null;
@@ -90,48 +89,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ error: 'Firebase not configured. Set VITE_FIREBASE_* env vars.', loading: false });
         return;
       }
-      const fbUser = await signInWithGoogle();
-      if (!fbUser) {
-        set({ error: 'Google sign-in failed.', loading: false });
-        return;
-      }
-      const user: User = {
-        id: fbUser.uid,
-        username: fbUser.displayName || fbUser.email?.split('@')[0] || 'GoogleUser',
-        email: fbUser.email || '',
-        avatar: fbUser.photoURL || '',
-        authProvider: 'google',
-        streak: 1,
-        analyzedCount: 0,
-        lastActiveDate: new Date().toISOString().split('T')[0],
-        settings: {
-          ...DEFAULT_GUEST.settings,
-        },
-      };
-      set({ user, loading: false, error: null });
-      saveUser(user);
-
-      if (isSupabaseConfigured()) {
-        syncUserProfile(user.id, {
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar,
-          streak: user.streak,
-          analyzedCount: user.analyzedCount,
-          lastActiveDate: user.lastActiveDate,
-        });
-        const remoteSettings = await fetchUserSettings(user.id);
-        if (remoteSettings) {
-          const { useSettingsStore } = await import('./settingsStore');
-          useSettingsStore.getState().updateSettings(remoteSettings as any);
-        }
-      }
+      await signInWithGoogle();
+      // page redirects to Google - no further code runs here
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Sign-in failed.', loading: false });
     }
   },
 
-  loginAsGuest: (username = 'ChessPro_Guest') => {
+    loginAsGuest: (username = 'ChessPro_Guest') => {
     const user: User = {
       ...DEFAULT_GUEST,
       username,
@@ -139,7 +104,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     };
     set({ user, error: null });
     saveUser(user);
-    initTursoSchema();
   },
 
   logout: async () => {
@@ -196,3 +160,41 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 }));
+
+// Handle Firebase redirect result on page load
+export async function initAuth() {
+  if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
+  const fbUser = await handleRedirectResult();
+  if (!fbUser) return;
+  const existing = loadUser();
+  if (existing?.id === fbUser.uid) return;
+  const user: User = {
+    id: fbUser.uid,
+    username: fbUser.displayName || fbUser.email?.split('@')[0] || 'GoogleUser',
+    email: fbUser.email || '',
+    avatar: fbUser.photoURL || '',
+    authProvider: 'google',
+    streak: existing?.streak ?? 1,
+    analyzedCount: existing?.analyzedCount ?? 0,
+    lastActiveDate: new Date().toISOString().split('T')[0],
+    settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
+  };
+  useAuthStore.getState().user = user;
+  useAuthStore.setState({ user });
+  saveUser(user);
+  if (isSupabaseConfigured()) {
+    syncUserProfile(user.id, {
+      username: user.username,
+      email: user.email,
+      avatar: user.avatar,
+      streak: user.streak,
+      analyzedCount: user.analyzedCount,
+      lastActiveDate: user.lastActiveDate,
+    });
+    const remoteSettings = await fetchUserSettings(user.id);
+    if (remoteSettings) {
+      const { useSettingsStore } = await import('./settingsStore');
+      useSettingsStore.getState().updateSettings(remoteSettings as any);
+    }
+  }
+}

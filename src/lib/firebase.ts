@@ -1,5 +1,8 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import {
+  getAuth, Auth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
+  signOut as fbSignOut, User as FirebaseUser,
+} from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -31,19 +34,24 @@ export function getFirebaseAuth() {
 export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   initFirebase();
   if (!auth || !provider) return null;
-  const result = await signInWithPopup(auth, provider);
-  return result.user;
+  await signInWithRedirect(auth, provider);
+  return null; // page will redirect, never reaches here
+}
+
+export async function handleRedirectResult(): Promise<FirebaseUser | null> {
+  initFirebase();
+  if (!auth) return null;
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function signOut() {
   if (!auth) return;
   await fbSignOut(auth);
-}
-
-export function onAuthChange(callback: (user: FirebaseUser | null) => void) {
-  initFirebase();
-  if (!auth) return () => {};
-  return onAuthStateChanged(auth, callback);
 }
 
 export function isFirebaseConfigured(): boolean {
