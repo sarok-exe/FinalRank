@@ -22,6 +22,8 @@ import {
   Minimize,
   Focus,
   Download,
+  Save,
+  Play,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -75,6 +77,8 @@ export default function Analysis() {
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   const [showGameList, setShowGameList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [autoplay, setAutoplay] = useState(false);
+  const [savedToast, setSavedToast] = useState(false);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -140,6 +144,33 @@ function formatDuration(ms: number | undefined): string {
   }, [settings.boardOrientation, updateSettings]);
 
   React.useEffect(() => {
+    if (!autoplay || !selectedGame) return;
+    const interval = setInterval(() => {
+      const current = useGameStore.getState().currentMoveIndex;
+      const next = current + 1;
+      if (next >= selectedGame.moves.length) {
+        setAutoplay(false);
+      } else {
+        setCurrentMoveIndex(next);
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [autoplay, selectedGame]);
+
+  const handleSaveGame = React.useCallback(() => {
+    if (!selectedGame || !authUser || authUser.authProvider !== 'google') return;
+    import('../lib/firebase').then(({ saveUserGame }) => {
+      const gameForFirestore = {
+        ...selectedGame,
+        moves: JSON.parse(JSON.stringify(selectedGame.moves)),
+      };
+      saveUserGame(authUser.id, selectedGame.id, gameForFirestore as unknown as Record<string, unknown>);
+      setSavedToast(true);
+      setTimeout(() => setSavedToast(false), 2000);
+    });
+  }, [selectedGame, authUser]);
+
+  React.useEffect(() => {
     const cb = () => setShowShortcuts(true);
     window.addEventListener('open-shortcuts', cb);
     return () => window.removeEventListener('open-shortcuts', cb);
@@ -199,6 +230,13 @@ function formatDuration(ms: number | undefined): string {
       key: 'F11',
       description: 'Toggle fullscreen',
       handler: () => toggleFullscreen(),
+    },
+    {
+      key: ' ',
+      description: 'Play/Pause autoplay',
+      handler: () => {
+        if (selectedGame) setAutoplay(!autoplay);
+      },
     },
   ]);
 
@@ -555,25 +593,61 @@ function formatDuration(ms: number | undefined): string {
             </div>
           </div>
 
-          <div className="w-full flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3" id="game-controls-console" style={{ maxWidth: boardWidth }}>
-            <div className="flex space-x-1">
-              <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move">
-                <ChevronsLeft className="w-5 h-5" />
-              </button>
-              <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move">
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-            </div>
-            <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
-              Move {currentMoveIndex + 1} / {selectedGame.moves.length}
-            </span>
-            <div className="flex space-x-1">
-              <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
-                <ChevronRight className="w-5 h-5" />
-              </button>
-              <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move">
-                <ChevronsRight className="w-5 h-5" />
-              </button>
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
+            <div className="flex items-center justify-between px-3 py-2">
+              <div className="flex items-center space-x-1">
+                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move">
+                  <ChevronsLeft className="w-5 h-5" />
+                </button>
+                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={() => setAutoplay(!autoplay)}
+                  disabled={currentMoveIndex === selectedGame.moves.length - 1}
+                  className={`p-2 rounded-lg ${autoplay ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'}`}
+                  title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
+                >
+                  {autoplay ? <Minimize className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                </button>
+                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move">
+                  <ChevronsRight className="w-5 h-5" />
+                </button>
+              </div>
+              <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
+                {currentMoveIndex + 1}/{selectedGame.moves.length}
+              </span>
+              <div className="flex items-center space-x-1">
+                {authUser?.authProvider === 'google' && (
+                  <button
+                    onClick={handleSaveGame}
+                    className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                    title="Save game"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{savedToast ? 'Saved!' : 'Save'}</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                  title="Download PGN"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>PGN</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -748,21 +822,6 @@ function formatDuration(ms: number | undefined): string {
                 </div>
               </div>
             )}
-            <button
-              onClick={() => {
-                const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 py-1.5 rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white ml-2 shrink-0"
-              title="Download PGN"
-            >
-              <Download className="w-3.5 h-3.5" />
-            </button>
           </div>
           )}
 
