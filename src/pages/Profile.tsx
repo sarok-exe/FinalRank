@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   User as UserIcon, Settings, Flame, Trophy, Volume2, VolumeX,
   Bell, BellOff, Palette, Activity, Zap, LogOut, Keyboard, Clock,
   Eye, EyeOff, Monitor, ChevronRight, Paintbrush, Sun, Droplets,
-  Gamepad2,
+  Gamepad2, BookOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
+import { useGameStore } from '../stores/gameStore';
+import { fetchUserGames } from '../lib/firebase';
 import ColorPicker from '../components/ColorPicker';
 import { Search } from 'lucide-react';
 
@@ -50,9 +53,24 @@ const shortcutsList = [
 export default function Profile() {
   const { user, loginAsGuest, logout, signInWithGoogle, loading: authLoading, error: authError } = useAuthStore();
   const { settings, updateSettings, resetSettings } = useSettingsStore();
+  const navigate = useNavigate();
   const [typedName, setTypedName] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('account');
   const [colorPickerTarget, setColorPickerTarget] = useState<'site' | 'board' | null>(null);
+  const [savedGames, setSavedGames] = useState<Record<string, unknown>[]>([]);
+  const [loadingSaved, setLoadingSaved] = useState(false);
+
+  useEffect(() => {
+    if (user?.authProvider === 'google') {
+      setLoadingSaved(true);
+      fetchUserGames(user.id).then(games => {
+        setSavedGames(games);
+        setLoadingSaved(false);
+      }).catch(() => setLoadingSaved(false));
+    } else {
+      setSavedGames([]);
+    }
+  }, [user?.id, user?.authProvider]);
 
   const handleGuestLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,6 +233,45 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
           </div>
         </div>
+
+        {user.authProvider === 'google' && (
+          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
+            <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
+              <BookOpen className="w-3 h-3" />
+              Saved Games
+            </span>
+            {loadingSaved ? (
+              <div className="text-[10px] text-[var(--color-text-muted)] py-2">Loading...</div>
+            ) : savedGames.length === 0 ? (
+              <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-thin">
+                {savedGames.map((g: any) => (
+                  <button
+                    key={g.id}
+                    onClick={() => {
+                      useGameStore.getState().setGames([g as any, ...useGameStore.getState().games.filter((x: any) => x.id !== g.id)]);
+                      useGameStore.getState().selectGame(g.id as string);
+                      navigate('/');
+                    }}
+                    className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] transition-all"
+                  >
+                    <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5">{g.date}</div>
+                    <div className="text-xs font-bold text-white truncate">
+                      {g.white?.username} vs {g.black?.username}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[10px] font-mono text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{g.result}</span>
+                      {g.accuracy && (
+                        <span className="text-[10px] text-green-500">W: {g.accuracy.white}% B: {g.accuracy.black}%</span>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
           <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">

@@ -21,6 +21,7 @@ import {
   Maximize,
   Minimize,
   Focus,
+  Download,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -747,6 +748,21 @@ function formatDuration(ms: number | undefined): string {
                 </div>
               </div>
             )}
+            <button
+              onClick={() => {
+                const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 py-1.5 rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white ml-2 shrink-0"
+              title="Download PGN"
+            >
+              <Download className="w-3.5 h-3.5" />
+            </button>
           </div>
           )}
 
