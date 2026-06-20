@@ -25,7 +25,7 @@ export async function getCloudEvaluation(fen: string, multiPv: number = 2): Prom
     { signal: controller.signal }
   );
   clearTimeout(timeoutId);
-  if (!res.ok) throw new Error(`cloud eval failed (${res.status})`);
+  if (!res.ok) return [];
 
   const data: CloudEvalResponse = await res.json();
   const lines: EngineLine[] = [];

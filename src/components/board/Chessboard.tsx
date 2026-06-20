@@ -80,6 +80,46 @@ const Chessboard = memo(function Chessboard({
           light: 'bg-[#e8ebef] text-[#4d5d75]',
           dark: 'bg-[#4d5d75] text-[#e8ebef]',
         };
+      case 'ocean-sunset':
+        return {
+          light: 'bg-[#F2E8CF] text-[#0A9396]',
+          dark: 'bg-[#0A9396] text-[#F2E8CF]',
+        };
+      case 'fresh-greens':
+        return {
+          light: 'bg-[#F2E8CF] text-[#6A994E]',
+          dark: 'bg-[#6A994E] text-[#F2E8CF]',
+        };
+      case 'cherry-blossom':
+        return {
+          light: 'bg-[#FFCCD5] text-[#C9184A]',
+          dark: 'bg-[#C9184A] text-[#FFCCD5]',
+        };
+      case 'golden-blue':
+        return {
+          light: 'bg-[#FFF3B0] text-[#003566]',
+          dark: 'bg-[#003566] text-[#FFF3B0]',
+        };
+      case 'pine-forest':
+        return {
+          light: 'bg-[#EDEDE9] text-[#3A5A40]',
+          dark: 'bg-[#3A5A40] text-[#EDEDE9]',
+        };
+      case 'coastal':
+        return {
+          light: 'bg-[#CAF0F8] text-[#0077B6]',
+          dark: 'bg-[#0077B6] text-[#CAF0F8]',
+        };
+      case 'amber-glow':
+        return {
+          light: 'bg-[#FEFAE0] text-[#D62828]',
+          dark: 'bg-[#D62828] text-[#FEFAE0]',
+        };
+      case 'soft-sand':
+        return {
+          light: 'bg-[#F5EBE0] text-[#A9927D]',
+          dark: 'bg-[#A9927D] text-[#F5EBE0]',
+        };
       case 'green':
       default:
         return {

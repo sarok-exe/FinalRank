@@ -33,7 +33,7 @@ export interface UserSettings {
   engineDepth: number;
   engineGoMode: EngineGoMode;
   engineTimeLimitMs: number;
-  boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant';
+  boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant' | 'ocean-sunset' | 'fresh-greens' | 'cherry-blossom' | 'golden-blue' | 'pine-forest' | 'coastal' | 'amber-glow' | 'soft-sand';
   boardOrientation: 'white' | 'black';
   notificationsEnabled: boolean;
   audioEnabled: boolean;

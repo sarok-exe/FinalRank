@@ -1,5 +1,5 @@
 import { ChessGame } from '../types';
-import { getTurso, isTursoConfigured, resetTurso } from './turso';
+import { getTurso, isTursoConfigured, markTursoUnhealthy } from './turso';
 
 export function hashPgn(pgn: string): string {
   let hash = 5381;
@@ -24,7 +24,7 @@ export async function getCachedAnalysis(pgn: string, minDepth: number): Promise<
     const data = JSON.parse(row.analysis_data as string);
     return data as ChessGame;
   } catch {
-    resetTurso();
+    markTursoUnhealthy();
     return null;
   }
 }
@@ -59,7 +59,7 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number): Promis
       ],
     });
   } catch {
-    resetTurso();
+    markTursoUnhealthy();
   }
 }
 
@@ -81,7 +81,7 @@ export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): 
       result[row.pgn_hash as string] = true;
     }
   } catch {
-    resetTurso();
+    markTursoUnhealthy();
   }
 
   return result;

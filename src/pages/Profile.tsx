@@ -27,6 +27,14 @@ const AVAILABLE_THEMES = [
   { id: 'brown', name: 'Classic Wood', light: '#f0d9b5', dark: '#b58863' },
   { id: 'charcoal', name: 'Space Slate', light: '#b7c0d8', dark: '#4d5d75' },
   { id: 'elegant', name: 'Elegant', light: '#f0f0f0', dark: '#b7c0d8' },
+  { id: 'ocean-sunset', name: 'Ocean Sunset', light: '#F2E8CF', dark: '#0A9396' },
+  { id: 'fresh-greens', name: 'Fresh Greens', light: '#F2E8CF', dark: '#6A994E' },
+  { id: 'cherry-blossom', name: 'Cherry Blossom', light: '#FFCCD5', dark: '#C9184A' },
+  { id: 'golden-blue', name: 'Golden Blue', light: '#FFF3B0', dark: '#003566' },
+  { id: 'pine-forest', name: 'Pine Forest', light: '#EDEDE9', dark: '#3A5A40' },
+  { id: 'coastal', name: 'Coastal', light: '#CAF0F8', dark: '#0077B6' },
+  { id: 'amber-glow', name: 'Amber Glow', light: '#FEFAE0', dark: '#D62828' },
+  { id: 'soft-sand', name: 'Soft Sand', light: '#F5EBE0', dark: '#A9927D' },
 ];
 
 const shortcutsList = [
