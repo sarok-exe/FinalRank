@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Chess } from 'chess.js';
 import { ChessGame, AnalyzedMove } from '../types';
 
 /**
@@ -83,34 +84,37 @@ function parseResultFromHeaders(pgn: string): string | null {
   return match ? match[1] : null;
 }
 
-/**
- * Highly robust PGN parser that converts Chess.com inline move records into 
- * standard indices, algebraic notation, and starting coordinates.
- */
 export function parsePgnToMoves(pgn: string): AnalyzedMove[] {
   if (!pgn) return [];
+  const chess = new Chess();
+  const moves: AnalyzedMove[] = [];
 
-  // Remove PGN comments and metadata blocks
-  const cleanMoves = pgn
-    .replace(/\[.*?\]/g, '') // Remove [Headers]
-    .replace(/\{.*?\}/g, '') // Remove {Comments} e.g. clocks
-    .replace(/\d+\.+\s*/g, '') // Remove turn numbers e.g. "1. " or "1... "
+  const clean = pgn
+    .replace(/\[.*?\]/g, '')
+    .replace(/\{.*?\}/g, '')
+    .replace(/\d+\.+\s*/g, '')
     .trim();
 
-  const movesArray = cleanMoves.split(/\s+/).filter(m => m && !m.includes('$') && m !== '*' && !m.match(/^(1-0|0-1|1\/2-1\/2)$/));
-  
-  // Create skeletal moves. The chess rules and positional coordinate mappings are computed dynamically
-  // when loaded on our interactive visual chessboard.
-  return movesArray.map((san, index) => {
-    return {
-      index,
-      san,
-      from: '', // Filled in by chess.js during active traversal
-      to: '',
-      fen: '',
-      color: index % 2 === 0 ? 'w' : 'b'
-    };
-  });
+  const tokens = clean.split(/\s+/).filter(
+    m => m && !m.includes('$') && m !== '*' && !m.match(/^(1-0|0-1|1\/2-1\/2)$/)
+  );
+
+  for (let i = 0; i < tokens.length; i++) {
+    try {
+      const moveResult = chess.move(tokens[i]);
+      moves.push({
+        index: i,
+        san: moveResult.san,
+        from: moveResult.from,
+        to: moveResult.to,
+        fen: chess.fen(),
+        color: moveResult.color,
+      });
+    } catch {
+      break;
+    }
+  }
+  return moves;
 }
 
 /**
