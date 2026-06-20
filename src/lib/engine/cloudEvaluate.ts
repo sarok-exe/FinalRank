@@ -15,9 +15,13 @@ interface CloudEvalResponse {
 }
 
 export async function getCloudEvaluation(fen: string, multiPv: number = 2): Promise<EngineLine[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3000);
   const res = await fetch(
-    `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`
+    `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`,
+    { signal: controller.signal }
   );
+  clearTimeout(timeoutId);
   if (!res.ok) throw new Error(`cloud eval failed (${res.status})`);
 
   const data: CloudEvalResponse = await res.json();

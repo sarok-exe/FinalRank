@@ -30,7 +30,7 @@ export function createGameEvaluator(
 
   function getProgress() {
     if (moveCount === 0) return 1;
-    return round(sum(progresses.slice(1)) / moveCount, 3);
+    return round(sum(progresses.slice(1).map(p => Math.min(p, 1))) / moveCount, 3);
   }
 
   async function evaluateAll(): Promise<ChessGame> {
@@ -38,8 +38,11 @@ export function createGameEvaluator(
     const gameEngineLines: EngineLine[][] = Array.from({ length: fens.length }, () => []);
 
     // Try cloud evaluation first for all positions
+    const cloudStartTime = Date.now();
+    const CLOUD_TIMEOUT = 15000;
     for (let i = 1; i < fens.length; i++) {
       if (controller.signal.aborted) throw new Error('aborted');
+      if (Date.now() - cloudStartTime > CLOUD_TIMEOUT) break;
       try {
         const cloudLines = await getCloudEvaluation(fens[i], options.engineLinesCount);
         const topLine = cloudLines.reduce((best, line) =>
@@ -49,11 +52,11 @@ export function createGameEvaluator(
         if (topLine && topLine.depth >= options.engineDepth && cloudLines.length >= options.engineLinesCount) {
           gameEngineLines[i] = cloudLines;
           progresses[i] = 1;
-          options.onProgress?.(getProgress());
         }
       } catch {
-        // Cloud eval failed, fall through to local engine
+        progresses[i] = 0.02;
       }
+      options.onProgress?.(getProgress());
     }
 
     // Locally evaluate positions that don't have cloud data
@@ -99,27 +102,30 @@ export function createGameEvaluator(
 
         engine.setPosition(startingFen, uciMoves);
 
-        engine.evaluate({
-          depth: options.engineDepth,
-          timeLimit: options.engineTimeLimit ? options.engineTimeLimit * 1000 : undefined,
-          onEngineLine: line => {
-            progresses[currentFenIndex] = Math.max(progresses[currentFenIndex] || 0, line.depth / options.engineDepth);
-            options.onProgress?.(getProgress());
-          },
-        }).then(lines => {
-          progresses[currentFenIndex] = 1;
-          gameEngineLines[currentFenIndex] = lines;
-          options.onProgress?.(getProgress());
-          evaluateNextPosition(engine, engineIndex);
-        }).catch(() => {
-          progresses[currentFenIndex] = 1;
-          options.onProgress?.(getProgress());
-          const newEngine = new Engine(options.engineVersion);
-          options.engineConfig?.(newEngine);
-          newEngine.onError(() => {});
-          engines[engineIndex] = newEngine;
-          evaluateNextPosition(newEngine, engineIndex);
-        });
+         progresses[currentFenIndex] = 0.1;
+         options.onProgress?.(getProgress());
+
+         engine.evaluate({
+           depth: options.engineDepth,
+           timeLimit: options.engineTimeLimit ? options.engineTimeLimit * 1000 : undefined,
+           onEngineLine: line => {
+             progresses[currentFenIndex] = Math.max(progresses[currentFenIndex] || 0, line.depth / options.engineDepth);
+             options.onProgress?.(getProgress());
+           },
+         }).then(lines => {
+           progresses[currentFenIndex] = 1;
+           gameEngineLines[currentFenIndex] = lines;
+           options.onProgress?.(getProgress());
+           evaluateNextPosition(engine, engineIndex);
+         }).catch(() => {
+           progresses[currentFenIndex] = 1;
+           options.onProgress?.(getProgress());
+           const newEngine = new Engine(options.engineVersion);
+           options.engineConfig?.(newEngine);
+           newEngine.onError(() => {});
+           engines[engineIndex] = newEngine;
+           evaluateNextPosition(newEngine, engineIndex);
+         });
       }
 
       const remainingCount = fens.length - 1 - evaluatedCount;

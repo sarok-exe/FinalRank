@@ -17,7 +17,7 @@ interface ClockState {
   reason: string | null;
   
   selectPreset: (id: string) => void;
-  setCustomTime: (minutes: number, incrementSec: number) => void;
+  setCustomTime: (whiteTimeMs: number, blackTimeMs: number, incrementSec?: number) => void;
   startClock: () => void;
   pauseClock: () => void;
   resetClock: () => void;
@@ -27,11 +27,19 @@ interface ClockState {
 
 export const CLOCK_PRESETS: ClockPreset[] = [
   { id: '1+0', name: 'Bullet 1+0', timeLimit: 60, increment: 0, type: 'bullet' },
+  { id: '1+1', name: 'Bullet 1+1', timeLimit: 60, increment: 1, type: 'bullet' },
+  { id: '2+1', name: 'Bullet 2+1', timeLimit: 120, increment: 1, type: 'bullet' },
   { id: '3+0', name: 'Blitz 3+0', timeLimit: 180, increment: 0, type: 'blitz' },
+  { id: '3+2', name: 'Blitz 3+2', timeLimit: 180, increment: 2, type: 'blitz' },
+  { id: '3+15', name: 'Blitz 3+15', timeLimit: 180, increment: 15, type: 'blitz' },
   { id: '5+0', name: 'Blitz 5+0', timeLimit: 300, increment: 0, type: 'blitz' },
   { id: '10+0', name: 'Rapid 10+0', timeLimit: 600, increment: 0, type: 'rapid' },
+  { id: '10+5', name: 'Rapid 10+5', timeLimit: 600, increment: 5, type: 'rapid' },
   { id: '15+10', name: 'Rapid 15+10', timeLimit: 900, increment: 10, type: 'rapid' },
-  { id: '30+0', name: 'Classic 30+0', timeLimit: 1800, increment: 0, type: 'classic' }
+  { id: '30+0', name: 'Classic 30+0', timeLimit: 1800, increment: 0, type: 'classic' },
+  { id: '30+20', name: 'Classic 30+20', timeLimit: 1800, increment: 20, type: 'classic' },
+  { id: '60+0', name: 'Classic 60+0', timeLimit: 3600, increment: 0, type: 'classic' },
+  { id: '60+30', name: 'Classic 60+30', timeLimit: 3600, increment: 30, type: 'classic' }
 ];
 
 export const useClockStore = create<ClockState>((set, get) => ({
@@ -59,12 +67,11 @@ export const useClockStore = create<ClockState>((set, get) => ({
     });
   },
 
-  setCustomTime: (minutes, incrementSec) => {
-    const timeMs = minutes * 60 * 1000;
+  setCustomTime: (whiteTimeMs, blackTimeMs, incrementSec = 0) => {
     set({
       activePresetId: 'custom',
-      whiteTime: timeMs,
-      blackTime: timeMs,
+      whiteTime: whiteTimeMs,
+      blackTime: blackTimeMs,
       activeColor: null,
       isRunning: false,
       winner: null,
@@ -87,6 +94,10 @@ export const useClockStore = create<ClockState>((set, get) => ({
 
   resetClock: () => {
     const { activePresetId, presets } = get();
+    if (activePresetId === 'custom') {
+      set({ activeColor: null, isRunning: false, winner: null, reason: null });
+      return;
+    }
     const preset = presets.find((p) => p.id === activePresetId) || CLOCK_PRESETS[1];
     set({
       whiteTime: preset.timeLimit * 1000,

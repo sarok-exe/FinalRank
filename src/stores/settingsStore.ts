@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   audioVolume: 0.7,
   animationsEnabled: true,
   shortcutsEnabled: true,
+  timeAlertEnabled: true,
+  timeAlertThreshold: 10,
+  timeAlertSound: true,
   featureToggles: {
     showArrows: true,
     showCoordinates: true,

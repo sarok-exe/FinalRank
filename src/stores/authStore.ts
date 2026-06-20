@@ -38,7 +38,12 @@ const DEFAULT_GUEST: User = {
       showArrows: true,
       showCoordinates: true,
       autoAnalyze: true
-    }
+    },
+    boardOrientation: 'white',
+    shortcutsEnabled: true,
+    timeAlertEnabled: true,
+    timeAlertThreshold: 10,
+    timeAlertSound: true
   }
 };
 

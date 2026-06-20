@@ -8,7 +8,7 @@ export type SoundType =
   | 'game-lose' | 'game-lose-long' | 'game-draw' | 'game-start'
   | 'achievement' | 'notification' | 'notify'
   | 'click' | 'correct' | 'incorrect'
-  | 'tenseconds'
+  | 'tenseconds' | 'clock-tick'
   | 'premove' | 'illegal'
   | 'drawoffer' | 'decline'
   | 'event-start' | 'event-end' | 'event-warning'
@@ -42,6 +42,7 @@ const SOUND_FILES: Record<SoundType, string> = {
   'correct': '/audio/correct.mp3',
   'incorrect': '/audio/incorrect.mp3',
   'tenseconds': '/audio/tenseconds.mp3',
+  'clock-tick': '/audio/click-original.mp3',
   'premove': '/audio/premove.mp3',
   'illegal': '/audio/illegal.mp3',
   'drawoffer': '/audio/drawoffer.mp3',

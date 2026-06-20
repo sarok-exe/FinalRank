@@ -22,6 +22,9 @@ export interface UserSettings {
   audioVolume: number;
   animationsEnabled: boolean;
   shortcutsEnabled: boolean;
+  timeAlertEnabled: boolean;
+  timeAlertThreshold: number;
+  timeAlertSound: boolean;
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;

@@ -106,7 +106,7 @@ export class Engine {
     this.evaluating = true;
     await this.consumeLogs(
       goCommand,
-      log => log.startsWith('bestmove') || log.includes('depth 0'),
+      log => log.startsWith('bestmove'),
       log => {
         if (!log.startsWith('info depth')) return;
         if (log.includes('currmove')) return;

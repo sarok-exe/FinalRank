@@ -18,6 +18,7 @@ import {
   Sliders,
   LogOut,
   Keyboard,
+  Clock,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -197,6 +198,62 @@ export default function Profile() {
               <option value={15}>Depth 15 (Deep)</option>
               <option value={18}>Depth 18 (Max)</option>
             </select>
+          </div>
+        </div>
+
+        <div className="space-y-3 border-t border-[#4a4a4a] pt-5">
+          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+            <Clock className="w-4 h-4 text-[#bc6c25]" />
+            Clock Alerts
+          </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="flex items-center justify-between bg-[#2a2a2a] px-3.5 py-2.5 rounded-lg border border-[#4a4a4a]">
+              <div>
+                <div className="text-xs font-semibold text-white">Time Alert</div>
+                <div className="text-[10px] text-[#a0a0a0]">Warn when time is low</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.timeAlertEnabled}
+                onChange={(e) => updateSettings({ timeAlertEnabled: e.target.checked })}
+                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
+              />
+            </label>
+            <label className="flex items-center justify-between bg-[#2a2a2a] px-3.5 py-2.5 rounded-lg border border-[#4a4a4a]">
+              <div>
+                <div className="text-xs font-semibold text-white">Alert Sound</div>
+                <div className="text-[10px] text-[#a0a0a0]">Play warning beep</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={settings.timeAlertSound}
+                onChange={(e) => updateSettings({ timeAlertSound: e.target.checked })}
+                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
+                disabled={!settings.timeAlertEnabled}
+              />
+            </label>
+          </div>
+          <div className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-3.5 py-2.5">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-semibold text-white">Alert Threshold</span>
+              <span className="text-[10px] font-mono font-bold text-[#bc6c25] bg-[#3d3d3d] px-2 py-0.5 rounded">{settings.timeAlertThreshold}s</span>
+            </div>
+            <input
+              type="range"
+              min={5}
+              max={120}
+              step={5}
+              value={settings.timeAlertThreshold}
+              onChange={(e) => updateSettings({ timeAlertThreshold: parseInt(e.target.value, 10) })}
+              className="w-full accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
+              disabled={!settings.timeAlertEnabled}
+            />
+            <div className="flex justify-between text-[9px] text-[#666666] font-mono mt-0.5">
+              <span>5s</span>
+              <span>30s</span>
+              <span>60s</span>
+              <span>120s</span>
+            </div>
           </div>
         </div>
 

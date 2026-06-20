@@ -1,16 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import {
-  Play,
-  Pause,
-  RotateCcw,
-  Clock,
-  Gamepad2,
-  Cpu,
-  Timer,
-  Layers,
-  Maximize,
-  Focus,
+  Play, Pause, RotateCcw, Clock, Gamepad2, Cpu, Timer, Layers,
+  Maximize, Focus, ChevronLeft, Users, FlipHorizontal, BarChart3,
+  Search, FileText, AlertTriangle, Swords
 } from 'lucide-react';
 import { useClockStore } from '../stores/clockStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -19,52 +12,59 @@ import { useFullscreen } from '../hooks/useFullscreen';
 import { analyzePositionLocally, destroyEngine } from '../lib/engine/legacy';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
-import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
+import { useSound } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import type { EngineGoMode, EvaluationResult } from '../types';
+import { STARTING_FEN } from '../types';
+
+type ActiveFeature = 'play-vs-computer' | 'player-vs-player' | 'chess-clock' | null;
 
 interface PresetCategory {
   name: string;
   presets: { id: string; name: string }[];
 }
 
-const presetCategories: PresetCategory[] = [
+const PRESET_CATEGORIES: PresetCategory[] = [
   {
     name: 'Bullet',
     presets: [
-      { id: 'bullet-1-0', name: '1+0' },
-      { id: 'bullet-1-1', name: '1+1' },
-      { id: 'bullet-2-1', name: '2+1' },
+      { id: '1+0', name: '1+0' },
+      { id: '1+1', name: '1+1' },
+      { id: '2+1', name: '2+1' },
     ],
   },
   {
     name: 'Blitz',
     presets: [
-      { id: 'blitz-3-0', name: '3+0' },
-      { id: 'blitz-3-2', name: '3+2' },
-      { id: 'blitz-3-15', name: '3+15' },
-      { id: 'blitz-5-0', name: '5+0' },
+      { id: '3+0', name: '3+0' },
+      { id: '3+2', name: '3+2' },
+      { id: '3+15', name: '3+15' },
+      { id: '5+0', name: '5+0' },
     ],
   },
   {
     name: 'Rapid',
     presets: [
-      { id: 'rapid-10-0', name: '10+0' },
-      { id: 'rapid-10-5', name: '10+5' },
-      { id: 'rapid-15-10', name: '15+10' },
+      { id: '10+0', name: '10+0' },
+      { id: '10+5', name: '10+5' },
+      { id: '15+10', name: '15+10' },
     ],
   },
   {
     name: 'Classic',
     presets: [
-      { id: 'classic-30-0', name: '30+0' },
-      { id: 'classic-30-20', name: '30+20' },
-      { id: 'classic-60-0', name: '60+0' },
+      { id: '30+0', name: '30+0' },
+      { id: '30+20', name: '30+20' },
+      { id: '60+0', name: '60+0' },
     ],
+  },
+  {
+    name: 'Custom',
+    presets: [],
   },
 ];
 
-const engineDepthPresets = [
+const ENGINE_DEPTH_PRESETS = [
   { id: 'beginner', name: 'Beginner', depth: 4 },
   { id: 'intermediate', name: 'Intermediate', depth: 8 },
   { id: 'advanced', name: 'Advanced', depth: 12 },
@@ -83,131 +83,101 @@ const formatTime = (timeMs: number) => {
   return `${minStr}:${secStr}`;
 };
 
-export default function Tools() {
-  const {
-    whiteTime,
-    blackTime,
-    activeColor,
-    isRunning,
-    winner,
-    reason,
-    presets,
-    activePresetId,
-    selectPreset,
-    startClock,
-    pauseClock,
-    resetClock,
-    switchTurn,
-    tick,
-  } = useClockStore();
+// ── Feature Card ──────────────────────────────────────────
+function FeatureCard({
+  icon: Icon,
+  title,
+  description,
+  tags,
+  onClick,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  tags: string[];
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-8 flex flex-col items-center text-center hover:border-[#606c38] transition-colors group aspect-square justify-center"
+    >
+      <div className="w-12 h-12 bg-[#3d3d3d] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[#606c38] transition-colors">
+        <Icon className="w-6 h-6 text-white" />
+      </div>
+      <h3 className="text-lg font-extrabold text-white mb-2">{title}</h3>
+      <p className="text-sm text-[#a0a0a0] leading-relaxed mb-5">{description}</p>
+      <div className="flex flex-wrap gap-2 justify-center">
+        {tags.map((t) => (
+          <span key={t} className="text-xs font-bold text-[#bc6c25] bg-[#3d3d3d] px-2.5 py-1 rounded">
+            {t}
+          </span>
+        ))}
+      </div>
+    </button>
+  );
+}
 
+// ── Landing / Card Grid ───────────────────────────────────
+function ToolsLanding({ onSelect }: { onSelect: (f: ActiveFeature) => void }) {
+  return (
+    <div className="max-w-5xl mx-auto space-y-8" id="tools-landing">
+      <div className="text-center space-y-3 mb-2">
+        <h1 className="text-4xl font-extrabold text-white tracking-tight">Tools</h1>
+        <p className="text-base text-[#a0a0a0]">
+          Play against Stockfish, challenge a friend on the same device, or use the chess clock.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
+        <FeatureCard
+          icon={Cpu}
+          title="Play Against Computer"
+          description="Play a full game against Stockfish with configurable strength, depth, and time settings."
+          tags={['Stockfish', 'Configurable']}
+          onClick={() => onSelect('play-vs-computer')}
+        />
+        <FeatureCard
+          icon={Users}
+          title="Player vs Player"
+          description="Two players on the same device. Auto-flip rotates the board so each side always faces their pieces."
+          tags={['Local Multiplayer', 'Auto-Flip']}
+          onClick={() => onSelect('player-vs-player')}
+        />
+        <FeatureCard
+          icon={Clock}
+          title="Chess Clock"
+          description="A full-featured chess clock with increment support and presets for all time controls."
+          tags={['Timer', 'Increment']}
+          onClick={() => onSelect('chess-clock')}
+        />
+      </div>
+    </div>
+  );
+}
+
+// ── Play vs Computer Feature ──────────────────────────────
+function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
   const { settings } = useSettingsStore();
   const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
   const { toggleFullscreen } = useFullscreen();
   const { play, playFromSan, playGameEnd } = useSound();
-  const [clockCategory, setClockCategory] = useState(0);
-  const [playVsEngineMode, setPlayVsEngineMode] = useState(false);
-  const [engineGame, setEngineGame] = useState<Chess | null>(null);
-  const [engineFen, setEngineFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+
+  const [gameStarted, setGameStarted] = useState(false);
+  const [gameInstance, setGameInstance] = useState<Chess | null>(null);
+  const [fen, setFen] = useState(STARTING_FEN);
+  const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [lastEval, setLastEval] = useState<EvaluationResult | null>(null);
+  const [engineThinking, setEngineThinking] = useState(false);
   const [engineDepth, setEngineDepth] = useState(8);
   const [engineDepthPreset, setEngineDepthPreset] = useState('intermediate');
   const [engineGoMode, setEngineGoMode] = useState<EngineGoMode>('depth');
   const [engineThinkingTime, setEngineThinkingTime] = useState(2000);
-  const [engineThinking, setEngineThinking] = useState(false);
-  const [lastEngineEval, setLastEngineEval] = useState<EvaluationResult | null>(null);
-  const [engineGameHistory, setEngineGameHistory] = useState<string[]>([]);
   const [engineFeedback, setEngineFeedback] = useState('');
 
-  useEffect(() => {
-    let lastTime = Date.now();
-    let intervalId: any = null;
-    if (isRunning) {
-      intervalId = setInterval(() => {
-        const now = Date.now();
-        const delta = now - lastTime;
-        lastTime = now;
-        tick(delta);
-      }, 50);
-    }
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [isRunning, tick]);
+  const boardWidth = focusMode ? 819 : fullscreenMode ? 990 : 644;
 
-  const prevLowTimeRef = React.useRef(false);
-  useEffect(() => {
-    const lowTime = (whiteTime > 0 && whiteTime <= 10000) || (blackTime > 0 && blackTime <= 10000);
-    if (lowTime && !prevLowTimeRef.current) {
-      play('tenseconds');
-    }
-    prevLowTimeRef.current = lowTime;
-  }, [whiteTime, blackTime, play]);
-
-  const prevWinnerRef = React.useRef(winner);
-  useEffect(() => {
-    if (winner && !prevWinnerRef.current) {
-      playGameEnd(winner === 'w' ? '1-0' : '0-1');
-    }
-    prevWinnerRef.current = winner;
-  }, [winner, playGameEnd]);
-
-  const startNewEngineGame = () => {
-    const freshGame = new Chess();
-    setEngineGame(freshGame);
-    setEngineFen(freshGame.fen());
-    setEngineGameHistory([]);
-    setLastEngineEval(null);
-    setEngineFeedback('Game started. Make your move.');
-    setEngineThinking(false);
-    play('game-start');
-  };
-
-  const handlePlayerMoveInEngineMode = async (from: string, to: string) => {
-    if (!engineGame || engineThinking) return;
-    try {
-      const rawMove = engineGame.move({ from, to, promotion: 'q' });
-      setEngineFen(engineGame.fen());
-      setEngineGameHistory([...engineGameHistory, rawMove.san]);
-      playFromSan(rawMove.san);
-      setEngineFeedback('Engine is thinking...');
-
-      if (engineGame.isGameOver()) {
-        announceGameEnd(engineGame);
-        return;
-      }
-
-      setEngineThinking(true);
-      const computedMoveResult = await analyzePositionLocally(engineGame.fen(), {
-        goMode: engineGoMode,
-        depth: engineDepth,
-        timeLimit: engineThinkingTime,
-      });
-      setLastEngineEval(computedMoveResult);
-
-      const legalComputerMoves = engineGame.moves({ verbose: true });
-      if (legalComputerMoves.length > 0) {
-        const bestSan = computedMoveResult.bestMove;
-        const bestVerbose = bestSan
-          ? legalComputerMoves.find(m => m.san === bestSan)
-          : null;
-        const selectedMove = bestVerbose || legalComputerMoves[Math.floor(Math.random() * legalComputerMoves.length)];
-        engineGame.move(selectedMove.san);
-        setEngineFen(engineGame.fen());
-        setEngineGameHistory(prev => [...prev, selectedMove.san]);
-        playFromSan(selectedMove.san);
-        setEngineFeedback(`Engine plays ${selectedMove.san}. Your turn.`);
-
-        if (engineGame.isGameOver()) {
-          announceGameEnd(engineGame);
-        }
-      }
-      setEngineThinking(false);
-    } catch (err: any) {
-      setEngineFeedback('Illegal move.');
-    }
-  };
-
-  const announceGameEnd = (game: Chess) => {
+  const announceGameEnd = useCallback((game: Chess) => {
     if (game.isCheckmate()) {
       setEngineFeedback('Checkmate!');
       playGameEnd(game.isCheckmate() ? (game.turn() === 'w' ? '0-1' : '1-0') : '');
@@ -218,225 +188,163 @@ export default function Tools() {
       setEngineFeedback('Game over.');
       play('gameend');
     }
-  };
+  }, [play, playGameEnd]);
+
+  const startNewGame = useCallback(() => {
+    const fresh = new Chess();
+    setGameInstance(fresh);
+    setFen(fresh.fen());
+    setMoveHistory([]);
+    setLastEval(null);
+    setEngineFeedback('Game started. Make your move.');
+    setEngineThinking(false);
+    setGameStarted(true);
+    play('game-start');
+  }, [play]);
+
+  const handlePlayerMove = useCallback(async (from: string, to: string) => {
+    if (!gameInstance || engineThinking) return;
+    if (gameInstance.turn() === 'b') {
+      setEngineFeedback("It's the engine's turn.");
+      return;
+    }
+    try {
+      const rawMove = gameInstance.move({ from, to, promotion: 'q' });
+      setFen(gameInstance.fen());
+      setMoveHistory(prev => [...prev, rawMove.san]);
+      playFromSan(rawMove.san);
+      setEngineFeedback('Engine is thinking...');
+
+      if (gameInstance.isGameOver()) {
+        announceGameEnd(gameInstance);
+        return;
+      }
+
+      setEngineThinking(true);
+      const computedMoveResult = await analyzePositionLocally(gameInstance.fen(), {
+        goMode: engineGoMode,
+        depth: engineDepth,
+        timeLimit: engineThinkingTime,
+      });
+      setLastEval(computedMoveResult);
+
+      const legalMoves = gameInstance.moves({ verbose: true });
+      if (legalMoves.length > 0) {
+        const bestSan = computedMoveResult.bestMove;
+        const bestVerbose = bestSan
+          ? legalMoves.find(m => m.san === bestSan)
+          : null;
+        const selectedMove = bestVerbose || legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        gameInstance.move(selectedMove.san);
+        setFen(gameInstance.fen());
+        setMoveHistory(prev => [...prev, selectedMove.san]);
+        playFromSan(selectedMove.san);
+        setEngineFeedback(`Engine plays ${selectedMove.san}. Your turn.`);
+
+        if (gameInstance.isGameOver()) {
+          announceGameEnd(gameInstance);
+        }
+      }
+      setEngineThinking(false);
+    } catch {
+      setEngineFeedback('Illegal move.');
+    }
+  }, [gameInstance, engineThinking, engineGoMode, engineDepth, engineThinkingTime, playFromSan, announceGameEnd]);
 
   const handleDepthPreset = (presetId: string, depth: number) => {
     setEngineDepthPreset(presetId);
     setEngineDepth(depth);
   };
 
-  const currentCategoryPresets = presetCategories[clockCategory]?.presets || [];
-
-  useKeyboardShortcuts([
-    {
-      key: 'z',
-      description: 'Toggle focus mode',
-      handler: () => toggleFocusMode(),
-    },
-    {
-      key: 'F11',
-      description: 'Toggle fullscreen',
-      handler: () => toggleFullscreen(),
-    },
-  ]);
-
-  const boardWidth = focusMode ? 480 : fullscreenMode ? 450 : 375;
-
   return (
-    <div className={`grid grid-cols-1 gap-5 ${focusMode ? '' : 'lg:grid-cols-12'}`} id="tools-view">
-      <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col ${focusMode ? 'hidden' : 'lg:col-span-5'}`} id="clock-panel">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-extrabold text-white flex items-center space-x-2">
-            <Clock className="w-5 h-5 text-[#bc6c25]" />
-            <span>Chess Clock</span>
-          </h2>
-          <span className="text-[10px] uppercase font-bold text-[#a0a0a0] bg-[#3d3d3d] px-2 py-1 rounded">
-            {activePresetId === 'custom' ? 'Custom' : activePresetId}
-          </span>
-        </div>
-
-        <div className="grid grid-rows-2 gap-3 flex-1" id="clock-sides">
-          <button
-            onClick={() => switchTurn('w')}
-            disabled={!isRunning || activeColor !== 'w'}
-            className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
-              activeColor === 'w' && isRunning
-                ? 'bg-[#3d3d3d] border-[#606c38]'
-                : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
-            }`}
-            id="clock-side-white"
-          >
-            <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
-              <span className="w-2 h-2 rounded bg-white border border-[#a0a0a0]" />
-              White
-            </div>
-            <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[#606c38]' : 'text-white'}`}>
-              {formatTime(whiteTime)}
-            </span>
-          </button>
-
-          <button
-            onClick={() => switchTurn('b')}
-            disabled={!isRunning || activeColor !== 'b'}
-            className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
-              activeColor === 'b' && isRunning
-                ? 'bg-[#3d3d3d] border-[#606c38]'
-                : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
-            }`}
-            id="clock-side-black"
-          >
-            <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
-              <span className="w-2 h-2 rounded bg-[#2a2a2a] border border-[#888888]" />
-              Black
-            </div>
-            <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[#606c38]' : 'text-white'}`}>
-              {formatTime(blackTime)}
-            </span>
-          </button>
-        </div>
-
-        {winner && (
-          <div className={`text-xs font-bold p-2 rounded-xl border mt-3 ${
-            winner === 'w' ? 'bg-[#3d3d3d] border-[#606c38] text-[#606c38]' : 'bg-[#3d3d3d] border-[#bc6c25] text-[#bc6c25]'
-          }`} id="clock-winner-banner">
-            {winner === 'w' ? 'White wins' : 'Black wins'} via {reason}
-          </div>
-        )}
-
-        <div className="flex gap-2 mt-3">
-          {!isRunning ? (
-            <button onClick={startClock} disabled={!!winner} className="flex-1 bg-[#606c38] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
-              <Play className="w-4 h-4" />
-              <span>Start</span>
-            </button>
-          ) : (
-            <button onClick={pauseClock} className="flex-1 bg-[#bc6c25] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
-              <Pause className="w-4 h-4" />
-              <span>Pause</span>
-            </button>
-          )}
-          <button onClick={resetClock} className="px-4 py-2.5 bg-[#3d3d3d] border border-[#4a4a4a] rounded-lg text-[#a0a0a0] flex items-center justify-center" title="Reset" id="clock-reset-btn">
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="mt-4 pt-4 border-t border-[#4a4a4a]">
-          <div className="flex gap-1 mb-2">
-            {presetCategories.map((cat, idx) => (
+    <div className="space-y-4" id="play-vs-computer-feature">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => { destroyEngine(); onBack(); }}
+          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Tools</span>
+        </button>
+        <div className="flex items-center gap-2">
+          {gameStarted && (
+            <>
               <button
-                key={cat.name}
-                onClick={() => setClockCategory(idx)}
-                className={`text-[10px] py-1.5 px-3 rounded-lg font-bold ${
-                  clockCategory === idx
-                    ? 'bg-[#3d3d3d] text-[#606c38] border border-[#606c38]'
-                    : 'text-[#a0a0a0] border border-transparent'
+                onClick={toggleFocusMode}
+                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+                  focusMode
+                    ? 'bg-[#606c38] text-white border-[#606c38]'
+                    : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
                 }`}
+                title="Toggle focus mode (Z)"
               >
-                {cat.name}
+                <Focus className="w-3 h-3" />
+                <span>Focus</span>
               </button>
-            ))}
-          </div>
-          <div className="grid grid-cols-3 gap-1.5">
-            {currentCategoryPresets.map((p) => {
-              const active = activePresetId === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    selectPreset(p.id);
-                    setClockCategory(presetCategories.findIndex((cat) =>
-                      cat.presets.some((pp) => pp.id === p.id)
-                    ));
-                  }}
-                  className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono ${
-                    active
-                      ? 'bg-[#606c38] text-white border-[#606c38]'
-                      : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
-                  }`}
-                  id={`preset-btn-${p.id}`}
-                >
-                  {p.name}
-                </button>
-              );
-            })}
-          </div>
+              <button
+                onClick={toggleFullscreen}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+                title="Toggle fullscreen (F11)"
+              >
+                <Maximize className="w-3 h-3" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 flex flex-col ${focusMode ? 'w-full' : 'lg:col-span-7'}`} id="engine-play-panel">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-extrabold text-white flex items-center space-x-2">
-            <Gamepad2 className="w-5 h-5 text-[#bc6c25]" />
-            <span>Play vs Engine</span>
-          </h2>
-          <button
-            onClick={() => {
-              if (playVsEngineMode) destroyEngine();
-              setPlayVsEngineMode(!playVsEngineMode);
-              if (!playVsEngineMode && !engineGame) startNewEngineGame();
-            }}
-            className={`text-xs px-3 py-1.5 font-bold rounded-lg border ${
-              playVsEngineMode
-                ? 'bg-[#606c38] text-white border-[#606c38]'
-                : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#d0d0d0]'
-            }`}
-            id="engine-mode-toggle"
-          >
-            {playVsEngineMode ? 'Stop' : 'Play'}
-          </button>
+      {!gameStarted ? (
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-8 flex flex-col items-center text-center space-y-4 max-w-md w-full">
+            <Cpu className="w-14 h-14 text-[#bc6c25]" />
+            <div>
+              <h3 className="font-extrabold text-white text-lg">Play vs Stockfish</h3>
+              <p className="text-xs text-[#a0a0a0] mt-1">
+                Choose your engine strength and play against the local Stockfish 17 Lite engine.
+              </p>
+            </div>
+            <button
+              onClick={startNewGame}
+              className="bg-[#606c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm"
+            >
+              New Game
+            </button>
+          </div>
         </div>
-
-        {playVsEngineMode ? (
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-5 flex-1">
-            <div className="flex flex-col items-center gap-2">
-              <div className="flex gap-2 w-full" style={{ maxWidth: boardWidth }}>
-                <div className="h-[300px]">
-                  <EvalBar
-                    score={lastEngineEval?.score ?? null}
-                    mate={lastEngineEval?.mateIn ?? null}
-                    flipped={false}
-                  />
-                </div>
-                <div className="flex-1">
-                  <Chessboard
-                    fen={engineFen}
-                    playable={!engineThinking}
-                    onMove={handlePlayerMoveInEngineMode}
-                  />
-                </div>
+      ) : (
+        <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
+        <div className={`${focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}`}>
+          {/* Left: Board + Eval */}
+          <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+            <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
+              <div className="self-stretch min-h-[300px]">
+                <EvalBar
+                  score={lastEval?.score ?? null}
+                  mate={lastEval?.mateIn ?? null}
+                  flipped={false}
+                />
               </div>
-              <div className="flex items-center gap-1.5 w-full justify-end">
-                <button
-                  onClick={toggleFocusMode}
-                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
-                    focusMode
-                      ? 'bg-[#606c38] text-white border-[#606c38]'
-                      : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
-                  }`}
-                  title="Toggle focus mode (Z)"
-                >
-                  <Focus className="w-3 h-3" />
-                  <span>Focus</span>
-                </button>
-                <button
-                  onClick={toggleFullscreen}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
-                  title="Toggle fullscreen (F11)"
-                >
-                  <Maximize className="w-3 h-3" />
-                </button>
+              <div className="flex-1">
+                <Chessboard
+                  fen={fen}
+                  playable={!engineThinking}
+                  onMove={handlePlayerMove}
+                />
               </div>
             </div>
+          </div>
 
-            {!focusMode && (
-            <div className="flex-1 flex flex-col self-stretch space-y-3">
-              <div>
-                <h3 className="text-xs font-bold text-white flex items-center gap-1.5 mb-2">
+          {/* Right: Controls */}
+          {!focusMode && (
+          <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
+            <div className="grid grid-cols-2 gap-4 w-full">
+              <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 space-y-2.5" id="engine-controls-panel">
+                <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Cpu className="w-4 h-4 text-[#bc6c25]" />
                   Engine Strength
                 </h3>
 
-                <div className="flex gap-1 mb-3">
+                <div className="flex gap-1">
                   <button
                     onClick={() => setEngineGoMode('depth')}
                     className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
@@ -463,8 +371,8 @@ export default function Tools() {
 
                 {engineGoMode === 'depth' ? (
                   <>
-                    <div className="flex gap-1.5 mb-2">
-                      {engineDepthPresets.map((p) => (
+                    <div className="flex flex-wrap gap-1.5">
+                      {ENGINE_DEPTH_PRESETS.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => handleDepthPreset(p.id, p.depth)}
@@ -481,16 +389,10 @@ export default function Tools() {
                     <div className="flex items-center gap-2 text-[10px] text-[#a0a0a0]">
                       <span>Depth:</span>
                       <input
-                        type="range"
-                        min={1}
-                        max={30}
+                        type="range" min={1} max={30}
                         value={engineDepth}
-                        onChange={(e) => {
-                          setEngineDepth(parseInt(e.target.value, 10));
-                          setEngineDepthPreset('custom');
-                        }}
+                        onChange={(e) => { setEngineDepth(parseInt(e.target.value, 10)); setEngineDepthPreset('custom'); }}
                         className="flex-1 accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
-                        id="difficulty-slider"
                       />
                       <span className="font-mono font-bold text-[#606c38] w-6 text-center">{engineDepth}</span>
                     </div>
@@ -499,10 +401,7 @@ export default function Tools() {
                   <div className="flex items-center gap-2 text-[10px] text-[#a0a0a0]">
                     <span>Time:</span>
                     <input
-                      type="range"
-                      min={100}
-                      max={30000}
-                      step={100}
+                      type="range" min={100} max={30000} step={100}
                       value={engineThinkingTime}
                       onChange={(e) => setEngineThinkingTime(parseInt(e.target.value, 10))}
                       className="flex-1 accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
@@ -514,50 +413,793 @@ export default function Tools() {
                 )}
               </div>
 
-              <div className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-xl p-3 flex-1 min-h-[100px] max-h-[160px] flex flex-col overflow-hidden">
-                <span className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider block mb-1">Moves</span>
-                <div className="flex-1 overflow-y-auto font-mono text-xs text-white grid grid-cols-3 gap-y-1 content-start pr-1" id="engine-moves-log">
-                  {engineGameHistory.map((m, idx) => {
+              <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvc-moves-panel">
+                <span className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider block mb-2">Moves</span>
+                <div className="flex-1 overflow-y-auto font-mono text-xs text-white grid grid-cols-2 gap-y-1 content-start pr-1">
+                  {moveHistory.length > 0 ? (
+                    moveHistory.map((m, idx) => {
+                      const isWhite = idx % 2 === 0;
+                      const num = Math.floor(idx / 2) + 1;
+                      return (
+                        <div key={idx} className="flex space-x-1 justify-start">
+                          {isWhite && <span className="text-[#666666] font-bold">{num}.</span>}
+                          <span className="font-semibold text-[#606c38]">{m}</span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <span className="text-[#666666] text-[10px] col-span-2">Waiting for your first move...</span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="text-xs text-white bg-[#3d3d3d] p-2.5 rounded-lg border border-[#4a4a4a] leading-relaxed text-center" id="engine-feedback-banner">
+              {engineFeedback || 'Make your move.'}
+            </div>
+
+            <button onClick={startNewGame} className="w-full bg-[#3d3d3d] text-white border border-[#4a4a4a] py-2 rounded-lg text-xs font-bold">
+              New Game
+            </button>
+          </div>
+          )}
+        </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Player vs Player Feature ──────────────────────────────
+function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
+  const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
+  const { toggleFullscreen } = useFullscreen();
+  const { play, playFromSan, playGameEnd } = useSound();
+
+  const {
+    whiteTime, blackTime, activeColor, isRunning, winner, reason,
+    presets, activePresetId, selectPreset, setCustomTime, startClock, pauseClock,
+    resetClock, switchTurn, tick,
+  } = useClockStore();
+  const { settings } = useSettingsStore();
+
+  const [fen, setFen] = useState(STARTING_FEN);
+  const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [autoFlip, setAutoFlip] = useState(false);
+  const [perspective, setPerspective] = useState<'white' | 'black'>('white');
+  const [gameOver, setGameOver] = useState<string | null>(null);
+  const [clockCategory, setClockCategory] = useState(0);
+  const [customWhiteMin, setCustomWhiteMin] = useState(5);
+  const [customWhiteSec, setCustomWhiteSec] = useState(0);
+  const [customBlackMin, setCustomBlackMin] = useState(5);
+  const [customBlackSec, setCustomBlackSec] = useState(0);
+  const [customInc, setCustomInc] = useState(0);
+  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
+  const boardWidth = focusMode ? 490 : fullscreenMode ? 593 : 385;
+
+  // Spacebar for clock turn switching (like Chess Clock feature)
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        if (winner) return;
+        if (!isRunning) {
+          startClock();
+        } else if (activeColor) {
+          switchTurn(activeColor);
+          play('clock-tick');
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isRunning, activeColor, winner, startClock, switchTurn, play]);
+
+  useEffect(() => {
+    let lastTime = Date.now();
+    let intervalId: any = null;
+    if (isRunning) {
+      intervalId = setInterval(() => {
+        const now = Date.now();
+        const delta = now - lastTime;
+        lastTime = now;
+        tick(delta);
+      }, 50);
+    }
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, [isRunning, tick]);
+
+  const resetGame = useCallback(() => {
+    setFen(STARTING_FEN);
+    setMoveHistory([]);
+    setPerspective('white');
+    setGameOver(null);
+    resetClock();
+  }, [resetClock]);
+
+  const handleMove = useCallback((from: string, to: string) => {
+    try {
+      const fresh = new Chess(fen);
+      const rawMove = fresh.move({ from, to, promotion: 'q' });
+      setFen(fresh.fen());
+      setMoveHistory(prev => [...prev, rawMove.san]);
+      playFromSan(rawMove.san);
+
+      if (isRunning && activeColor) {
+        switchTurn(activeColor);
+        play('clock-tick');
+      }
+
+      if (fresh.isGameOver()) {
+        let msg = '';
+        if (fresh.isCheckmate()) msg = `Checkmate! ${fresh.turn() === 'w' ? 'Black' : 'White'} wins!`;
+        else if (fresh.isDraw()) msg = 'Draw!';
+        else if (fresh.isStalemate()) msg = 'Stalemate!';
+        setGameOver(msg);
+        playGameEnd(msg);
+        return;
+      }
+
+      if (autoFlip) {
+        setPerspective(fresh.turn() === 'w' ? 'white' : 'black');
+      }
+    } catch {
+      // illegal move
+    }
+  }, [fen, autoFlip, playFromSan, playGameEnd, isRunning, activeColor, switchTurn]);
+
+  const isInAlert = (timeMs: number) =>
+    settings.timeAlertEnabled && timeMs > 0 && timeMs <= settings.timeAlertThreshold * 1000;
+
+  const formatClockTime = (timeMs: number) => {
+    const minutes = Math.floor(timeMs / 60000);
+    const seconds = Math.floor((timeMs % 60000) / 1000);
+    return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-4" id="player-vs-player-feature">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Tools</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setAutoFlip(!autoFlip)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+              autoFlip
+                ? 'bg-[#606c38] text-white border-[#606c38]'
+                : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+            }`}
+            title="Auto-flip board to the current player's perspective"
+          >
+            <FlipHorizontal className="w-3 h-3" />
+            <span>Auto-Flip</span>
+          </button>
+          <button
+            onClick={toggleFocusMode}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+              focusMode
+                ? 'bg-[#606c38] text-white border-[#606c38]'
+                : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+            }`}
+            title="Toggle focus mode (Z)"
+          >
+            <Focus className="w-3 h-3" />
+            <span>Focus</span>
+          </button>
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+            title="Toggle fullscreen (F11)"
+          >
+            <Maximize className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
+      <div className={`${focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}`}>
+        {/* Left: Board + Turn indicator */}
+        <div className={`space-y-3 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+          <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
+            <div className="flex-1">
+              <Chessboard
+                fen={fen}
+                playable={!gameOver}
+                onMove={handleMove}
+                orientation={autoFlip ? perspective : undefined}
+              />
+            </div>
+          </div>
+          {gameOver ? (
+            <div className="w-full text-center text-sm font-bold text-[#bc6c25] bg-[#3d3d3d] border border-[#bc6c25] rounded-lg py-2" style={{ maxWidth: boardWidth }}>
+              {gameOver}
+            </div>
+          ) : (
+            <div className="w-full flex items-center justify-between" style={{ maxWidth: boardWidth }}>
+              <div className="flex items-center gap-2 text-xs text-[#a0a0a0]">
+                <span className={`w-2.5 h-2.5 rounded-full ${fen.includes(' w ') ? 'bg-white border border-[#888]' : 'bg-[#2a2a2a] border border-[#888]'}`} />
+                <span className="font-bold">
+                  {fen.includes(' w ') ? "White's turn" : "Black's turn"}
+                </span>
+              </div>
+              <button
+                onClick={() => setPerspective(perspective === 'white' ? 'black' : 'white')}
+                className="text-[10px] text-[#a0a0a0] font-bold hover:text-white transition-colors"
+              >
+                <RotateCcw className="w-3 h-3 inline mr-1" />
+                Flip board
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Controls */}
+        {!focusMode && (
+        <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
+          <div className="grid grid-cols-2 gap-4 w-full">
+            <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 space-y-2.5 text-center" id="pvp-settings-card">
+              <h3 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
+                <Users className="w-4 h-4 text-[#bc6c25]" />
+                Local Two-Player
+              </h3>
+              <p className="text-[10px] text-[#a0a0a0] leading-relaxed">
+                White moves first, then Black.
+              </p>
+              <label className="flex items-center justify-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoFlip}
+                  onChange={() => setAutoFlip(!autoFlip)}
+                  className="accent-[#606c38] w-4 h-4 rounded"
+                />
+                <span className="text-xs text-white font-medium">Auto-flip</span>
+              </label>
+            </div>
+
+            <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvp-moves-panel">
+              <span className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider block mb-2">Moves</span>
+              <div className="flex-1 overflow-y-auto font-mono text-xs text-white grid grid-cols-2 gap-y-1 content-start pr-1">
+                {moveHistory.length > 0 ? (
+                  moveHistory.map((m, idx) => {
                     const isWhite = idx % 2 === 0;
                     const num = Math.floor(idx / 2) + 1;
                     return (
                       <div key={idx} className="flex space-x-1 justify-start">
                         {isWhite && <span className="text-[#666666] font-bold">{num}.</span>}
-                        <span className="font-semibold text-[#606c38]">{m}</span>
+                        <span className={`font-semibold ${isWhite ? 'text-white' : 'text-[#606c38]'}`}>{m}</span>
                       </div>
                     );
-                  })}
+                  })
+                ) : (
+                  <span className="text-[#666666] text-[10px] col-span-2">White to move...</span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Mini Chess Clock */}
+          <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-3" id="pvp-clock-widget">
+            <div className="flex gap-2 mb-2">
+              <div
+                className={`flex-1 rounded-lg border p-2 text-center ${
+                  isInAlert(whiteTime)
+                    ? 'bg-[#8b1a1a] border-[#ff4444]'
+                    : activeColor === 'w' && isRunning
+                      ? 'bg-[#3d3d3d] border-[#606c38]'
+                      : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                }`}
+              >
+                <div className="text-[9px] font-bold text-[#a0a0a0] uppercase tracking-wider flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded bg-white border border-[#a0a0a0]" />
+                  White
+                </div>
+                <div className="text-lg font-mono font-black tracking-tighter text-white">
+                  {formatClockTime(whiteTime)}
                 </div>
               </div>
-
-              <div className="text-xs text-white bg-[#3d3d3d] p-2.5 rounded-lg border border-[#4a4a4a] leading-relaxed" id="AI-status-banner">
-                {engineFeedback || 'Select a strength preset and make your first move.'}
+              <div
+                className={`flex-1 rounded-lg border p-2 text-center ${
+                  isInAlert(blackTime)
+                    ? 'bg-[#8b1a1a] border-[#ff4444]'
+                    : activeColor === 'b' && isRunning
+                      ? 'bg-[#3d3d3d] border-[#606c38]'
+                      : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                }`}
+              >
+                <div className="text-[9px] font-bold text-[#a0a0a0] uppercase tracking-wider flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded bg-[#2a2a2a] border border-[#888888]" />
+                  Black
+                </div>
+                <div className="text-lg font-mono font-black tracking-tighter text-white">
+                  {formatClockTime(blackTime)}
+                </div>
               </div>
-              <button onClick={startNewEngineGame} className="w-full bg-[#3d3d3d] text-white border border-[#4a4a4a] py-1.5 rounded-lg text-xs font-bold">
-                New Game
+            </div>
+            {winner && (
+              <div className={`text-[9px] font-bold p-1.5 rounded-lg border mb-2 text-center ${
+                winner === 'w' ? 'bg-[#3d3d3d] border-[#606c38] text-[#606c38]' : 'bg-[#3d3d3d] border-[#bc6c25] text-[#bc6c25]'
+              }`}>
+                {winner === 'w' ? 'White wins' : 'Black wins'} via {reason}
+              </div>
+            )}
+            <div className="flex items-center justify-center gap-1 mb-2">
+              {!isRunning ? (
+                <button onClick={startClock} disabled={!!winner} className="bg-[#606c38] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
+                  Start
+                </button>
+              ) : (
+                <button onClick={pauseClock} className="bg-[#bc6c25] text-white px-3 py-1.5 rounded text-[9px] font-bold">
+                  Stop
+                </button>
+              )}
+              <button onClick={resetClock} className="bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock">
+                <RotateCcw className="w-3 h-3" />
               </button>
             </div>
+            <div className="flex gap-1 mb-2">
+              {PRESET_CATEGORIES.map((cat, idx) => (
+                <button
+                  key={cat.name}
+                  onClick={() => setClockCategory(idx)}
+                  className={`text-[9px] py-1 px-2 rounded font-bold ${
+                    clockCategory === idx
+                      ? 'bg-[#3d3d3d] text-[#606c38] border border-[#606c38]'
+                      : 'text-[#a0a0a0] border border-transparent'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            {clockCategory === PRESET_CATEGORIES.length - 1 ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">White Time</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="999"
+                        value={customWhiteMin}
+                        onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="min"
+                      />
+                      <span className="text-[#666666] text-[10px] font-bold">:</span>
+                      <input
+                        type="number" min="0" max="59"
+                        value={customWhiteSec}
+                        onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="sec"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">Black Time</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="999"
+                        value={customBlackMin}
+                        onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="min"
+                      />
+                      <span className="text-[#666666] text-[10px] font-bold">:</span>
+                      <input
+                        type="number" min="0" max="59"
+                        value={customBlackSec}
+                        onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="sec"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">Increment (sec)</label>
+                    <input
+                      type="number" min="0" max="999"
+                      value={customInc}
+                      onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      placeholder="sec"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const whiteMs = (customWhiteMin * 60 + customWhiteSec) * 1000;
+                      const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
+                      setCustomTime(whiteMs, blackMs, customInc);
+                    }}
+                    className="bg-[#606c38] text-white px-4 py-1.5 rounded text-[9px] font-bold"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1">
+                {currentCategoryPresets.map((p) => {
+                  const active = activePresetId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        selectPreset(p.id);
+                        setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
+                          cat.presets.some((pp) => pp.id === p.id)
+                        ));
+                      }}
+                      className={`text-[9px] py-1 rounded border text-center font-bold font-mono ${
+                        active
+                          ? 'bg-[#606c38] text-white border-[#606c38]'
+                          : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                      }`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
-        ) : (
-          <div className="flex-1 border border-dashed border-[#4a4a4a] bg-[#2a2a2a] flex flex-col items-center justify-center p-8 rounded-2xl text-center space-y-4 min-h-[300px]">
-            <Cpu className="w-12 h-12 text-[#888888]" />
-            <div>
-              <h3 className="font-bold text-white text-lg">Play vs Stockfish</h3>
-              <p className="text-xs text-[#a0a0a0] max-w-sm mx-auto mt-1">
-                Choose a strength level and play against the local Stockfish 17 Lite engine.
-              </p>
-            </div>
-            <button
-              onClick={() => { setPlayVsEngineMode(true); startNewEngineGame(); }}
-              className="bg-[#606c38] text-white px-5 py-2 rounded-lg font-semibold text-xs"
-              id="enable-play-btn"
-            >
-              Start Game
-            </button>
-          </div>
+
+          <button onClick={resetGame} className="w-full bg-[#3d3d3d] text-white border border-[#4a4a4a] py-2 rounded-lg text-xs font-bold">
+            New Game
+          </button>
+        </div>
         )}
       </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Chess Clock Feature ───────────────────────────────────
+function ChessClockFeature({ onBack }: { onBack: () => void }) {
+  const {
+    whiteTime, blackTime, activeColor, isRunning, winner, reason,
+    activePresetId, selectPreset, setCustomTime, startClock, pauseClock,
+    resetClock, switchTurn, tick,
+  } = useClockStore();
+  const { focusMode, fullscreenMode } = useUIStore();
+  const { toggleFullscreen } = useFullscreen();
+  const { settings } = useSettingsStore();
+  const { play } = useSound();
+  const [clockCategory, setClockCategory] = useState(0);
+  const [customWhiteMin, setCustomWhiteMin] = useState(5);
+  const [customWhiteSec, setCustomWhiteSec] = useState(0);
+  const [customBlackMin, setCustomBlackMin] = useState(5);
+  const [customBlackSec, setCustomBlackSec] = useState(0);
+  const [customInc, setCustomInc] = useState(0);
+  const whiteAlertedRef = useRef(false);
+  const blackAlertedRef = useRef(false);
+
+  useEffect(() => {
+    if (!settings.timeAlertEnabled) return;
+    if (whiteTime > 0 && whiteTime <= settings.timeAlertThreshold * 1000 && !whiteAlertedRef.current) {
+      whiteAlertedRef.current = true;
+      if (settings.timeAlertSound) play('tenseconds');
+    }
+    if (blackTime > 0 && blackTime <= settings.timeAlertThreshold * 1000 && !blackAlertedRef.current) {
+      blackAlertedRef.current = true;
+      if (settings.timeAlertSound) play('tenseconds');
+    }
+    if (whiteTime > settings.timeAlertThreshold * 1000) whiteAlertedRef.current = false;
+    if (blackTime > settings.timeAlertThreshold * 1000) blackAlertedRef.current = false;
+  }, [whiteTime, blackTime, settings.timeAlertEnabled, settings.timeAlertThreshold, settings.timeAlertSound, play]);
+
+  const isInAlert = (timeMs: number) =>
+    settings.timeAlertEnabled && timeMs > 0 && timeMs <= settings.timeAlertThreshold * 1000;
+
+  const formatTimeWithAlert = (timeMs: number) => {
+    const minutes = Math.floor(timeMs / 60000);
+    const seconds = Math.floor((timeMs % 60000) / 1000);
+    const tenths = Math.floor((timeMs % 1000) / 100);
+    const minStr = minutes.toString().padStart(2, '0');
+    const secStr = seconds.toString().padStart(2, '0');
+    if (isInAlert(timeMs) && timeMs < 60000) {
+      return `${minStr}:${secStr}.${tenths}`;
+    }
+    if (timeMs < 20000 && timeMs > 0) {
+      return `${minutes}:${secStr}.${tenths}`;
+    }
+    return `${minStr}:${secStr}`;
+  };
+
+  useEffect(() => {
+    let lastTime = Date.now();
+    let intervalId: any = null;
+    if (isRunning) {
+      intervalId = setInterval(() => {
+        const now = Date.now();
+        const delta = now - lastTime;
+        lastTime = now;
+        tick(delta);
+      }, 50);
+    }
+    return () => { if (intervalId) clearInterval(intervalId); };
+  }, [isRunning, tick]);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        if (winner) return;
+        if (!isRunning) {
+          startClock();
+        } else if (activeColor) {
+          switchTurn(activeColor);
+          play('clock-tick');
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isRunning, activeColor, winner, startClock, switchTurn]);
+
+  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
+
+  return (
+    <div className="space-y-4" id="chess-clock-feature">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Back to Tools</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] uppercase font-bold text-[#a0a0a0] bg-[#3d3d3d] px-2 py-1 rounded">
+            {activePresetId === 'custom' ? 'Custom' : activePresetId}
+          </span>
+          <button
+            onClick={toggleFullscreen}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+            title="Toggle fullscreen (F11)"
+          >
+            <Maximize className="w-3 h-3" />
+          </button>
+        </div>
+      </div>
+
+      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
+      <div className="flex flex-col items-center overflow-visible">
+        <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 ${focusMode ? '' : 'max-w-md w-full'} ${fullscreenMode ? 'scale-[1.7] transform-gpu origin-center' : ''}`}>
+          <div className="grid grid-rows-2 gap-3" id="clock-sides">
+            <button
+              onClick={() => { switchTurn('w'); play('clock-tick'); }}
+              disabled={!isRunning || activeColor !== 'w'}
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
+                isInAlert(whiteTime)
+                  ? 'bg-[#8b1a1a] border-[#ff4444]'
+                  : activeColor === 'w' && isRunning
+                    ? 'bg-[#3d3d3d] border-[#606c38]'
+                    : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
+              }`}
+              id="clock-side-white"
+            >
+              <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span className="w-2 h-2 rounded bg-white border border-[#a0a0a0]" />
+                White
+              </div>
+              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[#606c38]' : 'text-white'}`}>
+                {formatTimeWithAlert(whiteTime)}
+              </span>
+            </button>
+
+            <button
+              onClick={() => { switchTurn('b'); play('clock-tick'); }}
+              disabled={!isRunning || activeColor !== 'b'}
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
+                isInAlert(blackTime)
+                  ? 'bg-[#8b1a1a] border-[#ff4444]'
+                  : activeColor === 'b' && isRunning
+                    ? 'bg-[#3d3d3d] border-[#606c38]'
+                    : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
+              }`}
+              id="clock-side-black"
+            >
+              <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span className="w-2 h-2 rounded bg-[#2a2a2a] border border-[#888888]" />
+                Black
+              </div>
+              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[#606c38]' : 'text-white'}`}>
+                {formatTimeWithAlert(blackTime)}
+              </span>
+            </button>
+          </div>
+
+          {winner && (
+            <div className={`text-xs font-bold p-2 rounded-xl border mt-3 ${
+              winner === 'w' ? 'bg-[#3d3d3d] border-[#606c38] text-[#606c38]' : 'bg-[#3d3d3d] border-[#bc6c25] text-[#bc6c25]'
+            }`} id="clock-winner-banner">
+              {winner === 'w' ? 'White wins' : 'Black wins'} via {reason}
+            </div>
+          )}
+
+          <div className="flex gap-2 mt-3">
+            {!isRunning ? (
+              <button onClick={startClock} disabled={!!winner} className="flex-1 bg-[#606c38] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
+                <Play className="w-4 h-4" />
+                <span>Start</span>
+              </button>
+            ) : (
+              <button onClick={pauseClock} className="flex-1 bg-[#bc6c25] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
+                <Pause className="w-4 h-4" />
+                <span>Pause</span>
+              </button>
+            )}
+            <button onClick={resetClock} className="px-4 py-2.5 bg-[#3d3d3d] border border-[#4a4a4a] rounded-lg text-[#a0a0a0] flex items-center justify-center" title="Reset" id="clock-reset-btn">
+              <RotateCcw className="w-4 h-4" />
+            </button>
+          </div>
+
+          {!focusMode && (
+          <div className="mt-4">
+            <div className="text-center text-[9px] text-[#666666] font-mono mb-2">
+              Press <span className="text-[#a0a0a0] bg-[#3d3d3d] px-1.5 py-0.5 rounded font-bold">Space</span> to switch turns
+            </div>
+          <div className="pt-4 border-t border-[#4a4a4a]">
+            <div className="flex gap-1 mb-2">
+              {PRESET_CATEGORIES.map((cat, idx) => (
+                <button
+                  key={cat.name}
+                  onClick={() => setClockCategory(idx)}
+                  className={`text-[10px] py-1.5 px-3 rounded-lg font-bold ${
+                    clockCategory === idx
+                      ? 'bg-[#3d3d3d] text-[#606c38] border border-[#606c38]'
+                      : 'text-[#a0a0a0] border border-transparent'
+                  }`}
+                >
+                  {cat.name}
+                </button>
+              ))}
+            </div>
+            {clockCategory === PRESET_CATEGORIES.length - 1 ? (
+              <div className="space-y-3 pt-1">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">White Time</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="999"
+                        value={customWhiteMin}
+                        onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="min"
+                      />
+                      <span className="text-[#666666] text-xs font-bold">:</span>
+                      <input
+                        type="number" min="0" max="59"
+                        value={customWhiteSec}
+                        onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="sec"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">Black Time</label>
+                    <div className="flex items-center gap-1">
+                      <input
+                        type="number" min="0" max="999"
+                        value={customBlackMin}
+                        onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="min"
+                      />
+                      <span className="text-[#666666] text-xs font-bold">:</span>
+                      <input
+                        type="number" min="0" max="59"
+                        value={customBlackSec}
+                        onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        placeholder="sec"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1">
+                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">Increment (sec)</label>
+                    <input
+                      type="number" min="0" max="999"
+                      value={customInc}
+                      onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      placeholder="sec"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const whiteMs = (customWhiteMin * 60 + customWhiteSec) * 1000;
+                      const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
+                      setCustomTime(whiteMs, blackMs, customInc);
+                    }}
+                    className="bg-[#606c38] text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-[#4a5530] transition-colors"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-1.5">
+                {currentCategoryPresets.map((p) => {
+                  const active = activePresetId === p.id;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        selectPreset(p.id);
+                        setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
+                          cat.presets.some((pp) => pp.id === p.id)
+                        ));
+                      }}
+                      className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono ${
+                        active
+                          ? 'bg-[#606c38] text-white border-[#606c38]'
+                          : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                      }`}
+                      id={`preset-btn-${p.id}`}
+                    >
+                      {p.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          </div>
+          )}
+        </div>
+      </div>
+      </div>
+      </div>
+  );
+}
+
+export default function Tools() {
+  const { focusMode } = useUIStore();
+  const [activeFeature, setActiveFeature] = useState<ActiveFeature>(null);
+
+  useKeyboardShortcuts([
+    {
+      key: 'z',
+      description: 'Toggle focus mode',
+      handler: () => useUIStore.getState().toggleFocusMode(),
+    },
+    {
+      key: 'F11',
+      description: 'Toggle fullscreen',
+      handler: () => useFullscreen().toggleFullscreen(),
+    },
+    {
+      key: 'Escape',
+      description: 'Back to tools grid',
+      handler: () => {
+        if (activeFeature) {
+          destroyEngine();
+          setActiveFeature(null);
+        }
+      },
+    },
+  ]);
+
+  return (
+    <div>
+      {activeFeature === null && <ToolsLanding onSelect={setActiveFeature} />}
+      {activeFeature === 'play-vs-computer' && <PlayVsComputerFeature onBack={() => setActiveFeature(null)} />}
+      {activeFeature === 'player-vs-player' && <PlayerVsPlayerFeature onBack={() => setActiveFeature(null)} />}
+      {activeFeature === 'chess-clock' && <ChessClockFeature onBack={() => setActiveFeature(null)} />}
     </div>
   );
 }
