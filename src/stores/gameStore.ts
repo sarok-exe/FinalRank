@@ -175,6 +175,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs }
           : state.selectedGame,
       }));
+      const authUser = useAuthStore.getState().user;
+      if (authUser?.authProvider === 'google' && cached.shortId) {
+        const payload = { ...cached, moves: JSON.parse(JSON.stringify(cached.moves)), userSaved: false };
+        saveUserGame(authUser.id, gameId, payload as unknown as Record<string, unknown>);
+      }
       return;
     }
 
