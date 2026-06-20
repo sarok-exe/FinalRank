@@ -58,6 +58,7 @@ export default function Analysis() {
     triggerEvaluationPipeline,
     setGames,
     fetchLinkedUserGames,
+    loadUserGames,
   } = useGameStore();
 
   const { user: authUser } = useAuthStore();
@@ -92,6 +93,12 @@ function formatDuration(ms: number | undefined): string {
       setGames(LEGENDARY_PRESET_GAMES);
     }
   }, []);
+
+  useEffect(() => {
+    if (authUser?.authProvider === 'google') {
+      loadUserGames();
+    }
+  }, [authUser?.id]);
 
   useEffect(() => {
     if (authUser?.chessComUsername) {
@@ -368,7 +375,7 @@ function formatDuration(ms: number | undefined): string {
                   <button
                     key={g.id}
                     onClick={() => selectGame(g.id)}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${borderClass}`}
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
                     id={`game-selector-${g.id}`}
                   >
                     <div>
@@ -437,7 +444,7 @@ function formatDuration(ms: number | undefined): string {
                   <button
                     key={g.id}
                     onClick={() => selectGame(g.id)}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${
                       isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
                     }`}
                   >
@@ -478,8 +485,8 @@ function formatDuration(ms: number | undefined): string {
         </button>
       )}
 
-      <div className={`
-        ${focusMode
+      <div className={`fade-in ${
+        focusMode
           ? 'flex flex-row justify-center items-center gap-6'
           : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}
       `.trim()} id="game-arena-grid">
@@ -743,7 +750,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
           )}
 
-          <div className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
+          <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Move Log</span>
@@ -802,7 +809,7 @@ function formatDuration(ms: number | undefined): string {
             </div>
           </div>
 
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
+          <div className="fade-in bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 flex items-center space-x-1.5">
               <Activity className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Engine Diagnosis</span>
@@ -908,7 +915,7 @@ function formatDuration(ms: number | undefined): string {
       </button>
 
       {showGameList && (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
+        <div className="fade-in bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {games.map((g) => {
               const isSel = selectedGame?.id === g.id;
@@ -920,7 +927,7 @@ function formatDuration(ms: number | undefined): string {
               <button
                 key={g.id}
                 onClick={() => selectGame(g.id)}
-                className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${borderClass}`}
+                className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
               >
                 <div>
                   <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">

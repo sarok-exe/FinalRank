@@ -5,6 +5,7 @@ import {
 } from 'firebase/auth';
 import {
   getFirestore, Firestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
+  collection, getDocs, query, orderBy, limit, deleteDoc,
 } from 'firebase/firestore';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
@@ -118,4 +119,32 @@ export function onAuthChanged(callback: AuthCallback): () => void {
 
 export function isFirebaseConfigured(): boolean {
   return !!firebaseConfig.apiKey;
+}
+
+export async function saveUserGame(uid: string, gameId: string, data: Record<string, unknown>) {
+  initFirestore();
+  if (!db) return;
+  try {
+    await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
+  } catch {}
+}
+
+export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
+  initFirestore();
+  if (!db) return [];
+  try {
+    const q = query(collection(db, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+    const snap = await getDocs(q);
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteUserGame(uid: string, gameId: string) {
+  initFirestore();
+  if (!db) return;
+  try {
+    await deleteDoc(doc(db, 'users', uid, 'games', gameId));
+  } catch {}
 }

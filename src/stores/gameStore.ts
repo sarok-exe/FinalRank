@@ -6,6 +6,7 @@ import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
+import { saveUserGame, fetchUserGames, deleteUserGame } from '../lib/firebase';
 
 interface GameState {
   games: ChessGame[];
@@ -31,6 +32,7 @@ interface GameState {
   autoAnalyzeGame: (gameId: string) => Promise<void>;
   setGames: (games: ChessGame[]) => void;
   fetchLinkedUserGames: () => Promise<void>;
+  loadUserGames: () => Promise<void>;
   resetGameStore: () => void;
 }
 
@@ -336,6 +338,43 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  loadUserGames: async () => {
+    const authUser = useAuthStore.getState().user;
+    if (!authUser || authUser.authProvider !== 'google') return;
+    const raw = await fetchUserGames(authUser.id);
+    if (raw.length === 0) return;
+    const parsed: ChessGame[] = raw.map((r: any) => {
+      const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) : (r.moves || []);
+      return {
+        id: r.id as string,
+        white: r.white as ChessGame['white'],
+        black: r.black as ChessGame['black'],
+        result: r.result as string,
+        date: r.date as string,
+        pgn: r.pgn as string,
+        moves,
+        accuracy: r.accuracy as ChessGame['accuracy'] || undefined,
+        classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] || undefined,
+        analyzedAt: r.analyzedAt as string | undefined,
+        analysisDurationMs: r.analysisDurationMs as number | undefined,
+        initialPosition: r.initialPosition as string | undefined,
+      };
+    });
+    const cache: Record<string, ChessGame> = {};
+    const pgnMap: Record<string, boolean> = {};
+    parsed.forEach(g => {
+      if (g.analyzedAt) {
+        cache[g.id] = g;
+      }
+      if (g.pgn) pgnMap[hashPgn(g.pgn)] = true;
+    });
+    set(state => ({
+      games: [...parsed, ...state.games.filter(g => g.id.startsWith('legend-'))],
+      analysisCache: { ...state.analysisCache, ...cache },
+      analyzedPgnHashes: { ...state.analyzedPgnHashes, ...pgnMap },
+    }));
+  },
+
   resetGameStore: () => set({
     games: [],
     selectedGame: null,
@@ -396,6 +435,15 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   }));
 
   saveCachedAnalysis(analysedGame, depth);
+
+  const authUser = useAuthStore.getState().user;
+  if (authUser?.authProvider === 'google') {
+    const gameForFirestore = {
+      ...analysedGame,
+      moves: JSON.parse(JSON.stringify(analysedGame.moves)),
+    };
+    saveUserGame(authUser.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+  }
 }
 
 function hydratePgnMoves(pgn: string): AnalyzedMove[] {
