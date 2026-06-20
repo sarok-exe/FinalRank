@@ -79,6 +79,15 @@ export async function initTursoSchema() {
         analyzed_at TEXT DEFAULT (datetime('now'))
       )
     `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS shared_games (
+        short_id TEXT PRIMARY KEY,
+        game_data TEXT NOT NULL,
+        uid TEXT NOT NULL DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now'))
+      )
+    `);
   } catch {
     markTursoUnhealthy();
   }

@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 
 import { generateShortId } from './shortId';
+import { getTurso, isTursoConfigured } from './turso';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
 
@@ -135,6 +136,21 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
       await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
     } catch {}
   }
+  // Mirror to Turso for resilience when Firestore is unreachable
+  const turso = getTurso();
+  if (turso && shortId) {
+    try {
+      await turso.execute({
+        sql: `INSERT INTO shared_games (short_id, game_data, uid, updated_at)
+              VALUES (?, ?, ?, datetime('now'))
+              ON CONFLICT(short_id) DO UPDATE SET
+                game_data = excluded.game_data,
+                uid = excluded.uid,
+                updated_at = datetime('now')`,
+        args: [shortId, JSON.stringify({ uid, ...data }), uid],
+      });
+    } catch {}
+  }
 }
 
 export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
@@ -151,13 +167,30 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
 
 export async function fetchPublishedGame(shortId: string): Promise<Record<string, unknown> | null> {
   initFirestore();
-  if (!db) return null;
-  try {
-    const snap = await getDoc(doc(db, 'games', shortId));
-    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
-  } catch {
-    return null;
+  if (db) {
+    try {
+      const snap = await getDoc(doc(db, 'games', shortId));
+      if (snap.exists()) {
+        return { id: snap.id, ...snap.data() };
+      }
+    } catch {}
   }
+  // Fallback to Turso when Firestore is unreachable
+  const turso = getTurso();
+  if (turso) {
+    try {
+      const rs = await turso.execute({
+        sql: 'SELECT game_data FROM shared_games WHERE short_id = ?',
+        args: [shortId],
+      });
+      if (rs.rows.length > 0) {
+        const row = rs.rows[0];
+        const parsed = JSON.parse(row.game_data as string) as Record<string, unknown>;
+        return { id: shortId, ...parsed };
+      }
+    } catch {}
+  }
+  return null;
 }
 
 export async function deleteUserGame(uid: string, gameId: string) {
