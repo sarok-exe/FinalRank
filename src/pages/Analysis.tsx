@@ -75,7 +75,7 @@ export default function Analysis() {
   const [showGameList, setShowGameList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
-  const [savedToast, setSavedToast] = useState(false);
+  const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -156,17 +156,35 @@ function formatDuration(ms: number | undefined): string {
 
   const handleSaveGame = React.useCallback(() => {
     if (!selectedGame || !authUser || authUser.authProvider !== 'google') return;
-    import('../lib/firebase').then(({ saveUserGame }) => {
-      const gameForFirestore = {
-        ...selectedGame,
-        moves: JSON.parse(JSON.stringify(selectedGame.moves)),
-        userSaved: true,
-      };
-      saveUserGame(authUser.id, selectedGame.id, gameForFirestore as unknown as Record<string, unknown>);
-      setSavedToast(true);
-      setTimeout(() => setSavedToast(false), 2000);
+    const isSaved = savedGameIds.has(selectedGame.id);
+    import('../lib/firebase').then(({ saveUserGame, deleteUserGame }) => {
+      if (isSaved) {
+        deleteUserGame(authUser.id, selectedGame.id);
+        setSavedGameIds(prev => { const next = new Set(prev); next.delete(selectedGame.id); return next; });
+      } else {
+        const gameForFirestore = {
+          ...selectedGame,
+          moves: JSON.parse(JSON.stringify(selectedGame.moves)),
+          userSaved: true,
+        };
+        saveUserGame(authUser.id, selectedGame.id, gameForFirestore as unknown as Record<string, unknown>);
+        setSavedGameIds(prev => { const next = new Set(prev); next.add(selectedGame.id); return next; });
+      }
     });
-  }, [selectedGame, authUser]);
+  }, [selectedGame, authUser, savedGameIds]);
+
+  React.useEffect(() => {
+    if (authUser?.authProvider !== 'google') {
+      setSavedGameIds(new Set());
+      return;
+    }
+    import('../lib/firebase').then(({ fetchUserGames }) => {
+      fetchUserGames(authUser.id).then(games => {
+        const ids = new Set(games.filter((g: any) => g.userSaved).map((g: any) => g.id));
+        setSavedGameIds(ids);
+      });
+    });
+  }, [authUser?.id, authUser?.authProvider]);
 
   React.useEffect(() => {
     const cb = () => setShowShortcuts(true);
@@ -606,7 +624,7 @@ function formatDuration(ms: number | undefined): string {
                   className={`p-2 rounded-lg ${autoplay ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                 >
-                  <span className="text-lg">{autoplay ? '⏸' : '▶'}</span>
+                  <span className="text-lg">{autoplay ? '▐▐' : '▶'}</span>
                 </button>
                 <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
                   <ChevronRight className="w-5 h-5" />
@@ -623,14 +641,14 @@ function formatDuration(ms: number | undefined): string {
                   <button
                     onClick={handleSaveGame}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                      savedToast
+                      savedGameIds.has(selectedGame.id)
                         ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
                         : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
                     }`}
-                    title="Save game"
+                    title={savedGameIds.has(selectedGame.id) ? 'Remove save' : 'Save game'}
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>{savedToast ? 'Saved!' : 'Save'}</span>
+                    <span>{savedGameIds.has(selectedGame.id) ? 'Saved' : 'Save'}</span>
                   </button>
                 )}
                 <button
