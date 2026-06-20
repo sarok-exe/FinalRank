@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
+import { signInWithGoogle, onAuthChanged, getFirebaseUser, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
 import { syncUserProfile, fetchUserSettings, isSupabaseConfigured } from '../lib/supabase';
 
 interface AuthState {
@@ -193,11 +193,17 @@ export function initAuth() {
     useAuthStore.setState({ loading: false, error: null });
 
     if (!fbUser) {
-      if (existing?.authProvider === 'google') {
-        removeUser();
-        useAuthStore.setState({ user: null });
+      // Fallback: auth.currentUser might be available even if onAuthChanged fires null
+      const fallback = getFirebaseUser();
+      if (fallback) {
+        fbUser = fallback;
+      } else {
+        if (existing?.authProvider === 'google') {
+          removeUser();
+          useAuthStore.setState({ user: null });
+        }
+        return;
       }
-      return;
     }
 
     if (existing?.id === fbUser.uid) {
@@ -217,18 +223,22 @@ export function initAuth() {
     saveUser(user);
 
     if (isSupabaseConfigured()) {
-      syncUserProfile(user.id, {
-        username: user.username,
-        email: user.email,
-        avatar: user.avatar,
-        streak: user.streak,
-        analyzedCount: user.analyzedCount,
-        lastActiveDate: user.lastActiveDate,
-      });
-      const remoteSettings = await fetchUserSettings(user.id);
-      if (remoteSettings) {
-        const { useSettingsStore } = await import('./settingsStore');
-        useSettingsStore.getState().updateSettings(remoteSettings as any);
+      try {
+        syncUserProfile(user.id, {
+          username: user.username,
+          email: user.email,
+          avatar: user.avatar,
+          streak: user.streak,
+          analyzedCount: user.analyzedCount,
+          lastActiveDate: user.lastActiveDate,
+        });
+        const remoteSettings = await fetchUserSettings(user.id);
+        if (remoteSettings) {
+          const { useSettingsStore } = await import('./settingsStore');
+          useSettingsStore.getState().updateSettings(remoteSettings as any);
+        }
+      } catch {
+        // Supabase sync is best-effort
       }
     }
   });

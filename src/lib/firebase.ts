@@ -33,6 +33,10 @@ export function getFirebaseAuth() {
   return auth;
 }
 
+export function getFirebaseUser(): FirebaseUser | null {
+  return auth?.currentUser ?? null;
+}
+
 export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   initFirebase();
   if (!auth || !provider) return null;
