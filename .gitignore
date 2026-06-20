@@ -8,3 +8,9 @@ pawn-appetit/
 wintrchess/
 Thumbs.db
 Desktop.ini
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+!.env.example
