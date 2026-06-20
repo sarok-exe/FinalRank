@@ -128,9 +128,13 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   if (!db) return;
   try {
     await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
-    const shortId = (data as any).shortId || gameId;
-    await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
   } catch {}
+  const shortId = (data as any).shortId || gameId;
+  if (shortId) {
+    try {
+      await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
+    } catch {}
+  }
 }
 
 export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {

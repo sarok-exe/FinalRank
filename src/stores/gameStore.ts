@@ -391,7 +391,45 @@ export const useGameStore = create<GameState>((set, get) => ({
       return existing;
     }
     const data = await fetchPublishedGame(shortId);
-    if (!data) return null;
+    if (!data) {
+      const authUser = useAuthStore.getState().user;
+      if (authUser?.authProvider === 'google') {
+        const raw = await fetchUserGames(authUser.id);
+        const match = raw.find((r: any) => r.shortId === shortId);
+        if (match) {
+          const moves = typeof match.moves === 'string' ? JSON.parse(match.moves as string) : (match.moves || []);
+          const game: ChessGame = {
+            id: match.id as string,
+            shortId: match.shortId as string || shortId,
+            white: match.white as ChessGame['white'],
+            black: match.black as ChessGame['black'],
+            result: match.result as string,
+            date: match.date as string,
+            pgn: match.pgn as string,
+            moves,
+            accuracy: match.accuracy as ChessGame['accuracy'] || undefined,
+            classificationCounts: match.classificationCounts as ChessGame['classificationCounts'] || undefined,
+            analyzedAt: match.analyzedAt as string | undefined,
+            analysisDurationMs: match.analysisDurationMs as number | undefined,
+            initialPosition: match.initialPosition as string | undefined,
+          };
+          set(state2 => ({
+            games: [game, ...state2.games.filter(g => g.id !== game.id)],
+            selectedGame: game,
+            currentMoveIndex: -1,
+          }));
+          if (game.analyzedAt) {
+            set(state2 => ({
+              analysisCache: { ...state2.analysisCache, [game.id]: game },
+              analyzedPgnHashes: { ...state2.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
+            }));
+            saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)), userSaved: false } as unknown as Record<string, unknown>);
+          }
+          return game;
+        }
+      }
+      return null;
+    }
     const moves = typeof data.moves === 'string' ? JSON.parse(data.moves as string) : (data.moves || []);
     const game: ChessGame = {
       id: data.id as string,
