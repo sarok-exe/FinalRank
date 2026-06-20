@@ -41,9 +41,7 @@ export default function Shell({ children }: ShellProps) {
       <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-6 h-16 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
         <div className="flex items-center space-x-6">
           <Link to="/" className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-[var(--color-primary)] rounded flex items-center justify-center font-bold text-white">
-              FR
-            </div>
+            <img src="/logo.png" alt="FinalRank" className="w-8 h-8" />
             <h1 className="text-xl font-bold tracking-tight text-white">
               FinalRank<span className="text-[var(--color-accent)]">.</span>
             </h1>
@@ -81,6 +79,20 @@ export default function Shell({ children }: ShellProps) {
               <Flame className="w-3.5 h-3.5 text-[var(--color-accent)]" />
               <span>{user.streak} day{user.streak !== 1 ? 's' : ''}</span>
             </div>
+          )}
+
+          {user && (
+            <Link
+              to="/profile"
+              className={`hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+                user.chessComUsername
+                  ? 'bg-green-900/30 text-green-400 border border-green-700/50'
+                  : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
+              }`}
+              id="chesscom-link-nav"
+            >
+              <span>{user.chessComUsername ? user.chessComUsername : '+ Link Chess.com'}</span>
+            </Link>
           )}
 
           {user ? (
@@ -191,7 +203,7 @@ export default function Shell({ children }: ShellProps) {
       </main>
 
       <footer className={`border-t border-[var(--color-border)] bg-[var(--color-surface)] py-4 text-center text-xs text-[var(--color-text-muted)] flex flex-col sm:flex-row items-center justify-between px-6 max-w-7xl w-full mx-auto ${fullscreenMode ? 'hidden' : ''}`}>
-        <p>&copy; 2026 FinalRank. Powered by Stockfish 17 Lite via WebAssembly.</p>
+        <p>&copy; 2026 FinalRank.</p>
         <div className="flex items-center space-x-4 mt-1 sm:mt-0">
           <span className="text-[var(--color-border)]">|</span>
           <span className="text-[var(--color-text-muted)]">Arrow keys to navigate moves</span>

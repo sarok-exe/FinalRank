@@ -15,6 +15,9 @@ interface CloudEvalResponse {
 }
 
 export async function getCloudEvaluation(fen: string, multiPv: number = 2): Promise<EngineLine[]> {
+  if (!fen || !fen.includes(' ')) {
+    return [];
+  }
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 3000);
   const res = await fetch(

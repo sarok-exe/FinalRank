@@ -20,10 +20,13 @@ interface EvaluationProcess {
 }
 
 function getOptimalEngineCount(requested?: number): number {
-  const cpuCores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : undefined;
-  const available = cpuCores || 4;
-  const max = Math.min(available, 8);
-  return Math.min(requested || max, max);
+  return 1;
+}
+
+export function getEngineVersion(cores: number): string {
+  // ≤4 cores → single-threaded (no SharedArrayBuffer needed, works everywhere)
+  // >4 cores  → multi-threaded with ~70% threads
+  return cores <= 4 ? 'stockfish-18-lite-single.js' : 'stockfish-18-lite.js';
 }
 
 export function createGameEvaluator(
@@ -90,8 +93,13 @@ export function createGameEvaluator(
     for (let i = 1; i < fens.length; i++) {
       if (controller.signal.aborted) throw new Error('aborted');
       if (Date.now() - cloudStartTime > CLOUD_TIMEOUT) break;
+      const fen = fens[i];
+      if (!fen || !fen.includes(' ')) {
+        progresses[i] = 0.02;
+        continue;
+      }
       try {
-        const cloudLines = await getCloudEvaluation(fens[i], options.engineLinesCount);
+        const cloudLines = await getCloudEvaluation(fen, options.engineLinesCount);
         const topLine = cloudLines.reduce((best, line) =>
           !best || line.depth > best.depth ? line : best,
           undefined as EngineLine | undefined

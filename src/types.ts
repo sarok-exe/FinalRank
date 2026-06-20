@@ -7,6 +7,7 @@ export interface User {
   streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
+  chessComUsername?: string;
   settings: UserSettings;
 }
 
@@ -92,8 +93,7 @@ export type MoveClassification =
 
 export enum EngineVersion {
   LICHESS_CLOUD = 'lichess-cloud',
-  STOCKFISH_17_LITE = 'stockfish-17-lite-single.js',
-  STOCKFISH_18_LITE = 'stockfish-18-lite-single.js',
+  STOCKFISH_18_LITE = 'stockfish-18-lite.js',
   STOCKFISH_OFFICIAL = 'stockfish-official.js',
 }
 
@@ -157,6 +157,7 @@ export interface ChessGame {
     black: Record<string, number>;
   };
   analyzedAt?: string;
+  analysisDurationMs?: number;
 }
 
 export interface ClockPreset {

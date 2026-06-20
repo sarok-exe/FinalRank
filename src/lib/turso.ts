@@ -7,12 +7,20 @@ export function getTurso(): Client | null {
   const token = import.meta.env.VITE_TURSO_AUTH_TOKEN;
 
   if (!client && url) {
-    client = createClient({
-      url,
-      authToken: token || undefined,
-    });
+    try {
+      client = createClient({
+        url,
+        authToken: token || undefined,
+      });
+    } catch {
+      client = null;
+    }
   }
   return client;
+}
+
+export function resetTurso(): void {
+  client = null;
 }
 
 export function isTursoConfigured(): boolean {

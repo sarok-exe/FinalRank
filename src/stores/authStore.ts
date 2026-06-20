@@ -11,6 +11,7 @@ interface AuthState {
   logout: () => void;
   incrementAnalyzedGames: () => Promise<void>;
   updateStreakOnAnalysis: () => Promise<void>;
+  setChessComUsername: (username: string) => Promise<void>;
 }
 
 const DEFAULT_GUEST: User = {
@@ -149,6 +150,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
   },
+
+  setChessComUsername: async (chessComUsername: string) => {
+    const { user } = get();
+    if (!user) return;
+    const trimmed = chessComUsername.trim();
+    const updated = { ...user, chessComUsername: trimmed || undefined };
+    set({ user: updated });
+    saveUser(updated);
+    if (user.authProvider === 'google') {
+      updateUserProfile(updated.id, {
+        chessComUsername: updated.chessComUsername || null,
+      });
+    }
+  },
 }));
 
 function buildGoogleUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }): User {
@@ -162,6 +177,7 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
     streak: existing?.streak ?? 1,
     analyzedCount: existing?.analyzedCount ?? 0,
     lastActiveDate: new Date().toISOString().split('T')[0],
+    chessComUsername: existing?.chessComUsername || undefined,
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
 }
@@ -184,6 +200,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
   useAuthStore.setState({ error: null });
 
   // Try Firestore first for existing profile data
+  const existing = loadUser();
   const remoteProfile = await fetchUserProfile(fbUser.uid);
   if (remoteProfile) {
     const user: User = {
@@ -195,14 +212,13 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       streak: (remoteProfile.streak as number) ?? 1,
       analyzedCount: (remoteProfile.analyzedCount as number) ?? 0,
       lastActiveDate: (remoteProfile.lastActiveDate as string) || new Date().toISOString().split('T')[0],
+      chessComUsername: (remoteProfile.chessComUsername as string) || existing?.chessComUsername || undefined,
       settings: (remoteProfile.settings as User['settings']) || { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
     useAuthStore.setState({ user, loading: false });
     return;
   }
-
-  const existing = loadUser();
 
   if (existing?.id === fbUser.uid) {
     const refreshed = {
@@ -227,6 +243,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     streak: user.streak,
     analyzedCount: user.analyzedCount,
     lastActiveDate: user.lastActiveDate,
+    chessComUsername: user.chessComUsername || null,
     settings: user.settings,
   });
 }

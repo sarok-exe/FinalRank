@@ -12,7 +12,7 @@ export class Engine {
   private position = STARTING_FEN;
   private evaluating = false;
 
-  constructor(version: string = EngineVersion.STOCKFISH_17_LITE) {
+  constructor(version: string = EngineVersion.STOCKFISH_18_LITE) {
     this.worker = new Worker('/engines/' + version);
     this.version = version;
     this.worker.postMessage('uci');

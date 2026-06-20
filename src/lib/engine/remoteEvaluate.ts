@@ -73,7 +73,7 @@ export async function getCloudflareEvaluation(
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-    return parseRemoteResponse(res, fen, EngineVersion.STOCKFISH_17_LITE);
+    return parseRemoteResponse(res, fen, EngineVersion.STOCKFISH_18_LITE);
   } catch {
     clearTimeout(timeoutId);
     throw new Error('cloudflare eval failed');
@@ -95,7 +95,7 @@ export async function getSupabaseEvaluation(
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
-    return parseRemoteResponse(res, fen, EngineVersion.STOCKFISH_17_LITE);
+    return parseRemoteResponse(res, fen, EngineVersion.STOCKFISH_18_LITE);
   } catch {
     clearTimeout(timeoutId);
     throw new Error('supabase eval failed');

@@ -8,6 +8,7 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
 import ColorPicker from '../components/ColorPicker';
+import { Search } from 'lucide-react';
 
 type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors';
 
@@ -204,6 +205,32 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <Trophy className="w-6 h-6 text-[var(--color-accent)] mb-1" />
             <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
             <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
+          </div>
+        </div>
+
+        <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
+          <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
+            <Search className="w-3 h-3" />
+            Link Chess.com
+          </span>
+          <p className="text-[10px] text-[var(--color-text-muted)]">Auto-fetch your last 3 games on the Analysis page.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              defaultValue={user.chessComUsername || ''}
+              placeholder="Chess.com username"
+              id="chesscom-link-input"
+              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 outline-none focus:border-[var(--color-primary)]"
+            />
+            <button
+              onClick={(e) => {
+                const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
+                if (input) useAuthStore.getState().setChessComUsername(input.value);
+              }}
+              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+            >
+              Save
+            </button>
           </div>
         </div>
 

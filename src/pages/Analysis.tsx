@@ -23,6 +23,7 @@ import {
   Focus,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
+import { useAuthStore } from '../stores/authStore';
 import { hashPgn } from '../lib/tursoCache';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
@@ -46,13 +47,20 @@ export default function Analysis() {
     loadingGames,
     analysisCache,
     analyzedPgnHashes,
+    linkedGames,
+    linkedLoading,
+    linkedAnalyzing,
+    linkedAnalysisProgress,
     importChessComGames,
     selectGame,
     setCurrentMoveIndex,
     importPgnDirectly,
     triggerEvaluationPipeline,
     setGames,
+    fetchLinkedUserGames,
   } = useGameStore();
+
+  const { user: authUser } = useAuthStore();
 
   const { settings, updateSettings } = useSettingsStore();
   const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
@@ -66,15 +74,30 @@ export default function Analysis() {
   const [showGameList, setShowGameList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
-  const isInAnalysis = !!selectedGame;
-  const legendaryData = checkLegendaryStatus();
-  const currentMove = selectedGame?.moves[currentMoveIndex];
+const isInAnalysis = !!selectedGame;
+const legendaryData = checkLegendaryStatus();
+const currentMove = selectedGame?.moves[currentMoveIndex];
+
+function formatDuration(ms: number | undefined): string {
+  if (!ms || ms <= 0) return '';
+  const s = ms / 1000;
+  if (s < 60) return `${s.toFixed(1)}s`;
+  const min = Math.floor(s / 60);
+  const sec = Math.round(s % 60);
+  return `${min}m ${sec}s`;
+}
 
   useEffect(() => {
     if (games.length === 0 && !selectedGame) {
       setGames(LEGENDARY_PRESET_GAMES);
     }
   }, []);
+
+  useEffect(() => {
+    if (authUser?.chessComUsername) {
+      fetchLinkedUserGames();
+    }
+  }, [authUser?.chessComUsername]);
 
   const prevMoveIndexRef = React.useRef(currentMoveIndex);
   React.useEffect(() => {
@@ -361,7 +384,7 @@ export default function Analysis() {
                       </div>
                     </div>
                     {isAnalyzed && (
-                      <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed</span>
+                      <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
                     )}
                   </button>
                 );
@@ -383,6 +406,56 @@ export default function Analysis() {
                   {g.white.username} vs {g.black.username}
                 </button>
               ))}
+            </div>
+          </div>
+        )}
+
+        {authUser?.chessComUsername && linkedGames.length > 0 && (
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
+                <span>{authUser.chessComUsername}&apos;s Recent Games</span>
+              </h3>
+              <button
+                onClick={fetchLinkedUserGames}
+                disabled={linkedLoading}
+                className="text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50"
+              >
+                {linkedLoading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
+            {linkedAnalyzing && linkedAnalysisProgress && (
+              <div className="text-[11px] text-[var(--color-accent)] font-semibold mb-3">
+                {linkedAnalysisProgress}
+              </div>
+            )}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {linkedGames.map((g) => {
+                const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+                return (
+                  <button
+                    key={g.id}
+                    onClick={() => selectGame(g.id)}
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${
+                      isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
+                        <span>{g.date}</span>
+                        <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                      </div>
+                      <div className="text-xs font-bold text-white truncate">
+                        {g.white.username} vs {g.black.username}
+                      </div>
+                    </div>
+                    {isAnalyzed && (
+                      <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
@@ -631,7 +704,9 @@ export default function Analysis() {
                 <span className="mx-1">&bull;</span>
                 <span className="truncate">{selectedGame.date}</span>
                 {selectedGame.analyzedAt && (
-                  <span className="text-[10px] text-green-500 font-bold ml-auto">&#x2713; Analyzed</span>
+                  <span className="text-[10px] text-green-500 font-bold ml-auto">
+                    &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
+                  </span>
                 )}
               </div>
               <div className="text-sm font-bold text-white flex flex-col gap-1">
@@ -829,7 +904,7 @@ export default function Analysis() {
                     </span>
                   )}
                   {isAnalyzed && (
-                    <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed</span>
+                    <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
                   )}
                 </div>
               </button>
