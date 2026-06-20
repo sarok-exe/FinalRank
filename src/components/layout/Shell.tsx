@@ -41,7 +41,7 @@ export default function Shell({ children }: ShellProps) {
       <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-6 h-16 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
         <div className="flex items-center space-x-6">
           <Link to="/" className="flex items-center space-x-3">
-            <img src="/logo.png" alt="FinalRank" className="w-8 h-8" />
+            <img src="/logo.webp" alt="FinalRank" className="w-8 h-8" />
             <h1 className="text-xl font-bold tracking-tight text-white">
               FinalRank<span className="text-[var(--color-accent)]">.</span>
             </h1>

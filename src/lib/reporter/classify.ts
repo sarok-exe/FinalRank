@@ -37,7 +37,8 @@ export function classifyMove(
 
   const prevTopLine = getTopEngineLine(prevEngineLines);
   const currTopLine = getTopEngineLine(currEngineLines);
-  if (!prevTopLine || !currTopLine) return {};
+  if (!currTopLine) return {};
+  if (!prevTopLine) return { classification: 'best', opening };
 
   const prev = extractPreviousStateTreeNode(prevFen, prevEngineLines, playedMoveSan);
   const curr = extractCurrentStateTreeNode(currFen, currEngineLines, prevFen, playedMoveSan);

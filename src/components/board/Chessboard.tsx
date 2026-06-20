@@ -19,6 +19,8 @@ interface ChessboardProps {
     from: string;
     to: string;
   };
+  rightClickedSquares?: string[];
+  onSquareRightClick?: (square: string) => void;
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -32,6 +34,8 @@ const Chessboard = memo(function Chessboard({
   className = '',
   highlightSquares,
   bestMoveArrow,
+  rightClickedSquares = [],
+  onSquareRightClick,
 }: ChessboardProps) {
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -188,8 +192,9 @@ const Chessboard = memo(function Chessboard({
         iconPath = '/img/classifications/best.svg';
         break;
       case 'good':
+      case 'okay':
         badgeBg = 'bg-[#3182bd]';
-        badgeText = '✓';
+        iconPath = '/img/classifications/good.svg';
         break;
       case 'inaccuracy':
         badgeBg = 'bg-[#f0a600]';
@@ -206,6 +211,14 @@ const Chessboard = memo(function Chessboard({
       case 'forced':
         badgeBg = 'bg-[#636363]';
         iconPath = '/img/classifications/forced.svg';
+        break;
+      case 'book':
+        badgeBg = 'bg-[#a88764]';
+        iconPath = '/img/classifications/book.svg';
+        break;
+      case 'critical':
+        badgeBg = 'bg-[#5b8baf]';
+        iconPath = '/img/classifications/critical.svg';
         break;
       default:
         return null;
@@ -249,6 +262,7 @@ const Chessboard = memo(function Chessboard({
             const isSelected = selectedSquare === squareName;
             const isValidDest = validMoves.includes(squareName);
             const isMoveTrail = isHighlighted(squareName);
+            const isRightClicked = rightClickedSquares.includes(squareName);
 
             let squareBg = isDark ? colors.dark : colors.light;
 
@@ -260,12 +274,19 @@ const Chessboard = memo(function Chessboard({
             if (isSelected) {
               squareBg = 'bg-[rgba(255,170,0,0.55)]';
             }
+            if (isRightClicked) {
+              squareBg = 'bg-[rgba(100,200,255,0.45)]';
+            }
 
             return (
               <div
                 key={squareName}
                 className={`relative w-full h-full flex items-center justify-center ${squareBg}`}
                 onClick={() => handleSquareClick(squareName, piece)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  if (onSquareRightClick) onSquareRightClick(squareName);
+                }}
               >
                 {settings.featureToggles.showCoordinates && (
                   <>

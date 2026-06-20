@@ -174,6 +174,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
   const [engineGoMode, setEngineGoMode] = useState<EngineGoMode>('depth');
   const [engineThinkingTime, setEngineThinkingTime] = useState(2000);
   const [engineFeedback, setEngineFeedback] = useState('');
+  const [rcSquares, setRcSquares] = useState<string[]>([]);
 
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
@@ -337,6 +338,12 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                   fen={fen}
                   playable={!engineThinking}
                   onMove={handlePlayerMove}
+                  rightClickedSquares={rcSquares}
+                  onSquareRightClick={(sq) => {
+                    setRcSquares(prev =>
+                      prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
+                    );
+                  }}
                 />
               </div>
             </div>
@@ -478,6 +485,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  const [rcSquares2, setRcSquares2] = useState<string[]>([]);
   const [fen, setFen] = useState(STARTING_FEN);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [autoFlip, setAutoFlip] = useState(false);
@@ -632,6 +640,12 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 playable={!gameOver}
                 onMove={handleMove}
                 orientation={autoFlip ? perspective : undefined}
+                rightClickedSquares={rcSquares2}
+                onSquareRightClick={(sq) => {
+                  setRcSquares2(prev =>
+                    prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
+                  );
+                }}
               />
             </div>
           </div>

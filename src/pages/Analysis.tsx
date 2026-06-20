@@ -87,6 +87,7 @@ export default function Analysis() {
   const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
+  const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
     const onResize = () => setVpW(window.innerWidth);
@@ -683,6 +684,12 @@ function formatDuration(ms: number | undefined): string {
                 orientation={settings.boardOrientation}
                 highlightSquares={getMoveHighlight()}
                 bestMoveArrow={getBestMoveArrow()}
+                rightClickedSquares={rightClickedSquares}
+                onSquareRightClick={(sq) => {
+                  setRightClickedSquares(prev =>
+                    prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
+                  );
+                }}
               />
             </div>
           </div>
