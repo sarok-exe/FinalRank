@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, onAuthChanged, handleRedirectResult, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
+import { signInWithGoogle, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
 
 interface AuthState {
   user: User | null;
@@ -89,7 +89,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return;
       }
       await signInWithGoogle();
-      // page redirects to Google - no further code runs here
+      // onAuthChanged will fire and set the user in the store
     } catch (err) {
       set({ error: err instanceof Error ? err.message : 'Sign-in failed.', loading: false });
     }
@@ -169,17 +169,19 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
 // Subscribe to Firebase auth state (handles redirect result + page refresh + sign-out)
 let unsubAuth: (() => void) | null = null;
 
+let receivedUser = false;
+
 async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null) {
   if (!fbUser) {
-    const existing = loadUser();
-    if (existing?.authProvider === 'google') {
-      removeUser();
-      useAuthStore.setState({ user: null });
-    }
+    // First null callback = IndexedDB hasn't loaded yet, or no user at all.
+    // Only clear the store user if we KNOW a user was previously set
+    // (prevents destroying the optimistic cached user on initial page load).
+    useAuthStore.setState({ loading: false });
     return;
   }
 
-  useAuthStore.setState({ loading: false, error: null });
+  receivedUser = true;
+  useAuthStore.setState({ error: null });
 
   // Try Firestore first for existing profile data
   const remoteProfile = await fetchUserProfile(fbUser.uid);
@@ -196,7 +198,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       settings: (remoteProfile.settings as User['settings']) || { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
-    useAuthStore.setState({ user });
+    useAuthStore.setState({ user, loading: false });
     return;
   }
 
@@ -210,16 +212,15 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       email: fbUser.email || existing.email,
     };
     saveUser(refreshed);
-    useAuthStore.setState({ user: refreshed });
+    useAuthStore.setState({ user: refreshed, loading: false });
     return;
   }
 
   const user = buildGoogleUser(fbUser);
-  useAuthStore.setState({ user });
   saveUser(user);
+  useAuthStore.setState({ user, loading: false });
 
-  // Save new user to Firestore
-  saveUserProfile(user.id, {
+  await saveUserProfile(user.id, {
     username: user.username,
     email: user.email,
     avatar: user.avatar,
@@ -234,33 +235,20 @@ export async function initAuth() {
   if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
   if (unsubAuth) unsubAuth();
 
+  receivedUser = false;
+
   // Only show spinner if no cached user from a previous session
   const cachedUser = loadUser();
   if (!cachedUser) {
     useAuthStore.setState({ loading: true });
   }
 
-  let hasUser = false;
-
-  // Step 1: Subscribe to auth state FIRST — catches ALL state changes,
-  // including the one triggered by getRedirectResult below
   unsubAuth = onAuthChanged(async (fbUser) => {
-    hasUser = !!fbUser;
-    await handleFirebaseUser(fbUser);
-  });
-
-  // Step 2: Process pending redirect result (user coming back from Google OAuth)
-  // This sets auth.currentUser, which triggers onAuthChanged above
-  try {
-    await handleRedirectResult();
-  } catch (err) {
-    console.error('Redirect result error:', err);
-  }
-
-  // If no user was resolved after a reasonable time, show the login form
-  setTimeout(() => {
-    if (!hasUser && !loadUser()) {
-      useAuthStore.setState({ loading: false });
+    try {
+      await handleFirebaseUser(fbUser);
+    } catch (err) {
+      console.error('[Auth] handleFirebaseUser failed:', err);
+      useAuthStore.setState({ error: 'Failed to load profile', loading: false });
     }
-  }, 1000);
+  });
 }

@@ -1,6 +1,6 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
-  getAuth, Auth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
+  getAuth, Auth, GoogleAuthProvider, signInWithPopup,
   onAuthStateChanged, signOut as fbSignOut, User as FirebaseUser,
 } from 'firebase/auth';
 import {
@@ -94,19 +94,8 @@ export function getFirebaseUser(): FirebaseUser | null {
 export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   initFirebase();
   if (!auth || !provider) return null;
-  await signInWithRedirect(auth, provider);
-  return null; // page will redirect, never reaches here
-}
-
-export async function handleRedirectResult(): Promise<FirebaseUser | null> {
-  initFirebase();
-  if (!auth) return null;
-  try {
-    const result = await getRedirectResult(auth);
-    return result?.user ?? null;
-  } catch {
-    return null;
-  }
+  const result = await signInWithPopup(auth, provider);
+  return result.user;
 }
 
 export async function signOut() {
