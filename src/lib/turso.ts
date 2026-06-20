@@ -39,17 +39,17 @@ export async function initTursoSchema() {
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS analyzed_games (
-      id TEXT PRIMARY KEY,
-      user_id TEXT NOT NULL,
+      pgn_hash TEXT PRIMARY KEY,
       pgn TEXT NOT NULL,
+      depth INTEGER NOT NULL DEFAULT 10,
+      analysis_data TEXT NOT NULL DEFAULT '{}',
       result TEXT,
       white TEXT,
       black TEXT,
       date TEXT,
       accuracy_white REAL,
       accuracy_black REAL,
-      analyzed_at TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (user_id) REFERENCES profiles(id)
+      analyzed_at TEXT DEFAULT (datetime('now'))
     )
   `);
 }

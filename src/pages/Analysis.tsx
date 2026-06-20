@@ -40,6 +40,7 @@ export default function Analysis() {
     selectedGame,
     currentMoveIndex,
     analyzing,
+    autoAnalyzing,
     analysisProgress,
     importError,
     loadingGames,
@@ -553,18 +554,31 @@ export default function Analysis() {
                   <option value={15}>Depth 15</option>
                   <option value={18}>Depth 18</option>
                 </select>
+                {autoAnalyzing && (
+                  <span className="text-[10px] text-[var(--color-accent)] font-semibold mr-2">
+                    Pre-analyzing...
+                  </span>
+                )}
                 <button
                   onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
-                  disabled={analyzing}
+                  disabled={analyzing || autoAnalyzing}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
-                    analyzing
+                    analyzing || autoAnalyzing
                       ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
                       : 'bg-[var(--color-primary)]'
                   }`}
                   id="analyze-game-button"
                 >
                   <Activity className="w-3.5 h-3.5" />
-                  <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
+                  <span>
+                    {analyzing
+                      ? 'Analyzing...'
+                      : autoAnalyzing
+                        ? 'Pre-analyzing...'
+                        : selectedGame?.accuracy
+                          ? 'Re-analyze'
+                          : 'Analyze'}
+                  </span>
                 </button>
               </div>
             </div>
@@ -624,6 +638,9 @@ export default function Analysis() {
                 <span className="text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
                 <span className="mx-1">&bull;</span>
                 <span className="truncate">{selectedGame.date}</span>
+                {selectedGame.analyzedAt && (
+                  <span className="text-[10px] text-green-500 font-bold ml-auto">&#x2713; Analyzed</span>
+                )}
               </div>
               <div className="text-sm font-bold text-white flex flex-col gap-1">
                 <div className="flex items-center space-x-2.5">
