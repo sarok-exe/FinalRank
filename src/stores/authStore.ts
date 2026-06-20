@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, handleRedirectResult, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
+import { signInWithGoogle, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
 import { syncUserProfile, fetchUserSettings, isSupabaseConfigured } from '../lib/supabase';
 
 interface AuthState {
@@ -161,14 +161,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 }));
 
-// Handle Firebase redirect result on page load
-export async function initAuth() {
-  if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
-  const fbUser = await handleRedirectResult();
-  if (!fbUser) return;
+function buildGoogleUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }): User {
   const existing = loadUser();
-  if (existing?.id === fbUser.uid) return;
-  const user: User = {
+  return {
     id: fbUser.uid,
     username: fbUser.displayName || fbUser.email?.split('@')[0] || 'GoogleUser',
     email: fbUser.email || '',
@@ -179,22 +174,57 @@ export async function initAuth() {
     lastActiveDate: new Date().toISOString().split('T')[0],
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
-  useAuthStore.getState().user = user;
-  useAuthStore.setState({ user });
-  saveUser(user);
-  if (isSupabaseConfigured()) {
-    syncUserProfile(user.id, {
-      username: user.username,
-      email: user.email,
-      avatar: user.avatar,
-      streak: user.streak,
-      analyzedCount: user.analyzedCount,
-      lastActiveDate: user.lastActiveDate,
-    });
-    const remoteSettings = await fetchUserSettings(user.id);
-    if (remoteSettings) {
-      const { useSettingsStore } = await import('./settingsStore');
-      useSettingsStore.getState().updateSettings(remoteSettings as any);
+}
+
+// Subscribe to Firebase auth state (handles redirect result + page refresh + sign-out)
+let unsubAuth: (() => void) | null = null;
+
+export function initAuth() {
+  if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
+  if (unsubAuth) unsubAuth();
+
+  unsubAuth = onAuthChanged(async (fbUser) => {
+    const existing = loadUser();
+    if (!fbUser) {
+      // Only clear if the existing user was a Google user (don't wipe guest)
+      if (existing?.authProvider === 'google') {
+        removeUser();
+        useAuthStore.setState({ user: null });
+      }
+      return;
     }
-  }
+
+    if (existing?.id === fbUser.uid) {
+      // Already have this user — still update name/avatar in case they changed
+      const refreshed = {
+        ...existing,
+        username: fbUser.displayName || existing.username,
+        avatar: fbUser.photoURL || existing.avatar,
+        email: fbUser.email || existing.email,
+      };
+      saveUser(refreshed);
+      useAuthStore.setState({ user: refreshed });
+      return;
+    }
+
+    const user = buildGoogleUser(fbUser);
+    useAuthStore.setState({ user });
+    saveUser(user);
+
+    if (isSupabaseConfigured()) {
+      syncUserProfile(user.id, {
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        streak: user.streak,
+        analyzedCount: user.analyzedCount,
+        lastActiveDate: user.lastActiveDate,
+      });
+      const remoteSettings = await fetchUserSettings(user.id);
+      if (remoteSettings) {
+        const { useSettingsStore } = await import('./settingsStore');
+        useSettingsStore.getState().updateSettings(remoteSettings as any);
+      }
+    }
+  });
 }

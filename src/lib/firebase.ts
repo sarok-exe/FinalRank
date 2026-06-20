@@ -1,8 +1,10 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth, Auth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
-  signOut as fbSignOut, User as FirebaseUser,
+  onAuthStateChanged, signOut as fbSignOut, User as FirebaseUser,
 } from 'firebase/auth';
+
+type AuthCallback = (user: FirebaseUser | null) => void;
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
@@ -52,6 +54,19 @@ export async function handleRedirectResult(): Promise<FirebaseUser | null> {
 export async function signOut() {
   if (!auth) return;
   await fbSignOut(auth);
+}
+
+/**
+ * Subscribe to Firebase auth state changes.
+ * Fires immediately on subscribe if a session exists, and on every sign-in/sign-out.
+ */
+export function onAuthChanged(callback: AuthCallback): () => void {
+  initFirebase();
+  if (!auth) {
+    callback(null);
+    return () => {};
+  }
+  return onAuthStateChanged(auth, callback);
 }
 
 export function isFirebaseConfigured(): boolean {
