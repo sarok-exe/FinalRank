@@ -86,6 +86,7 @@ export default function Analysis() {
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
   const [showShare, setShowShare] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [urlGameNotFound, setUrlGameNotFound] = useState(false);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -108,7 +109,10 @@ function formatDuration(ms: number | undefined): string {
 
   useEffect(() => {
     if (urlGameId) {
-      loadGameByShortId(urlGameId);
+      setUrlGameNotFound(false);
+      loadGameByShortId(urlGameId).then(game => {
+        if (!game) setUrlGameNotFound(true);
+      });
     }
   }, [urlGameId]);
 
@@ -383,6 +387,20 @@ function formatDuration(ms: number | undefined): string {
   if (!isInAnalysis) {
     return (
       <div className="max-w-2xl mx-auto space-y-6" id="analysis-import-view">
+
+        {urlGameNotFound && (
+          <div className="bg-red-900/30 border border-red-700/50 rounded-2xl p-6 text-center space-y-2">
+            <AlertTriangle className="w-8 h-8 mx-auto text-red-400" />
+            <h2 className="text-lg font-bold text-white">Game Not Found</h2>
+            <p className="text-sm text-red-200">
+              This game hasn't been saved yet. The analysis may still be in progress on the original browser, or the game was shared before saving completed.
+            </p>
+            <p className="text-xs text-red-300 mt-2">
+              Try again in a few seconds, or import the game below.
+            </p>
+          </div>
+        )}
+
         <div className="text-center space-y-2 mb-2">
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
             Analyze a Chess Game
