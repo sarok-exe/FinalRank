@@ -27,6 +27,8 @@ import {
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { hashPgn } from '../lib/tursoCache';
+import { generateShortId } from '../lib/shortId';
+import type { ChessGame } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
@@ -113,6 +115,13 @@ function formatDuration(ms: number | undefined): string {
   useEffect(() => {
     if (selectedGame?.shortId && selectedGame.shortId !== urlGameId) {
       navigate(`/game/${selectedGame.shortId}`, { replace: true });
+    } else if (selectedGame && !selectedGame.shortId && !urlGameId) {
+      const shortId = generateShortId();
+      useGameStore.setState(s => ({
+        games: s.games.map(g => g.id === selectedGame.id ? { ...g, shortId } : g),
+        selectedGame: s.selectedGame?.id === selectedGame.id ? { ...s.selectedGame, shortId } : s.selectedGame,
+      }));
+      navigate(`/game/${shortId}`, { replace: true });
     }
   }, [selectedGame?.id]);
 
@@ -305,8 +314,22 @@ function formatDuration(ms: number | undefined): string {
 
   const handleSelectGame = (gameId: string) => {
     selectGame(gameId);
-    const game = useGameStore.getState().games.find(g => g.id === gameId);
-    if (game?.shortId) {
+    let game = useGameStore.getState().games.find(g => g.id === gameId);
+    if (!game?.shortId) {
+      const shortId = generateShortId();
+      useGameStore.setState(s => ({
+        games: s.games.map(g => g.id === gameId ? { ...g, shortId } : g),
+        selectedGame: s.selectedGame?.id === gameId ? { ...s.selectedGame, shortId } as ChessGame : s.selectedGame,
+      }));
+      game = { ...game!, shortId };
+      navigate(`/game/${shortId}`, { replace: true });
+      const uid = useAuthStore.getState().user?.id;
+      if (uid) {
+        import('../lib/firebase').then(({ saveUserGame }) => {
+          saveUserGame(uid, game!.id, { ...game!, shortId });
+        });
+      }
+    } else {
       navigate(`/game/${game.shortId}`, { replace: true });
     }
   };
