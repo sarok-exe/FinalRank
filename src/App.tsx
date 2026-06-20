@@ -8,6 +8,7 @@ import Shell from './components/layout/Shell';
 import Analysis from './pages/Analysis';
 import Tools from './pages/Tools';
 import Profile from './pages/Profile';
+import Report from './pages/Report';
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/" element={<Analysis />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/report" element={<Report />} />
           <Route path="*" element={<Analysis />} />
         </Routes>
       </Shell>

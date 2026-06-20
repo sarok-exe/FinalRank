@@ -4,6 +4,7 @@ import {
   BarChart3,
   Clock,
   User,
+  Flag,
   Menu,
   X,
   LogOut,
@@ -30,6 +31,7 @@ export default function Shell({ children }: ShellProps) {
     { name: 'Analysis', path: '/', icon: BarChart3 },
     { name: 'Tools', path: '/tools', icon: Clock },
     { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Report', path: '/report', icon: Flag },
   ];
 
   const handleNavClick = () => setMobileMenuOpen(false);

@@ -11,6 +11,7 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@emailjs/browser": "^4.4.1",
     "@google/genai": "^2.4.0",
     "@libsql/client": "^0.17.4",
     "@supabase/supabase-js": "^2.108.2",
