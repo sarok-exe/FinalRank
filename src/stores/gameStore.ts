@@ -7,7 +7,7 @@ import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
 import { saveUserGame, fetchUserGames, deleteUserGame, fetchPublishedGame } from '../lib/firebase';
-import { fetchGameFromApi } from '../lib/api';
+import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
 
 interface GameState {
@@ -176,10 +176,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs }
           : state.selectedGame,
       }));
-      const authUser = useAuthStore.getState().user;
-      if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && cached.shortId) {
-        const payload = { ...cached, moves: JSON.parse(JSON.stringify(cached.moves)), userSaved: false };
-        saveUserGame(authUser.id, gameId, payload as unknown as Record<string, unknown>);
+      if (cached.shortId) {
+        saveGameToApi(cached.shortId, cached);
       }
       return;
     }
@@ -531,6 +529,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const shortId = analysedGame.shortId || game.shortId || gameId;
   if (shortId) {
     saveSharedGameToTurso(shortId, analysedGame);
+    saveGameToApi(shortId, analysedGame);
   }
 
   const gameForFirestore = {
@@ -539,20 +538,14 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     userSaved: false,
   };
 
-  const doSave = () => {
-    const u = useAuthStore.getState().user;
-    if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
-      saveUserGame(u.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
-      return true;
-    }
-    return false;
-  };
-
-  if (!doSave()) {
+  const u = useAuthStore.getState().user;
+  if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
+    saveUserGame(u.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+  } else {
     const unsub = useAuthStore.subscribe((state, prev) => {
       if ((state.user?.authProvider === 'google' || state.user?.authProvider === 'anonymous') && !prev.user) {
         unsub();
-        doSave();
+        saveUserGame(state.user.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
       }
     });
     setTimeout(() => unsub(), 15000);

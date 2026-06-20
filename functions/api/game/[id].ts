@@ -3,6 +3,10 @@ interface Env {
   VITE_TURSO_AUTH_TOKEN?: string;
 }
 
+function toHttpUrl(url: string): string {
+  return url.replace(/^libsql:\/\//, 'https://');
+}
+
 export async function onRequest(context: { request: Request; env: Env; params: { id: string } }): Promise<Response> {
   const headers = {
     'Content-Type': 'application/json',
@@ -31,7 +35,8 @@ export async function onRequest(context: { request: Request; env: Env; params: {
   }
 
   try {
-    const response = await fetch(`${url}/v2/pipeline`, {
+    const httpUrl = toHttpUrl(url);
+    const response = await fetch(`${httpUrl}/v2/pipeline`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
