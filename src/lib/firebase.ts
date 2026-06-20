@@ -3,6 +3,9 @@ import {
   getAuth, Auth, GoogleAuthProvider, signInWithRedirect, getRedirectResult,
   onAuthStateChanged, signOut as fbSignOut, User as FirebaseUser,
 } from 'firebase/auth';
+import {
+  getFirestore, Firestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
+} from 'firebase/firestore';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
 
@@ -18,6 +21,7 @@ const firebaseConfig = {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let provider: GoogleAuthProvider | null = null;
+let db: Firestore | null = null;
 
 export function initFirebase() {
   if (!app && firebaseConfig.apiKey) {
@@ -27,6 +31,56 @@ export function initFirebase() {
     provider.setCustomParameters({ prompt: 'select_account' });
   }
   return { app, auth, provider };
+}
+
+export function initFirestore() {
+  if (!db && app) {
+    db = getFirestore(app);
+  }
+  return db;
+}
+
+export function getFirestoreDb() {
+  return db;
+}
+
+export async function fetchUserProfile(uid: string): Promise<Record<string, unknown> | null> {
+  initFirestore();
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    return snap.exists() ? snap.data() : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveUserProfile(uid: string, data: Record<string, unknown>) {
+  initFirestore();
+  if (!db) return null;
+  try {
+    const ref = doc(db, 'users', uid);
+    const snap = await getDoc(ref);
+    if (snap.exists()) {
+      await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+    } else {
+      await setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+    }
+    return true;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateUserProfile(uid: string, data: Record<string, unknown>) {
+  initFirestore();
+  if (!db) return null;
+  try {
+    await updateDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() });
+    return true;
+  } catch {
+    return null;
+  }
 }
 
 export function getFirebaseAuth() {

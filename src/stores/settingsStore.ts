@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { UserSettings } from '../types';
-import { syncUserSettings, isSupabaseConfigured } from '../lib/supabase';
+import { updateUserProfile } from '../lib/firebase';
 
 interface SettingsState {
   settings: UserSettings;
@@ -93,8 +93,8 @@ function debouncedSyncSettings(settings: UserSettings) {
     if (!userRaw) return;
     try {
       const user = JSON.parse(userRaw);
-      if (user.authProvider === 'google' && isSupabaseConfigured()) {
-        syncUserSettings(user.id, settings as unknown as Record<string, unknown>);
+      if (user.authProvider === 'google') {
+        updateUserProfile(user.id, { settings });
       }
     } catch {}
   }, 2000);
