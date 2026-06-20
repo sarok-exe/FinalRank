@@ -608,7 +608,7 @@ function formatDuration(ms: number | undefined): string {
             </button>
           </div>
 
-          {!focusMode && (
+      {!(focusMode && fullscreenMode) && (
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
             <div className="flex items-center justify-between">
               <div>
@@ -754,65 +754,49 @@ function formatDuration(ms: number | undefined): string {
                   Click 'Analyze' to evaluate positions.
                 </div>
               ) : (
-                <div className="space-y-0.5 font-mono">
-                  <div className="text-[10px] text-[var(--color-text-muted)] font-semibold py-1 border-b border-[var(--color-border)] mb-1 flex items-center gap-1.5">
-                    <span>Analysis</span>
-                    <span className="text-[var(--color-primary)]">depth={
-                      selectedGame.analyzedAt
-                        ? (selectedGame.moves.find(m => m.engineLines?.length)?.engineLines?.[0]?.depth ?? '?')
-                        : '?'
-                    }</span>
-                    <span>|</span>
-                    <span>Stockfish 18 Lite</span>
-                  </div>
-                  {selectedGame.moves.map((move, idx) => {
-                    const turnNum = Math.floor(idx / 2) + 1;
-                    const label = move.color === 'w' ? `${turnNum}.` : `${turnNum}...`;
-                    const sel = currentMoveIndex === move.index;
-                    let evalStr = '';
-                    if (move.evaluation) {
-                      if (move.evaluation.isMate) {
-                        evalStr = `#${move.evaluation.mateIn}`;
-                      } else {
-                        const s = move.evaluation.score;
-                        evalStr = s > 0 ? `+${s.toFixed(2)}` : s.toFixed(2);
-                      }
-                    }
-                    const pvMoves = move.evaluation?.pv?.slice(0, 5) ?? [];
+                <div className="grid grid-cols-2 gap-1 text-sm font-mono">
+                  {Array.from({ length: Math.ceil(selectedGame.moves.length / 2) }).map((_, rowIndex) => {
+                    const whiteMove = selectedGame.moves[rowIndex * 2];
+                    const blackMove = selectedGame.moves[rowIndex * 2 + 1];
+                    const turnNum = rowIndex + 1;
                     return (
-                      <button
-                        key={move.index}
-                        onClick={() => setCurrentMoveIndex(move.index)}
-                        className={`w-full text-left text-[11px] py-1 px-2 rounded flex items-center gap-1.5 ${
-                          sel ? 'bg-[var(--color-surface)] ring-1 ring-[var(--color-primary)]' : 'hover:bg-[var(--color-surface)]'
-                        }`}
-                      >
-                        <span className="text-[var(--color-text-muted)] font-bold w-[4ch] shrink-0">{label}</span>
-                        <span className={`${move.classification ? '' : 'text-white font-semibold'}`}
-                          style={move.classification ? { color: classificationColours[move.classification] } : {}}
-                        >{move.san}</span>
-                        {move.classification && classificationImages[move.classification] && (
-                          <img src={classificationImages[move.classification]} alt={move.classification} width={14} height={14} className="shrink-0 opacity-85" />
+                      <div key={rowIndex} className="col-span-2 grid grid-cols-12 py-1.5 px-2 rounded-lg bg-transparent items-center">
+                        <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-bold">{turnNum}.</div>
+                        <button
+                          onClick={() => setCurrentMoveIndex(whiteMove.index)}
+                          className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
+                            currentMoveIndex === whiteMove.index
+                              ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                              : 'text-[var(--color-text)]'
+                          }`}
+                          id={`move-${whiteMove.index}`}
+                        >
+                          <span>{whiteMove.san}</span>
+                          {whiteMove.classification && classificationImages[whiteMove.classification] && (
+                            <img src={classificationImages[whiteMove.classification]} alt={whiteMove.classification} width={22} height={22} className="inline-block ml-1.5 opacity-85" />
+                          )}
+                        </button>
+                        {blackMove ? (
+                          <button
+                            onClick={() => setCurrentMoveIndex(blackMove.index)}
+                            className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
+                              currentMoveIndex === blackMove.index
+                                ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                                : 'text-[var(--color-text)]'
+                            }`}
+                            id={`move-${blackMove.index}`}
+                          >
+                            <span>{blackMove.san}</span>
+                            {blackMove.classification && classificationImages[blackMove.classification] && (
+                              <img src={classificationImages[blackMove.classification]} alt={blackMove.classification} width={22} height={22} className="inline-block ml-1.5 opacity-85" />
+                            )}
+                          </button>
+                        ) : (
+                          <div className="col-span-5" />
                         )}
-                        {evalStr && (
-                          <span className={`text-[10px] font-mono ml-auto shrink-0 ${move.evaluation?.score > 0 ? 'text-[var(--color-primary)]' : 'text-white'}`}>
-                            {evalStr}
-                          </span>
-                        )}
-                        {pvMoves.length > 0 && (
-                          <span className="text-[10px] text-[var(--color-text-muted)] truncate min-w-0 ml-1">
-                            [{pvMoves.join(' ')}]
-                          </span>
-                        )}
-                      </button>
+                      </div>
                     );
                   })}
-                  {selectedGame.moves[0]?.opening && (
-                    <div className="text-[10px] text-[var(--color-accent)] font-semibold pt-1.5 border-t border-[var(--color-border)] mt-1 flex items-center gap-1">
-                      <BookOpen className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{selectedGame.moves[0].opening}</span>
-                    </div>
-                  )}
                 </div>
               )}
             </div>

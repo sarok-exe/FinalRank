@@ -230,12 +230,14 @@ const Chessboard = memo(function Chessboard({
                 {settings.featureToggles.showCoordinates && (
                   <>
                     {colIndex === 0 && (
-                      <span className="absolute top-1 left-1 text-[9px] font-semibold opacity-60 leading-none">
+                      <span className="absolute top-1 left-1 font-semibold opacity-60 leading-none"
+                        style={{ fontSize: `${Math.max(settings.coordinatesSize, 6)}px` }}>
                         {RANKS[flipped ? 7 - rowIndex : rowIndex]}
                       </span>
                     )}
                     {rowIndex === 7 && (
-                      <span className="absolute bottom-1 right-1 text-[9px] font-semibold opacity-60 leading-none">
+                      <span className="absolute bottom-1 right-1 font-semibold opacity-60 leading-none"
+                        style={{ fontSize: `${Math.max(settings.coordinatesSize, 6)}px` }}>
                         {FILES[flipped ? 7 - colIndex : colIndex]}
                       </span>
                     )}

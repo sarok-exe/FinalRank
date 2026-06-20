@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   themePreset: 'olive',
   siteColors: { ...THEME_PRESETS.olive.siteColors },
   boardCustomColors: { ...THEME_PRESETS.olive.boardCustomColors },
+  coordinatesSize: 9,
   featureToggles: {
     showArrows: true,
     showCoordinates: true,

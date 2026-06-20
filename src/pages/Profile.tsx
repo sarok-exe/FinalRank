@@ -361,6 +361,21 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         onChange={v => updateSettings({ featureToggles: { ...settings.featureToggles, showCoordinates: v } })}
       />
 
+      <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
+        <div>
+          <div className="text-xs font-semibold text-[var(--color-text)]">Coordinates Size</div>
+          <div className="text-[10px] text-[var(--color-text-muted)]">{settings.coordinatesSize}px</div>
+        </div>
+        <input
+          type="range"
+          min={6}
+          max={20}
+          value={settings.coordinatesSize}
+          onChange={e => updateSettings({ coordinatesSize: parseInt(e.target.value, 10) })}
+          className="w-28 h-1.5 bg-[var(--color-border)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
+        />
+      </div>
+
       <div className="space-y-2.5">
         <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Board Orientation</label>
         <div className="flex gap-2">

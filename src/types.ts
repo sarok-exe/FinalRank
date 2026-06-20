@@ -46,6 +46,7 @@ export interface UserSettings {
   themePreset: 'olive' | 'dark' | 'ember' | 'ocean' | 'forest' | 'custom';
   siteColors: SiteColorScheme;
   boardCustomColors: BoardCustomColors;
+  coordinatesSize: number;
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;

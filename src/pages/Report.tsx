@@ -1,32 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bug, Send, CheckCircle, AlertTriangle, Mail, Shield } from 'lucide-react';
+import { Bug, Send, CheckCircle, AlertTriangle, Mail, Shield, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import emailjs from '@emailjs/browser';
 import { useAuthStore } from '../stores/authStore';
+import { fetchUserProfile, updateUserProfile } from '../lib/firebase';
 
-const STORAGE_KEY = 'finalrank_report_count';
-const MAX_REPORTS = 3;
+const STORAGE_KEY = 'finalrank_report_ts';
 const RESET_HOURS = 24;
 
-function getReportCount(): number {
+function getLastReportTs(): number | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return 0;
-    const { count, timestamp } = JSON.parse(raw);
-    if (Date.now() - timestamp > RESET_HOURS * 60 * 60 * 1000) {
-      localStorage.removeItem(STORAGE_KEY);
-      return 0;
-    }
-    return count;
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return 0;
+    return null;
   }
 }
 
-function incrementReportCount() {
-  const count = getReportCount() + 1;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ count, timestamp: Date.now() }));
-  return count;
+function setLocalReportTs() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(Date.now()));
+}
+
+function getRemainingSeconds(): number {
+  const ts = getLastReportTs();
+  if (!ts) return 0;
+  const elapsed = Date.now() - ts;
+  if (elapsed >= RESET_HOURS * 60 * 60 * 1000) {
+    localStorage.removeItem(STORAGE_KEY);
+    return 0;
+  }
+  return Math.ceil((RESET_HOURS * 60 * 60 * 1000 - elapsed) / 1000);
+}
+
+function formatCooldown(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
 }
 
 export default function Report() {
@@ -37,21 +49,50 @@ export default function Report() {
   const [subject, setSubject] = useState('');
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState<'idle' | 'sent' | 'error' | 'rate-limited'>('idle');
-  const [remaining, setRemaining] = useState(MAX_REPORTS - getReportCount());
+  const [blocked, setBlocked] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    setRemaining(MAX_REPORTS - getReportCount());
-  }, [status]);
+    checkBlocked();
+    const interval = setInterval(() => {
+      setCooldown(getRemainingSeconds());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [user]);
+
+  async function checkBlocked() {
+    const localTs = getLastReportTs();
+    if (localTs && Date.now() - localTs < RESET_HOURS * 60 * 60 * 1000) {
+      setBlocked(true);
+      setCooldown(getRemainingSeconds());
+      return;
+    }
+    if (user?.authProvider === 'google') {
+      try {
+        const profile = await fetchUserProfile(user.id);
+        const fbTs = profile?.lastReportAt as unknown as { toMillis?: () => number } | undefined;
+        if (fbTs?.toMillis) {
+          const ms = fbTs.toMillis();
+          if (Date.now() - ms < RESET_HOURS * 60 * 60 * 1000) {
+            setLocalReportTs();
+            setBlocked(true);
+            setCooldown(getRemainingSeconds());
+            return;
+          }
+        }
+      } catch {}
+    }
+    setBlocked(false);
+    setCooldown(0);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!message.trim() || !user) return;
 
-    // Honeypot check
     if (honeypotRef.current?.value) return;
 
-    // Rate limit check
-    if (getReportCount() >= MAX_REPORTS) {
+    if (blocked) {
       setStatus('rate-limited');
       return;
     }
@@ -63,6 +104,15 @@ export default function Report() {
     const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
     const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
 
+    async function saveReportTs() {
+      setLocalReportTs();
+      if (user.authProvider === 'google') {
+        try {
+          await updateUserProfile(user.id, { lastReportAt: new Date().toISOString() });
+        } catch {}
+      }
+    }
+
     if (!serviceId || !templateId || !publicKey) {
       window.open(
         `mailto:finalrank@protonmail.com?subject=${encodeURIComponent(subject || 'FinalRank Feedback')}&body=${encodeURIComponent(
@@ -70,7 +120,9 @@ export default function Report() {
         )}`,
         '_blank'
       );
-      incrementReportCount();
+      await saveReportTs();
+      setBlocked(true);
+      setCooldown(getRemainingSeconds());
       setSending(false);
       setStatus('sent');
       return;
@@ -78,7 +130,9 @@ export default function Report() {
 
     try {
       await emailjs.sendForm(serviceId, templateId, formRef.current!, publicKey);
-      incrementReportCount();
+      await saveReportTs();
+      setBlocked(true);
+      setCooldown(getRemainingSeconds());
       setStatus('sent');
       setMessage('');
       setSubject('');
@@ -161,10 +215,10 @@ export default function Report() {
               exit={{ opacity: 0 }}
               className="space-y-4"
             >
-              {remaining > 0 && remaining <= 2 && (
+              {blocked && (
                 <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)] bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)]">
-                  <Shield className="w-3 h-3 text-[var(--color-accent)]" />
-                  <span>{remaining} report{remaining !== 1 ? 's' : ''} remaining this period</span>
+                  <Clock className="w-3 h-3 text-[var(--color-accent)]" />
+                  <span>Next report available in {formatCooldown(cooldown)}</span>
                 </div>
               )}
 
@@ -222,19 +276,20 @@ export default function Report() {
                 </div>
               )}
 
-              {status === 'rate-limited' && (
+              {blocked && (
                 <div className="flex items-start gap-2.5 bg-[var(--color-background)] border border-[#8b1a1a] rounded-xl p-3">
-                  <Shield className="w-4 h-4 text-[#8b1a1a] shrink-0 mt-0.5" />
+                  <Clock className="w-4 h-4 text-[#8b1a1a] shrink-0 mt-0.5" />
                   <p className="text-xs text-[var(--color-text-muted)]">
-                    You've reached the limit of {MAX_REPORTS} reports per 24 hours. Please try again later or email{' '}
-                    <span className="font-mono text-[var(--color-text)]">finalrank@protonmail.com</span> directly.
+                    You can send 1 report per 24 hours. Next report available in{' '}
+                    <span className="font-mono text-[var(--color-text)]">{formatCooldown(cooldown)}</span>.
+                    Please email <span className="font-mono text-[var(--color-text)]">finalrank@protonmail.com</span> directly if it's urgent.
                   </p>
                 </div>
               )}
 
               <button
                 type="submit"
-                disabled={sending || !message.trim() || !user || getReportCount() >= MAX_REPORTS}
+                disabled={sending || !message.trim() || !user || blocked}
                 className="w-full bg-[var(--color-primary)] text-white px-6 py-3 rounded-lg font-bold text-sm flex items-center justify-center gap-2 hover:brightness-110 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Send className="w-4 h-4" />
