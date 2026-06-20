@@ -19,11 +19,8 @@ import {
   RotateCcw,
   Keyboard,
   Maximize,
-  Minimize,
   Focus,
-  Download,
   Save,
-  Play,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -163,6 +160,7 @@ function formatDuration(ms: number | undefined): string {
       const gameForFirestore = {
         ...selectedGame,
         moves: JSON.parse(JSON.stringify(selectedGame.moves)),
+        userSaved: true,
       };
       saveUserGame(authUser.id, selectedGame.id, gameForFirestore as unknown as Record<string, unknown>);
       setSavedToast(true);
@@ -608,7 +606,7 @@ function formatDuration(ms: number | undefined): string {
                   className={`p-2 rounded-lg ${autoplay ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                 >
-                  {autoplay ? <Minimize className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                  <span className="text-lg">{autoplay ? '⏸' : '▶'}</span>
                 </button>
                 <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
                   <ChevronRight className="w-5 h-5" />
@@ -624,7 +622,11 @@ function formatDuration(ms: number | undefined): string {
                 {authUser?.authProvider === 'google' && (
                   <button
                     onClick={handleSaveGame}
-                    className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                      savedToast
+                        ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
+                        : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
+                    }`}
                     title="Save game"
                   >
                     <Save className="w-3.5 h-3.5" />

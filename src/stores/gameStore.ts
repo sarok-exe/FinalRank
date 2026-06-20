@@ -441,6 +441,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     const gameForFirestore = {
       ...analysedGame,
       moves: JSON.parse(JSON.stringify(analysedGame.moves)),
+      userSaved: false,
     };
     saveUserGame(authUser.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
   }

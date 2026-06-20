@@ -64,7 +64,7 @@ export default function Profile() {
     if (user?.authProvider === 'google') {
       setLoadingSaved(true);
       fetchUserGames(user.id).then(games => {
-        setSavedGames(games);
+        setSavedGames(games.filter((g: any) => g.userSaved === true));
         setLoadingSaved(false);
       }).catch(() => setLoadingSaved(false));
     } else {
