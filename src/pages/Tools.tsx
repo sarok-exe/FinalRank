@@ -175,7 +175,15 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
   const [engineThinkingTime, setEngineThinkingTime] = useState(2000);
   const [engineFeedback, setEngineFeedback] = useState('');
 
-  const boardWidth = focusMode ? 819 : fullscreenMode ? 990 : 644;
+  const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  useEffect(() => {
+    const onResize = () => setVpW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const pad = 32;
+  const bW1Desired = focusMode ? 819 : fullscreenMode ? 990 : 644;
+  const boardWidth = Math.min(bW1Desired, vpW - pad);
 
   const announceGameEnd = useCallback((game: Chess) => {
     if (game.isCheckmate()) {
@@ -463,6 +471,13 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
   } = useClockStore();
   const { settings } = useSettingsStore();
 
+  const [vpW2, setVpW2] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  useEffect(() => {
+    const onResize = () => setVpW2(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
   const [fen, setFen] = useState(STARTING_FEN);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [autoFlip, setAutoFlip] = useState(false);
@@ -476,7 +491,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
   const [customInc, setCustomInc] = useState(0);
   const movePendingRef = useRef(false);
   const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
-  const boardWidth = focusMode ? 490 : fullscreenMode ? 593 : 385;
+  const boardWidth = Math.min(focusMode ? 490 : fullscreenMode ? 593 : 385, vpW2 - 32);
 
   // Spacebar for clock turn switching (like Chess Clock feature)
   useEffect(() => {

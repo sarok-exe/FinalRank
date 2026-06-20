@@ -595,7 +595,15 @@ function formatDuration(ms: number | undefined): string {
     );
   }
 
-  const boardWidth = focusMode ? 700 : fullscreenMode ? 660 : 550;
+  const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  useEffect(() => {
+    const onResize = () => setVpW(window.innerWidth);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const pad = 32;
+  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : 550;
+  const boardWidth = Math.min(desiredW, vpW - pad);
 
   return (
     <div className="space-y-5" id="analysis-viewport">
@@ -749,7 +757,7 @@ function formatDuration(ms: number | undefined): string {
             </div>
           </div>
 
-          <div className="w-full flex items-center gap-2" style={{ maxWidth: boardWidth }}>
+          <div className="w-full flex items-center gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
             <button
               onClick={toggleOrientation}
               className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
