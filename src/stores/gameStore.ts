@@ -483,14 +483,29 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   saveCachedAnalysis(analysedGame, depth);
 
-  const authUser = useAuthStore.getState().user;
-  if (authUser?.authProvider === 'google') {
-    const gameForFirestore = {
-      ...analysedGame,
-      moves: JSON.parse(JSON.stringify(analysedGame.moves)),
-      userSaved: false,
-    };
-    saveUserGame(authUser.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+  const gameForFirestore = {
+    ...analysedGame,
+    moves: JSON.parse(JSON.stringify(analysedGame.moves)),
+    userSaved: false,
+  };
+
+  const doSave = () => {
+    const u = useAuthStore.getState().user;
+    if (u?.authProvider === 'google') {
+      saveUserGame(u.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+      return true;
+    }
+    return false;
+  };
+
+  if (!doSave()) {
+    const unsub = useAuthStore.subscribe((state, prev) => {
+      if (state.user?.authProvider === 'google' && !prev.user) {
+        unsub();
+        doSave();
+      }
+    });
+    setTimeout(() => unsub(), 15000);
   }
 }
 
