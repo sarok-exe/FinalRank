@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Sparkles,
   ChevronLeft,
@@ -21,6 +22,7 @@ import {
   Maximize,
   Focus,
   Save,
+  Share2,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -59,6 +61,7 @@ export default function Analysis() {
     setGames,
     fetchLinkedUserGames,
     loadUserGames,
+    loadGameByShortId,
   } = useGameStore();
 
   const { user: authUser } = useAuthStore();
@@ -68,6 +71,9 @@ export default function Analysis() {
   const { toggleFullscreen } = useFullscreen();
   const { play, playFromSan, playGameEnd } = useSound();
 
+  const { gameId: urlGameId } = useParams<{ gameId: string }>();
+  const navigate = useNavigate();
+
   const [usernameInput, setUsernameInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
   const [importMode, setImportMode] = useState<'chesscom' | 'pgn'>('chesscom');
@@ -76,6 +82,7 @@ export default function Analysis() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
+  const [showShare, setShowShare] = useState(false);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -95,6 +102,18 @@ function formatDuration(ms: number | undefined): string {
       setGames(LEGENDARY_PRESET_GAMES);
     }
   }, []);
+
+  useEffect(() => {
+    if (urlGameId) {
+      loadGameByShortId(urlGameId);
+    }
+  }, [urlGameId]);
+
+  useEffect(() => {
+    if (selectedGame?.shortId && selectedGame.shortId !== urlGameId) {
+      navigate(`/game/${selectedGame.shortId}`, { replace: true });
+    }
+  }, [selectedGame?.id]);
 
   useEffect(() => {
     if (authUser?.authProvider === 'google') {
@@ -280,6 +299,15 @@ function formatDuration(ms: number | undefined): string {
   const handleBackToImport = () => {
     selectGame('');
     setNotificationDismissed(false);
+    navigate('/', { replace: true });
+  };
+
+  const handleSelectGame = (gameId: string) => {
+    selectGame(gameId);
+    const game = useGameStore.getState().games.find(g => g.id === gameId);
+    if (game?.shortId) {
+      navigate(`/game/${game.shortId}`, { replace: true });
+    }
   };
 
   const getCurrentFen = () => {
@@ -429,7 +457,7 @@ function formatDuration(ms: number | undefined): string {
                 return (
                   <button
                     key={g.id}
-                    onClick={() => selectGame(g.id)}
+                    onClick={() => handleSelectGame(g.id)}
                     className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
                     id={`game-selector-${g.id}`}
                   >
@@ -462,7 +490,7 @@ function formatDuration(ms: number | undefined): string {
               {LEGENDARY_PRESET_GAMES.map((g) => (
                 <button
                   key={g.id}
-                  onClick={() => selectGame(g.id)}
+                  onClick={() => handleSelectGame(g.id)}
                   className="text-xs bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-3 py-2 rounded-lg"
                 >
                   {g.white.username} vs {g.black.username}
@@ -498,7 +526,7 @@ function formatDuration(ms: number | undefined): string {
                 return (
                   <button
                     key={g.id}
-                    onClick={() => selectGame(g.id)}
+                    onClick={() => handleSelectGame(g.id)}
                     className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${
                       isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
                     }`}
@@ -624,7 +652,7 @@ function formatDuration(ms: number | undefined): string {
                   className={`p-2 rounded-lg ${autoplay ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                 >
-                  <span className="text-lg">{autoplay ? '▐▐' : '▶'}</span>
+                  <span className="text-lg">{autoplay ? '■' : '▶'}</span>
                 </button>
                 <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
                   <ChevronRight className="w-5 h-5" />
@@ -666,6 +694,14 @@ function formatDuration(ms: number | undefined): string {
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>PGN</span>
+                </button>
+                <button
+                  onClick={() => setShowShare(true)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                  title="Share game"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>Share</span>
                 </button>
               </div>
             </div>
@@ -1021,7 +1057,7 @@ function formatDuration(ms: number | undefined): string {
               return (
               <button
                 key={g.id}
-                onClick={() => selectGame(g.id)}
+                onClick={() => handleSelectGame(g.id)}
                 className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
               >
                 <div>
@@ -1105,6 +1141,52 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
             <p className="text-xs text-[var(--color-text-muted)] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>
+          </div>
+        </div>
+      )}
+
+      {showShare && selectedGame && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShare(false)}>
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Share2 className="w-5 h-5 text-[var(--color-primary)]" />
+                Share Game
+              </h2>
+              <button onClick={() => setShowShare(false)} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold mb-1 block">Game URL</label>
+                <div className="flex gap-2">
+                  <input readOnly value={`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`} className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => (e.target as HTMLInputElement).select()} />
+                  <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`); }} className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg shrink-0">Copy</button>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold mb-1 block">Current Position (FEN)</label>
+                <input readOnly value={getCurrentFen()} className="w-full bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => (e.target as HTMLInputElement).select()} />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold mb-1 block">PGN</label>
+                <textarea readOnly rows={6} value={selectedGame.pgn} className="w-full bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono resize-none" onClick={e => (e.target as HTMLTextAreaElement).select()} />
+              </div>
+              <button
+                onClick={() => {
+                  const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                }}
+                className="w-full bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Download PGN
+              </button>
+            </div>
           </div>
         </div>
       )}

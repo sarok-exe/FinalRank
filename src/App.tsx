@@ -16,6 +16,7 @@ export default function App() {
       <Shell>
         <Routes>
           <Route path="/" element={<Analysis />} />
+          <Route path="/game/:gameId" element={<Analysis />} />
           <Route path="/tools" element={<Tools />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/report" element={<Report />} />

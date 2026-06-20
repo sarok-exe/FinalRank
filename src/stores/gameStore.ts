@@ -6,7 +6,8 @@ import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
-import { saveUserGame, fetchUserGames, deleteUserGame } from '../lib/firebase';
+import { saveUserGame, fetchUserGames, deleteUserGame, fetchPublishedGame } from '../lib/firebase';
+import { generateShortId } from '../lib/shortId';
 
 interface GameState {
   games: ChessGame[];
@@ -33,6 +34,7 @@ interface GameState {
   setGames: (games: ChessGame[]) => void;
   fetchLinkedUserGames: () => Promise<void>;
   loadUserGames: () => Promise<void>;
+  loadGameByShortId: (shortId: string) => Promise<ChessGame | null>;
   resetGameStore: () => void;
 }
 
@@ -126,6 +128,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       const newGame: ChessGame = {
         id: `pgn_custom_${Date.now()}`,
+        shortId: generateShortId(),
         white: { username: whiteName },
         black: { username: blackName },
         result,
@@ -303,8 +306,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const latest = raw.slice(0, 3);
 
       const withAvatars = await fetchAvatarsForGames(latest);
-      const linkedIds = withAvatars.map(g => `linked-${g.id}`);
-      const withIds = withAvatars.map((g, i) => ({ ...g, id: linkedIds[i] }));
+      const withIds = withAvatars.map((g, i) => ({ ...g, id: `linked-${g.id}`, shortId: generateShortId() }));
 
       const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => ({
@@ -347,6 +349,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) : (r.moves || []);
       return {
         id: r.id as string,
+        shortId: (r as any).shortId as string | undefined,
         white: r.white as ChessGame['white'],
         black: r.black as ChessGame['black'],
         result: r.result as string,
@@ -373,6 +376,39 @@ export const useGameStore = create<GameState>((set, get) => ({
       analysisCache: { ...state.analysisCache, ...cache },
       analyzedPgnHashes: { ...state.analyzedPgnHashes, ...pgnMap },
     }));
+  },
+
+  loadGameByShortId: async (shortId: string) => {
+    const state = get();
+    const existing = state.games.find(g => g.shortId === shortId || g.id === shortId);
+    if (existing) {
+      set({ selectedGame: existing, currentMoveIndex: -1 });
+      return existing;
+    }
+    const data = await fetchPublishedGame(shortId);
+    if (!data) return null;
+    const moves = typeof data.moves === 'string' ? JSON.parse(data.moves as string) : (data.moves || []);
+    const game: ChessGame = {
+      id: data.id as string,
+      shortId: data.shortId as string || shortId,
+      white: data.white as ChessGame['white'],
+      black: data.black as ChessGame['black'],
+      result: data.result as string,
+      date: data.date as string,
+      pgn: data.pgn as string,
+      moves,
+      accuracy: data.accuracy as ChessGame['accuracy'] || undefined,
+      classificationCounts: data.classificationCounts as ChessGame['classificationCounts'] || undefined,
+      analyzedAt: data.analyzedAt as string | undefined,
+      analysisDurationMs: data.analysisDurationMs as number | undefined,
+      initialPosition: data.initialPosition as string | undefined,
+    };
+    set(state => ({
+      games: [game, ...state.games.filter(g => g.id !== game.id)],
+      selectedGame: game,
+      currentMoveIndex: -1,
+    }));
+    return game;
   },
 
   resetGameStore: () => set({

@@ -8,6 +8,8 @@ import {
   collection, getDocs, query, orderBy, limit, deleteDoc,
 } from 'firebase/firestore';
 
+import { generateShortId } from './shortId';
+
 type AuthCallback = (user: FirebaseUser | null) => void;
 
 const firebaseConfig = {
@@ -126,6 +128,8 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   if (!db) return;
   try {
     await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
+    const shortId = (data as any).shortId || gameId;
+    await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
   } catch {}
 }
 
@@ -141,10 +145,23 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
   }
 }
 
+export async function fetchPublishedGame(shortId: string): Promise<Record<string, unknown> | null> {
+  initFirestore();
+  if (!db) return null;
+  try {
+    const snap = await getDoc(doc(db, 'games', shortId));
+    return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function deleteUserGame(uid: string, gameId: string) {
   initFirestore();
   if (!db) return;
   try {
-    await deleteDoc(doc(db, 'users', uid, 'games', gameId));
+    const shortId = gameId;
+    await deleteDoc(doc(db, 'users', uid, 'games', shortId));
+    await deleteDoc(doc(db, 'games', shortId));
   } catch {}
 }

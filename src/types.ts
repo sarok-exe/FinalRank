@@ -142,6 +142,7 @@ export interface AnalyzedMove {
 
 export interface ChessGame {
   id: string;
+  shortId?: string;
   white: { username: string; rating?: number; avatar?: string };
   black: { username: string; rating?: number; avatar?: string };
   result: string;

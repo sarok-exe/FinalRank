@@ -5,6 +5,7 @@
 
 import { Chess } from 'chess.js';
 import { ChessGame, AnalyzedMove } from '../types';
+import { generateShortId } from './shortId';
 
 /**
  * Fetches recent chess games for a Chess.com username.
@@ -57,6 +58,7 @@ export async function fetchChessComGames(username: string): Promise<ChessGame[]>
       
       return {
         id: g.uuid || `chesscom-${cleanUsername}-${index}`,
+        shortId: generateShortId(),
         white: {
           username: g.white?.username || 'White',
           rating: g.white?.rating

@@ -246,14 +246,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-thin">
-                {savedGames.map((g: any) => (
-                  <button
-                    key={g.id}
-                    onClick={() => {
-                      useGameStore.getState().setGames([g as any, ...useGameStore.getState().games.filter((x: any) => x.id !== g.id)]);
-                      useGameStore.getState().selectGame(g.id as string);
-                      navigate('/');
-                    }}
+                  {savedGames.map((g: any) => (
+                    <button
+                      key={g.id}
+                      onClick={() => {
+                        const shortId = g.shortId || g.id;
+                        navigate(`/game/${shortId}`);
+                      }}
                     className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] transition-all"
                   >
                     <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5">{g.date}</div>
