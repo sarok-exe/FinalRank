@@ -408,6 +408,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedGame: game,
       currentMoveIndex: -1,
     }));
+    if (game.analyzedAt) {
+      set(state => ({
+        analysisCache: { ...state.analysisCache, [game.id]: game },
+        analyzedPgnHashes: { ...state.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
+      }));
+    }
     return game;
   },
 
