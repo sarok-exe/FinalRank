@@ -296,12 +296,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ linkedLoading: true, linkedAnalyzing: false, linkedAnalysisProgress: '' });
 
     try {
-      const { fetchChessComGames } = await import('../lib/chessCom');
+      const { fetchChessComGames, fetchAvatarsForGames } = await import('../lib/chessCom');
       const raw = await fetchChessComGames(chessComUsername);
       const latest = raw.slice(0, 3);
 
-      const linkedIds = latest.map(g => `linked-${g.id}`);
-      const withIds = latest.map((g, i) => ({ ...g, id: linkedIds[i] }));
+      const withAvatars = await fetchAvatarsForGames(latest);
+      const linkedIds = withAvatars.map(g => `linked-${g.id}`);
+      const withIds = withAvatars.map((g, i) => ({ ...g, id: linkedIds[i] }));
 
       const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => ({
