@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, onAuthChanged, getFirebaseUser, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
+import { signInWithGoogle, onAuthChanged, handleRedirectResult, signOut as fbSignOut, isFirebaseConfigured } from '../lib/firebase';
 import { syncUserProfile, fetchUserSettings, isSupabaseConfigured } from '../lib/supabase';
 
 interface AuthState {
@@ -179,67 +179,75 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
 // Subscribe to Firebase auth state (handles redirect result + page refresh + sign-out)
 let unsubAuth: (() => void) | null = null;
 
-export function initAuth() {
+async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null) {
+  useAuthStore.setState({ loading: false, error: null });
+
+  if (!fbUser) {
+    const existing = loadUser();
+    if (existing?.authProvider === 'google') {
+      removeUser();
+      useAuthStore.setState({ user: null });
+    }
+    return;
+  }
+
+  const existing = loadUser();
+
+  if (existing?.id === fbUser.uid) {
+    const refreshed = {
+      ...existing,
+      username: fbUser.displayName || existing.username,
+      avatar: fbUser.photoURL || existing.avatar,
+      email: fbUser.email || existing.email,
+    };
+    saveUser(refreshed);
+    useAuthStore.setState({ user: refreshed });
+    return;
+  }
+
+  const user = buildGoogleUser(fbUser);
+  useAuthStore.setState({ user });
+  saveUser(user);
+
+  if (isSupabaseConfigured()) {
+    try {
+      syncUserProfile(user.id, {
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar,
+        streak: user.streak,
+        analyzedCount: user.analyzedCount,
+        lastActiveDate: user.lastActiveDate,
+      });
+      const remoteSettings = await fetchUserSettings(user.id);
+      if (remoteSettings) {
+        const { useSettingsStore } = await import('./settingsStore');
+        useSettingsStore.getState().updateSettings(remoteSettings as any);
+      }
+    } catch {
+      // Supabase sync is best-effort
+    }
+  }
+}
+
+export async function initAuth() {
   if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
   if (unsubAuth) unsubAuth();
 
-  // Set loading so UI shows a spinner instead of flash of login form
+  // Step 1: Handle redirect result (user coming back from Google OAuth)
+  const redirectUser = await handleRedirectResult();
+  if (redirectUser) {
+    await handleFirebaseUser(redirectUser);
+  }
+
+  // Step 2: Subscribe to auth state changes (handles page refresh + sign-in/out)
+  // Only set loading if we didn't get a user from step 1
   const existing = loadUser();
-  if (!existing) {
+  if (!existing && !redirectUser) {
     useAuthStore.setState({ loading: true });
   }
 
   unsubAuth = onAuthChanged(async (fbUser) => {
-    useAuthStore.setState({ loading: false, error: null });
-
-    if (!fbUser) {
-      // Fallback: auth.currentUser might be available even if onAuthChanged fires null
-      const fallback = getFirebaseUser();
-      if (fallback) {
-        fbUser = fallback;
-      } else {
-        if (existing?.authProvider === 'google') {
-          removeUser();
-          useAuthStore.setState({ user: null });
-        }
-        return;
-      }
-    }
-
-    if (existing?.id === fbUser.uid) {
-      const refreshed = {
-        ...existing,
-        username: fbUser.displayName || existing.username,
-        avatar: fbUser.photoURL || existing.avatar,
-        email: fbUser.email || existing.email,
-      };
-      saveUser(refreshed);
-      useAuthStore.setState({ user: refreshed });
-      return;
-    }
-
-    const user = buildGoogleUser(fbUser);
-    useAuthStore.setState({ user });
-    saveUser(user);
-
-    if (isSupabaseConfigured()) {
-      try {
-        syncUserProfile(user.id, {
-          username: user.username,
-          email: user.email,
-          avatar: user.avatar,
-          streak: user.streak,
-          analyzedCount: user.analyzedCount,
-          lastActiveDate: user.lastActiveDate,
-        });
-        const remoteSettings = await fetchUserSettings(user.id);
-        if (remoteSettings) {
-          const { useSettingsStore } = await import('./settingsStore');
-          useSettingsStore.getState().updateSettings(remoteSettings as any);
-        }
-      } catch {
-        // Supabase sync is best-effort
-      }
-    }
+    await handleFirebaseUser(fbUser);
   });
 }
