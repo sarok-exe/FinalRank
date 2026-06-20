@@ -1,7 +1,3 @@
-[project]
-project_id = "sbqmmqzfsstukdqfbbkw"
-name = "FinalRank"
-
 [api]
 enabled = true
 port = 54321

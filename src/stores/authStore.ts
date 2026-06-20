@@ -183,10 +183,16 @@ export function initAuth() {
   if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
   if (unsubAuth) unsubAuth();
 
+  // Set loading so UI shows a spinner instead of flash of login form
+  const existing = loadUser();
+  if (!existing) {
+    useAuthStore.setState({ loading: true });
+  }
+
   unsubAuth = onAuthChanged(async (fbUser) => {
-    const existing = loadUser();
+    useAuthStore.setState({ loading: false, error: null });
+
     if (!fbUser) {
-      // Only clear if the existing user was a Google user (don't wipe guest)
       if (existing?.authProvider === 'google') {
         removeUser();
         useAuthStore.setState({ user: null });
@@ -195,7 +201,6 @@ export function initAuth() {
     }
 
     if (existing?.id === fbUser.uid) {
-      // Already have this user — still update name/avatar in case they changed
       const refreshed = {
         ...existing,
         username: fbUser.displayName || existing.username,

@@ -96,6 +96,13 @@ export default function Profile() {
   );
 
   const renderAccountTab = () => {
+    if (authLoading && !user) {
+      return (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-6 h-6 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
+        </div>
+      );
+    }
     if (!user) {
       return (
         <div className="space-y-5">
@@ -168,7 +175,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       <div className="space-y-5">
         <div className="flex flex-col items-center text-center space-y-3">
           <div className="relative">
-            <img src={user.avatar} className="w-20 h-20 rounded-full border-4 border-[var(--color-border)] object-cover" alt={user.username} />
+            {user.avatar ? (
+              <img src={user.avatar} className="w-20 h-20 rounded-full border-4 border-[var(--color-border)] object-cover" alt={user.username} />
+            ) : (
+              <div className="w-20 h-20 rounded-full border-4 border-[var(--color-border)] bg-[var(--color-primary)] flex items-center justify-center">
+                <UserIcon className="w-8 h-8 text-white" />
+              </div>
+            )}
             <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-[var(--color-primary)] border-2 border-[var(--color-surface)]" />
           </div>
           <div>
