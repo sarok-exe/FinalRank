@@ -176,7 +176,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           : state.selectedGame,
       }));
       const authUser = useAuthStore.getState().user;
-      if (authUser?.authProvider === 'google' && cached.shortId) {
+      if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && cached.shortId) {
         const payload = { ...cached, moves: JSON.parse(JSON.stringify(cached.moves)), userSaved: false };
         saveUserGame(authUser.id, gameId, payload as unknown as Record<string, unknown>);
       }
@@ -347,7 +347,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   loadUserGames: async () => {
     const authUser = useAuthStore.getState().user;
-    if (!authUser || authUser.authProvider !== 'google') return;
+    if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
     const raw = await fetchUserGames(authUser.id);
     if (raw.length === 0) return;
     const parsed: ChessGame[] = raw.map((r: any) => {
@@ -393,7 +393,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const data = await fetchPublishedGame(shortId);
     if (!data) {
       const authUser = useAuthStore.getState().user;
-      if (authUser?.authProvider === 'google') {
+      if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
         const raw = await fetchUserGames(authUser.id);
         const match = raw.find((r: any) => r.shortId === shortId);
         if (match) {
@@ -529,7 +529,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const doSave = () => {
     const u = useAuthStore.getState().user;
-    if (u?.authProvider === 'google') {
+    if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
       saveUserGame(u.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
       return true;
     }
@@ -538,7 +538,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   if (!doSave()) {
     const unsub = useAuthStore.subscribe((state, prev) => {
-      if (state.user?.authProvider === 'google' && !prev.user) {
+      if ((state.user?.authProvider === 'google' || state.user?.authProvider === 'anonymous') && !prev.user) {
         unsub();
         doSave();
       }

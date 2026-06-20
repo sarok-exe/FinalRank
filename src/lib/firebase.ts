@@ -1,7 +1,8 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
 import {
   getAuth, Auth, GoogleAuthProvider, signInWithPopup,
-  onAuthStateChanged, signOut as fbSignOut, User as FirebaseUser,
+  onAuthStateChanged, signOut as fbSignOut, signInAnonymously as fbSignInAnonymously,
+  User as FirebaseUser,
 } from 'firebase/auth';
 import {
   getFirestore, Firestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
@@ -100,6 +101,17 @@ export async function signInWithGoogle(): Promise<FirebaseUser | null> {
   if (!auth || !provider) return null;
   const result = await signInWithPopup(auth, provider);
   return result.user;
+}
+
+export async function signInAnonymously(): Promise<FirebaseUser | null> {
+  initFirebase();
+  if (!auth) return null;
+  try {
+    const cred = await fbSignInAnonymously(auth);
+    return cred.user;
+  } catch {
+    return null;
+  }
 }
 
 export async function signOut() {

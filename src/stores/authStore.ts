@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User } from '../types';
-import { signInWithGoogle, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
+import { signInWithGoogle, signInAnonymously, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
 
 interface AuthState {
   user: User | null;
@@ -109,7 +109,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: async () => {
     const { user } = get();
-    if (user?.authProvider === 'google') {
+    if (user?.authProvider === 'google' || user?.authProvider === 'anonymous') {
       try { await fbSignOut(); } catch {}
     }
     set({ user: null, error: null });
@@ -188,12 +188,33 @@ let unsubAuth: (() => void) | null = null;
 
 let receivedUser = false;
 
-async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null) {
+async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null; isAnonymous?: boolean } | null) {
   if (!fbUser) {
-    // First null callback = IndexedDB hasn't loaded yet, or no user at all.
-    // Only clear the store user if we KNOW a user was previously set
-    // (prevents destroying the optimistic cached user on initial page load).
+    if (!receivedUser && isFirebaseConfigured()) {
+      signInAnonymously();
+    }
     useAuthStore.setState({ loading: false });
+    return;
+  }
+
+  if (fbUser.isAnonymous) {
+    receivedUser = true;
+    useAuthStore.setState({ error: null });
+    const existing = loadUser();
+    const user: User = {
+      id: fbUser.uid,
+      username: existing?.username || 'Guest',
+      email: '',
+      avatar: existing?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${existing?.username || 'Guest'}`,
+      authProvider: 'anonymous',
+      streak: existing?.streak ?? 1,
+      analyzedCount: existing?.analyzedCount ?? 0,
+      lastActiveDate: existing?.lastActiveDate || new Date().toISOString().split('T')[0],
+      chessComUsername: existing?.chessComUsername || undefined,
+      settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
+    };
+    saveUser(user);
+    useAuthStore.setState({ user, loading: false });
     return;
   }
 

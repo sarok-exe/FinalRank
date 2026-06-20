@@ -130,7 +130,7 @@ function formatDuration(ms: number | undefined): string {
   }, [selectedGame?.id]);
 
   useEffect(() => {
-    if (authUser?.authProvider === 'google') {
+    if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
       loadUserGames();
     }
   }, [authUser?.id]);
@@ -188,7 +188,7 @@ function formatDuration(ms: number | undefined): string {
   }, [autoplay, selectedGame]);
 
   const handleSaveGame = React.useCallback(() => {
-    if (!selectedGame || !authUser || authUser.authProvider !== 'google') return;
+    if (!selectedGame || !authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
     const isSaved = savedGameIds.has(selectedGame.id);
     import('../lib/firebase').then(({ saveUserGame, deleteUserGame }) => {
       if (isSaved) {
@@ -207,7 +207,7 @@ function formatDuration(ms: number | undefined): string {
   }, [selectedGame, authUser, savedGameIds]);
 
   React.useEffect(() => {
-    if (authUser?.authProvider !== 'google') {
+    if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) {
       setSavedGameIds(new Set());
       return;
     }
@@ -707,7 +707,7 @@ function formatDuration(ms: number | undefined): string {
                 {currentMoveIndex + 1}/{selectedGame.moves.length}
               </span>
               <div className="flex items-center space-x-1">
-                {authUser?.authProvider === 'google' && (
+                {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
                   <button
                     onClick={handleSaveGame}
                     className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${

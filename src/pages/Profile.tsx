@@ -61,7 +61,7 @@ export default function Profile() {
   const [loadingSaved, setLoadingSaved] = useState(false);
 
   useEffect(() => {
-    if (user?.authProvider === 'google') {
+    if (user && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
       setLoadingSaved(true);
       fetchUserGames(user.id).then(games => {
         setSavedGames(games.filter((g: any) => g.userSaved === true));

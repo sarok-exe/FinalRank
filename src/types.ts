@@ -3,7 +3,7 @@ export interface User {
   username: string;
   email: string;
   avatar: string;
-  authProvider: 'google' | 'guest';
+  authProvider: 'google' | 'guest' | 'anonymous';
   streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
