@@ -170,8 +170,6 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
 let unsubAuth: (() => void) | null = null;
 
 async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null } | null) {
-  useAuthStore.setState({ loading: false, error: null });
-
   if (!fbUser) {
     const existing = loadUser();
     if (existing?.authProvider === 'google') {
@@ -180,6 +178,8 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     }
     return;
   }
+
+  useAuthStore.setState({ loading: false, error: null });
 
   // Try Firestore first for existing profile data
   const remoteProfile = await fetchUserProfile(fbUser.uid);
@@ -234,20 +234,33 @@ export async function initAuth() {
   if (typeof window === 'undefined' || !isFirebaseConfigured()) return;
   if (unsubAuth) unsubAuth();
 
-  // Step 1: Handle redirect result (user coming back from Google OAuth)
-  const redirectUser = await handleRedirectResult();
-  if (redirectUser) {
-    await handleFirebaseUser(redirectUser);
-  }
-
-  // Step 2: Subscribe to auth state changes (handles page refresh + sign-in/out)
-  // Only set loading if we didn't get a user from step 1
-  const existing = loadUser();
-  if (!existing && !redirectUser) {
+  // Only show spinner if no cached user from a previous session
+  const cachedUser = loadUser();
+  if (!cachedUser) {
     useAuthStore.setState({ loading: true });
   }
 
+  let hasUser = false;
+
+  // Step 1: Subscribe to auth state FIRST — catches ALL state changes,
+  // including the one triggered by getRedirectResult below
   unsubAuth = onAuthChanged(async (fbUser) => {
+    hasUser = !!fbUser;
     await handleFirebaseUser(fbUser);
   });
+
+  // Step 2: Process pending redirect result (user coming back from Google OAuth)
+  // This sets auth.currentUser, which triggers onAuthChanged above
+  try {
+    await handleRedirectResult();
+  } catch (err) {
+    console.error('Redirect result error:', err);
+  }
+
+  // If no user was resolved after a reasonable time, show the login form
+  setTimeout(() => {
+    if (!hasUser && !loadUser()) {
+      useAuthStore.setState({ loading: false });
+    }
+  }, 1000);
 }
