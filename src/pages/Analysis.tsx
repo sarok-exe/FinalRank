@@ -23,6 +23,7 @@ import {
   Focus,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
+import { hashPgn } from '../lib/tursoCache';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
@@ -40,10 +41,11 @@ export default function Analysis() {
     selectedGame,
     currentMoveIndex,
     analyzing,
-    autoAnalyzing,
     analysisProgress,
     importError,
     loadingGames,
+    analysisCache,
+    analyzedPgnHashes,
     importChessComGames,
     selectGame,
     setCurrentMoveIndex,
@@ -335,15 +337,15 @@ export default function Analysis() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {games.map((g) => {
                 const isSel = selectedGame?.id === g.id;
+                const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+                let borderClass = 'border-[var(--color-border)]';
+                if (isSel) borderClass = 'border-[var(--color-primary)]';
+                else if (isAnalyzed) borderClass = 'border-green-600';
                 return (
                   <button
                     key={g.id}
                     onClick={() => selectGame(g.id)}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 ${
-                      isSel
-                        ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-                    }`}
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${borderClass}`}
                     id={`game-selector-${g.id}`}
                   >
                     <div>
@@ -358,6 +360,9 @@ export default function Analysis() {
                         {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
                       </div>
                     </div>
+                    {isAnalyzed && (
+                      <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed</span>
+                    )}
                   </button>
                 );
               })}
@@ -554,31 +559,18 @@ export default function Analysis() {
                   <option value={15}>Depth 15</option>
                   <option value={18}>Depth 18</option>
                 </select>
-                {autoAnalyzing && (
-                  <span className="text-[10px] text-[var(--color-accent)] font-semibold mr-2">
-                    Pre-analyzing...
-                  </span>
-                )}
                 <button
                   onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
-                  disabled={analyzing || autoAnalyzing}
+                  disabled={analyzing}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
-                    analyzing || autoAnalyzing
+                    analyzing
                       ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
                       : 'bg-[var(--color-primary)]'
                   }`}
                   id="analyze-game-button"
                 >
                   <Activity className="w-3.5 h-3.5" />
-                  <span>
-                    {analyzing
-                      ? 'Analyzing...'
-                      : autoAnalyzing
-                        ? 'Pre-analyzing...'
-                        : selectedGame?.accuracy
-                          ? 'Re-analyze'
-                          : 'Analyze'}
-                  </span>
+                  <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
                 </button>
               </div>
             </div>
@@ -809,15 +801,17 @@ export default function Analysis() {
       {showGameList && (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {games.map((g) => (
+            {games.map((g) => {
+              const isSel = selectedGame?.id === g.id;
+              const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+              let borderClass = 'border-[var(--color-border)]';
+              if (isSel) borderClass = 'border-[var(--color-primary)]';
+              else if (isAnalyzed) borderClass = 'border-green-600';
+              return (
               <button
                 key={g.id}
                 onClick={() => selectGame(g.id)}
-                className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 ${
-                  selectedGame?.id === g.id
-                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                    : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-                }`}
+                className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] ${borderClass}`}
               >
                 <div>
                   <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
@@ -828,13 +822,19 @@ export default function Analysis() {
                     {g.white.username} vs {g.black.username}
                   </div>
                 </div>
-                {selectedGame?.id === g.id && (
-                  <span className="text-[10px] font-bold text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-full self-start mt-2">
-                    Active
-                  </span>
-                )}
+                <div className="flex items-center gap-2 self-start mt-2">
+                  {isSel && (
+                    <span className="text-[10px] font-bold text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-full">
+                      Active
+                    </span>
+                  )}
+                  {isAnalyzed && (
+                    <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed</span>
+                  )}
+                </div>
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

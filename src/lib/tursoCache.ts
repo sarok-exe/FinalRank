@@ -1,7 +1,7 @@
 import { ChessGame } from '../types';
 import { getTurso, isTursoConfigured } from './turso';
 
-function hashPgn(pgn: string): string {
+export function hashPgn(pgn: string): string {
   let hash = 5381;
   for (let i = 0; i < pgn.length; i++) {
     hash = ((hash << 5) + hash + pgn.charCodeAt(i)) | 0;
@@ -60,4 +60,28 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number): Promis
   } catch {
     // silent fail – cache is optional
   }
+}
+
+export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): Promise<Record<string, boolean>> {
+  if (!isTursoConfigured() || games.length === 0) return {};
+  const db = getTurso();
+  if (!db) return {};
+
+  const hashes = games.map(g => hashPgn(g.pgn));
+  const placeholders = hashes.map(() => '?').join(',');
+  const result: Record<string, boolean> = {};
+
+  try {
+    const rs = await db.execute({
+      sql: `SELECT DISTINCT pgn_hash FROM analyzed_games WHERE pgn_hash IN (${placeholders}) AND depth >= ?`,
+      args: [...hashes, minDepth],
+    });
+    for (const row of rs.rows) {
+      result[row.pgn_hash as string] = true;
+    }
+  } catch {
+    // silent fail
+  }
+
+  return result;
 }

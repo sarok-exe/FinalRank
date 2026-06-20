@@ -5,7 +5,7 @@ import { createGameEvaluator } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { getCachedAnalysis, saveCachedAnalysis } from '../lib/tursoCache';
+import { getCachedAnalysis, saveCachedAnalysis, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
 
 interface GameState {
   games: ChessGame[];
@@ -17,6 +17,7 @@ interface GameState {
   importError: string | null;
   loadingGames: boolean;
   analysisCache: Record<string, ChessGame>;
+  analyzedPgnHashes: Record<string, boolean>;
 
   importChessComGames: (username: string) => Promise<void>;
   selectGame: (gameId: string) => void;
@@ -28,6 +29,8 @@ interface GameState {
   resetGameStore: () => void;
 }
 
+const pendingAnalysis = new Map<string, Promise<void>>();
+
 export const useGameStore = create<GameState>((set, get) => ({
   games: [],
   selectedGame: null,
@@ -38,6 +41,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   importError: null,
   loadingGames: false,
   analysisCache: {},
+  analyzedPgnHashes: {},
 
   setGames: (games) => set({ games }),
 
@@ -86,6 +90,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
+        const tursoStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
+        set({ analyzedPgnHashes: tursoStatus });
         get().selectGame(loaded[0].id);
         get().autoAnalyzeGame(loaded[0].id);
       }
@@ -129,8 +135,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   autoAnalyzeGame: async (gameId) => {
-    const { games, analyzing, autoAnalyzing, analysisCache } = get();
+    const { games, analyzing, autoAnalyzing } = get();
     if (analyzing || autoAnalyzing) return;
+    if (pendingAnalysis.has(gameId)) return;
 
     const game = games.find(g => g.id === gameId);
     if (!game || game.moves.length === 0) return;
@@ -140,15 +147,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const autoEnabled = settings.featureToggles?.autoAnalyze ?? true;
     if (!autoEnabled) return;
 
-    if (analysisCache[gameId]) {
-      const cachedDepth = analysisCache[gameId].analyzedAt ? depth : 0;
-      if (cachedDepth >= depth) return;
-    }
+    if (get().analysisCache[gameId]) return;
 
     const cached = await getCachedAnalysis(game.pgn, depth);
     if (cached) {
+      const pgnHash = hashPgn(game.pgn);
       set(state => ({
         analysisCache: { ...state.analysisCache, [gameId]: cached },
+        analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
         selectedGame: state.selectedGame?.id === gameId
           ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt }
           : state.selectedGame,
@@ -158,44 +164,27 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({ autoAnalyzing: true });
 
+    const promise = runEvaluationPipeline(game, depth, gameId);
+    pendingAnalysis.set(gameId, promise);
+
     try {
-      const evaluator = createGameEvaluator(game, {
-        engineVersion: 'stockfish-17-lite-single.js',
-        engineDepth: depth,
-        engineLinesCount: 2,
-        engineConfig: (engine) => engine.setLineCount(2),
-        onProgress: () => {},
-      });
-
-      const evaluatedGame = await evaluator.evaluate();
-      const analysedGame = getGameAnalysis(evaluatedGame, {
-        includeBrilliant: true,
-        includeCritical: true,
-        includeTheory: false,
-      });
-
-      set(state => ({
-        analysisCache: { ...state.analysisCache, [gameId]: analysedGame },
-        autoAnalyzing: false,
-        selectedGame: state.selectedGame?.id === gameId
-          ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, analysedGame.moves), accuracy: analysedGame.accuracy, classificationCounts: analysedGame.classificationCounts, analyzedAt: analysedGame.analyzedAt }
-          : state.selectedGame,
-      }));
-
-      saveCachedAnalysis(analysedGame, depth);
-    } catch (err: any) {
-      if (err.message === 'aborted' || err.message === 'abort') return;
-      set({ autoAnalyzing: false });
+      await promise;
+    } finally {
+      pendingAnalysis.delete(gameId);
+      const state = get();
+      if (!state.analyzing) {
+        set({ autoAnalyzing: false });
+      }
     }
   },
 
   triggerEvaluationPipeline: async (depth?: number) => {
-    const { selectedGame, analyzing, analysisCache, games } = get();
+    const { selectedGame, analyzing } = get();
     if (!selectedGame || analyzing || selectedGame.moves.length === 0) return;
 
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
-    const cached = analysisCache[selectedGame.id];
+    const cached = get().analysisCache[selectedGame.id];
     if (cached && cached.analyzedAt) {
       const isDepthSufficient = cached.moves.every(m => {
         const topDepth = m.engineLines?.reduce((d, l) => Math.max(d, l.depth || 0), 0) ?? 0;
@@ -218,8 +207,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const tursoCached = await getCachedAnalysis(selectedGame.pgn, evalDepth);
     if (tursoCached) {
+      const pgnHash = hashPgn(selectedGame.pgn);
       set(state => ({
         analysisCache: { ...state.analysisCache, [selectedGame.id]: tursoCached },
+        analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
         selectedGame: {
           ...state.selectedGame!,
           moves: mergeMoves(state.selectedGame!.moves, tursoCached.moves),
@@ -232,36 +223,45 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
+    const pending = pendingAnalysis.get(selectedGame.id);
+    if (pending) {
+      set({ analyzing: true, analysisProgress: 50 });
+      try {
+        await pending;
+        const result = get().analysisCache[selectedGame.id];
+        if (result) {
+          set(state => ({
+            selectedGame: {
+              ...state.selectedGame!,
+              moves: mergeMoves(state.selectedGame!.moves, result.moves),
+              accuracy: result.accuracy,
+              classificationCounts: result.classificationCounts,
+              analyzedAt: result.analyzedAt,
+            },
+            analysisProgress: 100,
+            analyzing: false,
+            autoAnalyzing: false,
+          }));
+        }
+      } catch {
+        set({ analyzing: false, analysisProgress: 0, autoAnalyzing: false });
+      }
+      return;
+    }
+
     set({ analyzing: true, analysisProgress: 1 });
 
     try {
-      const evaluator = createGameEvaluator(selectedGame, {
-        engineVersion: 'stockfish-17-lite-single.js',
-        engineDepth: evalDepth,
-        engineLinesCount: 2,
-        engineConfig: (engine) => engine.setLineCount(2),
-        onProgress: (progress) => {
-          set({ analysisProgress: Math.round(progress * 90) });
-        },
-      });
+      await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
 
-      const evaluatedGame = await evaluator.evaluate();
-      set({ analysisProgress: 95 });
-
-      const analysedGame = getGameAnalysis(evaluatedGame, {
-        includeBrilliant: true,
-        includeCritical: true,
-        includeTheory: false,
-      });
-
-      set(state => ({
-        selectedGame: analysedGame,
-        analysisCache: { ...state.analysisCache, [selectedGame.id]: analysedGame },
-        analysisProgress: 100,
-        analyzing: false,
-      }));
-
-      saveCachedAnalysis(analysedGame, evalDepth);
+      const result = get().analysisCache[selectedGame.id];
+      if (result) {
+        set({
+          selectedGame: result,
+          analysisProgress: 100,
+          analyzing: false,
+        });
+      }
 
       const authStore = useAuthStore.getState();
       if (authStore.user) {
@@ -283,8 +283,41 @@ export const useGameStore = create<GameState>((set, get) => ({
     analysisProgress: 0,
     importError: null,
     analysisCache: {},
+    analyzedPgnHashes: {},
   }),
 }));
+
+async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<void> {
+  const evaluator = createGameEvaluator(game, {
+    engineVersion: 'stockfish-17-lite-single.js',
+    engineDepth: depth,
+    engineLinesCount: 2,
+    engineConfig: (engine) => engine.setLineCount(2),
+    onProgress: (progress) => {
+      useGameStore.setState({ analysisProgress: Math.round(progress * 90) });
+    },
+  });
+
+  const evaluatedGame = await evaluator.evaluate();
+  useGameStore.setState({ analysisProgress: 95 });
+
+  const analysedGame = getGameAnalysis(evaluatedGame, {
+    includeBrilliant: true,
+    includeCritical: true,
+    includeTheory: false,
+  });
+
+  const pgnHash = hashPgn(game.pgn);
+  useGameStore.setState(state => ({
+    analysisCache: { ...state.analysisCache, [gameId]: analysedGame },
+    analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
+    selectedGame: state.selectedGame?.id === gameId
+      ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, analysedGame.moves), accuracy: analysedGame.accuracy, classificationCounts: analysedGame.classificationCounts, analyzedAt: analysedGame.analyzedAt }
+      : state.selectedGame,
+  }));
+
+  saveCachedAnalysis(analysedGame, depth);
+}
 
 function hydratePgnMoves(pgn: string): AnalyzedMove[] {
   if (!pgn) return [];
