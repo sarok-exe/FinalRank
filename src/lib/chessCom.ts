@@ -71,7 +71,6 @@ export async function fetchChessComGames(username: string): Promise<ChessGame[]>
       };
     });
   } catch (error: any) {
-    console.warn('Error fetching games from Chess.com:', error);
     throw error;
   }
 }

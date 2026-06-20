@@ -8,14 +8,12 @@ export function useFullscreen() {
     if (!document.fullscreenElement) {
       try {
         await document.documentElement.requestFullscreen();
-      } catch (err) {
-        console.warn('Fullscreen request failed:', err);
+      } catch {
       }
     } else {
       try {
         await document.exitFullscreen();
-      } catch (err) {
-        console.warn('Exit fullscreen failed:', err);
+      } catch {
       }
     }
   }, []);

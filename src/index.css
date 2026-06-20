@@ -16,6 +16,19 @@
   --color-slate-600: #666666;
 }
 
+:root {
+  --color-primary: #606c38;
+  --color-secondary: #283618;
+  --color-accent: #bc6c25;
+  --color-background: #1a1a1a;
+  --color-surface: #2a2a2a;
+  --color-text: #fefae0;
+  --color-text-muted: #a0a0a0;
+  --color-border: #4a4a4a;
+  --board-light: #f0d9b5;
+  --board-dark: #b58863;
+}
+
 #app-shell:fullscreen {
   width: 100vw;
   height: 100vh;

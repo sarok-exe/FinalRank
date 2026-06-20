@@ -1,385 +1,32 @@
 import React, { useState } from 'react';
 import {
-  User as UserIcon,
-  Settings,
-  Flame,
-  Trophy,
-  Volume2,
-  VolumeX,
-  Bell,
-  BellOff,
-  Palette,
-  Activity,
-  Smartphone,
-  ShieldAlert,
-  Zap,
-  Eye,
-  EyeOff,
-  Sliders,
-  LogOut,
-  Keyboard,
-  Clock,
+  User as UserIcon, Settings, Flame, Trophy, Volume2, VolumeX,
+  Bell, BellOff, Palette, Activity, Zap, LogOut, Keyboard, Clock,
+  Eye, EyeOff, Monitor, ChevronRight, Paintbrush, Sun, Droplets,
+  Gamepad2,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
-import { useSettingsStore } from '../stores/settingsStore';
+import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
+import ColorPicker from '../components/ColorPicker';
 
-export default function Profile() {
-  const { user, loginAsGuest, logout } = useAuthStore();
-  const { settings, updateSettings, resetSettings } = useSettingsStore();
-  const [typedName, setTypedName] = useState('');
+type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors';
 
-  const boardThemes = [
-    { id: 'green', name: 'Forest Green', bg: 'bg-[#769656]' },
-    { id: 'blue', name: 'Royal Blue', bg: 'bg-[#4b73be]' },
-    { id: 'brown', name: 'Classic Wood', bg: 'bg-[#b58863]' },
-    { id: 'charcoal', name: 'Space Slate', bg: 'bg-[#4d5d75]' },
-    { id: 'elegant', name: 'Elegant', bg: 'bg-[#b7c0d8]' },
-  ];
+const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'account', label: 'Account', icon: UserIcon },
+  { id: 'engine', label: 'Engine', icon: Zap },
+  { id: 'board', label: 'Board', icon: Monitor },
+  { id: 'audio', label: 'Audio', icon: Volume2 },
+  { id: 'clock', label: 'Clock', icon: Clock },
+  { id: 'colors', label: 'Colors', icon: Paintbrush },
+];
 
-  const handleGuestLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (typedName.trim()) {
-      loginAsGuest(typedName.trim());
-      setTypedName('');
-    }
-  };
-
-  if (!user) {
-    return (
-      <div className="max-w-md mx-auto space-y-6" id="profile-container">
-        <div className="text-center space-y-2 mb-2">
-          <h1 className="text-2xl font-extrabold text-white tracking-tight">Welcome to FinalRank</h1>
-          <p className="text-sm text-[#a0a0a0]">Sign in to save games, track your streak, and customize your experience.</p>
-        </div>
-
-        <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-6 space-y-5">
-          <div className="mx-auto bg-[#606c38] w-14 h-14 rounded-2xl flex items-center justify-center text-white text-2xl font-black">
-            FR
-          </div>
-
-          <form onSubmit={handleGuestLogin} className="space-y-3 bg-[#2a2a2a] p-4 rounded-xl border border-[#4a4a4a]">
-            <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[#606c38] block text-left">Guest Login</span>
-            <input
-              type="text"
-              required
-              value={typedName}
-              onChange={(e) => setTypedName(e.target.value)}
-              placeholder="Choose a display name"
-              className="bg-[#2a2a2a] border border-[#4a4a4a] w-full rounded-lg px-4 py-2 text-xs text-white placeholder-[#888888]"
-              id="handle-input"
-            />
-            <button type="submit" className="w-full bg-[#606c38] text-white py-2 rounded-lg font-bold text-xs">
-              Sign In as Guest
-            </button>
-          </form>
-
-          <div className="space-y-2 border-t border-[#4a4a4a] pt-4">
-            <button
-              onClick={() => loginAsGuest('GM_GoogleUser')}
-              className="w-full bg-white text-[#1a1a1a] py-2.5 rounded-lg flex items-center justify-center space-x-2 font-bold text-xs"
-              id="google-oauth-btn"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#EA4335" d="M12 5.04c1.67 0 3.14.59 4.3 1.62l3.12-3.12C17.5 1.84 15 1 12 1 7.42 1 3.53 3.63 1.62 7.46l3.82 2.96c.92-2.76 3.51-4.38 6.56-4.38z" />
-                <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.46c-.28 1.48-1.12 2.73-2.38 3.58l3.71 2.88c2.17-2 3.7-4.94 3.7-8.56z" />
-                <path fill="#FBBC05" d="M5.44 14.5c-.24-.72-.38-1.5-.38-2.3s.14-1.58.38-2.3L1.62 6.94C.58 8.97 0 11.16 0 13.5s.58 4.53 1.62 6.56l3.82-3.06z" />
-                <path fill="#34A853" d="M12 22.8c3.24 0 5.97-1.07 7.96-2.91l-3.71-2.88c-1.03.69-2.35 1.1-4.25 1.1-3.05 0-5.64-1.62-6.56-4.38L1.62 16.8c1.91 3.83 5.8 6 10.38 6z" />
-              </svg>
-              <span>Connect with Google</span>
-            </button>
-            <p className="text-[10px] text-[#888888] text-center">Google OAuth coming soon. Guest mode works offline.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5" id="profile-container">
-      <div className="lg:col-span-4 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-6 flex flex-col min-h-[400px]" id="user-stats-card">
-        <div className="space-y-5">
-          <div className="flex flex-col items-center text-center space-y-3">
-            <div className="relative">
-              <img src={user.avatar} className="w-20 h-20 rounded-full border-4 border-[#4a4a4a] object-cover" alt={user.username} />
-              <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-[#606c38] border-2 border-[#333333]" />
-            </div>
-            <div>
-              <h2 className="text-lg font-extrabold text-white">{user.username}</h2>
-              <p className="text-xs text-[#a0a0a0] font-mono">{user.email}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3" id="stats-gauges">
-            <div className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-xl p-3 flex flex-col items-center justify-center text-center" id="streak-gauge-item">
-              <Flame className="w-6 h-6 text-[#bc6c25] mb-1" />
-              <span className="text-xl font-mono font-black text-[#bc6c25]">{user.streak}</span>
-              <span className="text-[9px] text-[#a0a0a0] font-bold uppercase tracking-wider">Day Streak</span>
-            </div>
-            <div className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-xl p-3 flex flex-col items-center justify-center text-center" id="analyzed-gauge-item">
-              <Trophy className="w-6 h-6 text-[#bc6c25] mb-1" />
-              <span className="text-xl font-mono font-black text-[#bc6c25]">{user.analyzedCount}</span>
-              <span className="text-[9px] text-[#a0a0a0] font-bold uppercase tracking-wider">Analyzed</span>
-            </div>
-          </div>
-
-          <button
-            onClick={logout}
-            className="w-full flex items-center justify-center space-x-2 text-xs text-[#bc6c25] border border-[#4a4a4a] px-4 py-2 rounded-lg"
-            id="logout-btn-profile"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Disconnect</span>
-          </button>
-        </div>
-
-        <div className="border-t border-[#4a4a4a] pt-4 mt-4 text-[11px] text-[#888888] leading-relaxed flex items-start space-x-2">
-          <ShieldAlert className="w-4 h-4 text-[#606c38] shrink-0" />
-          <span>Streak updates automatically after each analysis.</span>
-        </div>
-      </div>
-
-      <div className="lg:col-span-8 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-6 space-y-6" id="settings-card">
-        <div className="flex items-center justify-between border-b border-[#4a4a4a] pb-4">
-          <div>
-            <h3 className="text-base font-extrabold text-white flex items-center space-x-2">
-              <Settings className="w-5 h-5 text-[#bc6c25]" />
-              <span>Settings</span>
-            </h3>
-            <p className="text-xs text-[#a0a0a0]">All settings are saved locally.</p>
-          </div>
-          <button onClick={resetSettings} className="text-xs font-semibold px-3 py-1.5 bg-[#3d3d3d] text-[#d0d0d0] rounded-lg border border-[#4a4a4a]" id="reset-settings-button">
-            Reset Defaults
-          </button>
-        </div>
-
-        <div className="space-y-2.5">
-          <label className="text-xs font-bold text-white flex items-center space-x-1.5 uppercase tracking-wider">
-            <Palette className="w-4 h-4 text-[#bc6c25]" />
-            <span>Board Theme</span>
-          </label>
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2" id="theme-swatches-grid">
-            {boardThemes.map((theme) => {
-              const isSel = settings.boardColor === theme.id;
-              return (
-                <button
-                  key={theme.id}
-                  onClick={() => updateSettings({ boardColor: theme.id as any })}
-                  className={`rounded-xl border p-3 flex flex-col items-center justify-center space-y-2 text-center h-20 ${
-                    isSel
-                      ? 'bg-[#3d3d3d] border-[#606c38]'
-                      : 'bg-[#2a2a2a] border-[#4a4a4a]'
-                  }`}
-                  id={`swatch-${theme.id}`}
-                >
-                  <div className={`w-8 h-8 rounded shadow-inner ${theme.bg}`} />
-                  <span className="text-[9px] font-bold text-white leading-none">{theme.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-2.5">
-          <label className="text-xs font-bold text-white flex items-center space-x-1.5 uppercase tracking-wider">
-            <Zap className="w-4 h-4 text-[#bc6c25]" />
-            <span>Engine</span>
-          </label>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-[#a0a0a0]">Depth:</span>
-            <select
-              value={settings.engineDepth}
-              onChange={(e) => updateSettings({ engineDepth: parseInt(e.target.value, 10) })}
-              className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-3 py-1.5 text-xs text-white"
-            >
-              <option value={6}>Depth 6 (Fast)</option>
-              <option value={8}>Depth 8</option>
-              <option value={10}>Depth 10 (Default)</option>
-              <option value={12}>Depth 12</option>
-              <option value={15}>Depth 15 (Deep)</option>
-              <option value={18}>Depth 18 (Max)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="space-y-3 border-t border-[#4a4a4a] pt-5">
-          <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-            <Clock className="w-4 h-4 text-[#bc6c25]" />
-            Clock Alerts
-          </span>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <label className="flex items-center justify-between bg-[#2a2a2a] px-3.5 py-2.5 rounded-lg border border-[#4a4a4a]">
-              <div>
-                <div className="text-xs font-semibold text-white">Time Alert</div>
-                <div className="text-[10px] text-[#a0a0a0]">Warn when time is low</div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.timeAlertEnabled}
-                onChange={(e) => updateSettings({ timeAlertEnabled: e.target.checked })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-              />
-            </label>
-            <label className="flex items-center justify-between bg-[#2a2a2a] px-3.5 py-2.5 rounded-lg border border-[#4a4a4a]">
-              <div>
-                <div className="text-xs font-semibold text-white">Alert Sound</div>
-                <div className="text-[10px] text-[#a0a0a0]">Play warning beep</div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.timeAlertSound}
-                onChange={(e) => updateSettings({ timeAlertSound: e.target.checked })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-                disabled={!settings.timeAlertEnabled}
-              />
-            </label>
-          </div>
-          <div className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-3.5 py-2.5">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-xs font-semibold text-white">Alert Threshold</span>
-              <span className="text-[10px] font-mono font-bold text-[#bc6c25] bg-[#3d3d3d] px-2 py-0.5 rounded">{settings.timeAlertThreshold}s</span>
-            </div>
-            <input
-              type="range"
-              min={5}
-              max={120}
-              step={5}
-              value={settings.timeAlertThreshold}
-              onChange={(e) => updateSettings({ timeAlertThreshold: parseInt(e.target.value, 10) })}
-              className="w-full accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
-              disabled={!settings.timeAlertEnabled}
-            />
-            <div className="flex justify-between text-[9px] text-[#666666] font-mono mt-0.5">
-              <span>5s</span>
-              <span>30s</span>
-              <span>60s</span>
-              <span>120s</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 border-t border-[#4a4a4a] pt-5">
-          <div className="space-y-4">
-            <span className="text-xs font-bold text-white uppercase tracking-wider block">Audio</span>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                {settings.audioEnabled ? <Volume2 className="w-5 h-5 text-[#606c38]" /> : <VolumeX className="w-5 h-5 text-[#888888]" />}
-                <div>
-                  <div className="text-xs font-semibold text-white">Sound Effects</div>
-                  <div className="text-[10px] text-[#a0a0a0]">Move sounds on the board</div>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.audioEnabled}
-                onChange={(e) => updateSettings({ audioEnabled: e.target.checked })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-                id="sound-opt-toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <Sliders className="w-5 h-5 text-[#606c38]" />
-                <div>
-                  <div className="text-xs font-semibold text-white">Volume</div>
-                  <div className="text-[10px] text-[#a0a0a0]">{Math.round(settings.audioVolume * 100)}%</div>
-                </div>
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={Math.round(settings.audioVolume * 100)}
-                onChange={(e) => updateSettings({ audioVolume: parseInt(e.target.value, 10) / 100 })}
-                className="w-24 accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <span className="text-xs font-bold text-white uppercase tracking-wider block">Display</span>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <Bell className="w-5 h-5 text-[#606c38]" />
-                <div>
-                  <div className="text-xs font-semibold text-white">Notifications</div>
-                  <div className="text-[10px] text-[#a0a0a0]">Legendary alerts after analysis</div>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.notificationsEnabled}
-                onChange={(e) => updateSettings({ notificationsEnabled: e.target.checked })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-                id="notif-opt-toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <Smartphone className="w-5 h-5 text-[#606c38]" />
-                <div>
-                  <div className="text-xs font-semibold text-white">Coordinates</div>
-                  <div className="text-[10px] text-[#a0a0a0]">Show a-h, 1-8 labels</div>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.featureToggles.showCoordinates}
-                onChange={(e) => updateSettings({ featureToggles: { ...settings.featureToggles, showCoordinates: e.target.checked } })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-                id="coord-opt-toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2.5">
-                <Activity className="w-5 h-5 text-[#606c38]" />
-                <div>
-                  <div className="text-xs font-semibold text-white">Auto Analyze</div>
-                  <div className="text-[10px] text-[#a0a0a0]">Run engine on game import</div>
-                </div>
-              </div>
-              <input
-                type="checkbox"
-                checked={settings.featureToggles.autoAnalyze}
-                onChange={(e) => updateSettings({ featureToggles: { ...settings.featureToggles, autoAnalyze: e.target.checked } })}
-                className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-                id="auto-opt-toggle"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-[#4a4a4a] pt-5">
-          <span className="text-xs font-bold text-white uppercase tracking-wider block mb-3">
-            <Keyboard className="w-4 h-4 inline mr-1 text-[#bc6c25]" />
-            Keyboard Shortcuts
-          </span>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {shortcutsList.map((s) => (
-              <div key={s.key} className="flex items-center justify-between bg-[#2a2a2a] px-3 py-2 rounded-lg border border-[#4a4a4a]">
-                <span className="text-xs text-white">{s.label}</span>
-                <span className="text-[10px] font-mono text-[#a0a0a0] bg-[#3d3d3d] px-2 py-0.5 rounded">{s.keyDisplay}</span>
-              </div>
-            ))}
-          </div>
-          <label className="flex items-center justify-between mt-3">
-            <span className="text-xs text-[#a0a0a0]">Enable shortcuts</span>
-            <input
-              type="checkbox"
-              checked={settings.shortcutsEnabled}
-              onChange={(e) => updateSettings({ shortcutsEnabled: e.target.checked })}
-              className="w-9 h-5 bg-[#2a2a2a] border border-[#4a4a4a] rounded-full appearance-none checked:bg-[#606c38] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
-            />
-          </label>
-        </div>
-      </div>
-    </div>
-  );
-}
+const AVAILABLE_THEMES = [
+  { id: 'green', name: 'Forest Green', light: '#769656', dark: '#4b6d32' },
+  { id: 'blue', name: 'Royal Blue', light: '#4b73be', dark: '#2b4f8a' },
+  { id: 'brown', name: 'Classic Wood', light: '#f0d9b5', dark: '#b58863' },
+  { id: 'charcoal', name: 'Space Slate', light: '#b7c0d8', dark: '#4d5d75' },
+  { id: 'elegant', name: 'Elegant', light: '#f0f0f0', dark: '#b7c0d8' },
+];
 
 const shortcutsList = [
   { key: 'flip', label: 'Flip board', keyDisplay: 'F' },
@@ -390,3 +37,555 @@ const shortcutsList = [
   { key: 'last', label: 'Last move', keyDisplay: 'End' },
   { key: 'shortcuts', label: 'Show shortcuts', keyDisplay: '?' },
 ];
+
+export default function Profile() {
+  const { user, loginAsGuest, logout, signInWithGoogle, loading: authLoading, error: authError } = useAuthStore();
+  const { settings, updateSettings, resetSettings } = useSettingsStore();
+  const [typedName, setTypedName] = useState('');
+  const [activeTab, setActiveTab] = useState<Tab>('account');
+  const [colorPickerTarget, setColorPickerTarget] = useState<'site' | 'board' | null>(null);
+
+  const handleGuestLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typedName.trim()) {
+      loginAsGuest(typedName.trim());
+      setTypedName('');
+    }
+  };
+
+  const SettingToggle = ({ label, desc, checked, onChange, id }: {
+    label: string; desc: string; checked: boolean; onChange: (v: boolean) => void; id?: string;
+  }) => (
+    <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer">
+      <div>
+        <div className="text-xs font-semibold text-[var(--color-text)]">{label}</div>
+        <div className="text-[10px] text-[var(--color-text-muted)]">{desc}</div>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => onChange(e.target.checked)}
+        id={id}
+        className="w-9 h-5 bg-[var(--color-background)] border border-[var(--color-border)] rounded-full appearance-none checked:bg-[var(--color-primary)] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
+      />
+    </label>
+  );
+
+  const renderTabNav = () => (
+    <div className="flex flex-col space-y-1">
+      {TABS.map(tab => {
+        const Icon = tab.icon;
+        const active = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
+              active
+                ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
+            }`}
+          >
+            <Icon className="w-4 h-4 shrink-0" />
+            <span>{tab.label}</span>
+            {active && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderAccountTab = () => {
+    if (!user) {
+      return (
+        <div className="space-y-5">
+          <div className="text-center space-y-2 mb-2">
+            <h2 className="text-lg font-extrabold text-[var(--color-text)]">Welcome to FinalRank</h2>
+            <p className="text-sm text-[var(--color-text-muted)]">Sign in to save games, track your streak, and customize your experience.</p>
+          </div>
+
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 space-y-5">
+            <form onSubmit={handleGuestLogin} className="space-y-3">
+              <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block">Guest Login</span>
+              <input
+                type="text"
+                required
+                value={typedName}
+                onChange={e => setTypedName(e.target.value)}
+                placeholder="Choose a display name"
+                className="bg-[var(--color-background)] border border-[var(--color-border)] w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)]"
+              />
+              <button type="submit" className="w-full bg-[var(--color-primary)] text-white py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all">
+                Sign In as Guest
+              </button>
+            </form>
+
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 h-px bg-[var(--color-border)]" />
+              <span className="text-[10px] text-[var(--color-text-muted)] font-mono">OR</span>
+              <div className="flex-1 h-px bg-[var(--color-border)]" />
+            </div>
+
+            <div className="space-y-2">
+              <button
+                onClick={signInWithGoogle}
+                disabled={authLoading}
+                className="w-full bg-white text-[var(--color-background)] py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                  <path fill="#EA4335" d="M12 5.04c1.67 0 3.14.59 4.3 1.62l3.12-3.12C17.5 1.84 15 1 12 1 7.42 1 3.53 3.63 1.62 7.46l3.82 2.96c.92-2.76 3.51-4.38 6.56-4.38z" />
+                  <path fill="#4285F4" d="M23.49 12.27c0-.81-.07-1.59-.2-2.34H12v4.44h6.46c-.28 1.48-1.12 2.73-2.38 3.58l3.71 2.88c2.17-2 3.7-4.94 3.7-8.56z" />
+                  <path fill="#FBBC05" d="M5.44 14.5c-.24-.72-.38-1.5-.38-2.3s.14-1.58.38-2.3L1.62 6.94C.58 8.97 0 11.16 0 13.5s.58 4.53 1.62 6.56l3.82-3.06z" />
+                  <path fill="#34A853" d="M12 22.8c3.24 0 5.97-1.07 7.96-2.91l-3.71-2.88c-1.03.69-2.35 1.1-4.25 1.1-3.05 0-5.64-1.62-6.56-4.38L1.62 16.8c1.91 3.83 5.8 6 10.38 6z" />
+                </svg>
+                <span>{authLoading ? 'Signing in...' : 'Sign in with Google'}</span>
+              </button>
+              {authError && (
+                <p className="text-[10px] text-[#fb4934] text-center">{authError}</p>
+              )}
+              <p className="text-[10px] text-[var(--color-text-muted)] text-center">Link your Google account to save your progress across devices.</p>
+            </div>
+          </div>
+
+          {authError && authError.includes('configured') && (
+            <div className="bg-[var(--color-surface)] border border-[#d65d0e] rounded-xl p-4 space-y-2">
+              <p className="text-xs font-bold text-[#d65d0e]">Firebase not configured</p>
+              <p className="text-[10px] text-[var(--color-text-muted)]">To enable Google sign-in, create a <code className="text-[var(--color-accent)]">.env</code> file with your Firebase config:</p>
+              <pre className="text-[10px] font-mono text-[var(--color-text-muted)] bg-[var(--color-background)] p-2 rounded-lg">
+VITE_FIREBASE_API_KEY=your_api_key
+VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=your_project_id
+VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+VITE_FIREBASE_APP_ID=your_app_id</pre>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="flex flex-col items-center text-center space-y-3">
+          <div className="relative">
+            <img src={user.avatar} className="w-20 h-20 rounded-full border-4 border-[var(--color-border)] object-cover" alt={user.username} />
+            <div className="absolute bottom-0 right-0 h-5 w-5 rounded-full bg-[var(--color-primary)] border-2 border-[var(--color-surface)]" />
+          </div>
+          <div>
+            <h2 className="text-lg font-extrabold text-[var(--color-text)]">{user.username}</h2>
+            <p className="text-xs text-[var(--color-text-muted)] font-mono">
+              {user.email
+                ? `${user.email.slice(0, 3)}...${user.email.split('@')[1] || ''}`
+                : user.authProvider === 'google' ? 'Google Account' : 'Guest'}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
+            <Flame className="w-6 h-6 text-[var(--color-accent)] mb-1" />
+            <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.streak}</span>
+            <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Day Streak</span>
+          </div>
+          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
+            <Trophy className="w-6 h-6 text-[var(--color-accent)] mb-1" />
+            <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
+            <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
+          </div>
+        </div>
+
+        <button
+          onClick={logout}
+          className="w-full flex items-center justify-center gap-2 text-xs text-[var(--color-accent)] border border-[var(--color-border)] px-4 py-2 rounded-lg hover:bg-[var(--color-background)] transition-all"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>{user.authProvider === 'google' ? 'Sign Out' : 'Disconnect'}</span>
+        </button>
+      </div>
+    );
+  };
+
+  const renderEngineTab = () => (
+    <div className="space-y-5">
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+          <Zap className="w-4 h-4 text-[var(--color-accent)]" />
+          <span>Engine Depth</span>
+        </label>
+        <select
+          value={settings.engineDepth}
+          onChange={e => updateSettings({ engineDepth: parseInt(e.target.value, 10) })}
+          className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+        >
+          <option value={6}>Depth 6 (Fast)</option>
+          <option value={8}>Depth 8</option>
+          <option value={10}>Depth 10 (Default)</option>
+          <option value={12}>Depth 12</option>
+          <option value={15}>Depth 15 (Deep)</option>
+          <option value={18}>Depth 18 (Max)</option>
+        </select>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Go Mode</label>
+        <div className="flex gap-2">
+          {(['depth', 'time'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => updateSettings({ engineGoMode: mode })}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                settings.engineGoMode === mode
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+              }`}
+            >
+              {mode === 'depth' ? 'Depth' : 'Time'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {settings.engineGoMode === 'time' && (
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Time Limit</label>
+          <input
+            type="range"
+            min={500}
+            max={30000}
+            step={500}
+            value={settings.engineTimeLimitMs}
+            onChange={e => updateSettings({ engineTimeLimitMs: parseInt(e.target.value, 10) })}
+            className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-[var(--color-text-muted)]">
+            <span>0.5s</span>
+            <span className="font-bold text-[var(--color-accent)]">{(settings.engineTimeLimitMs / 1000).toFixed(1)}s</span>
+            <span>30s</span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2.5">
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
+          <Keyboard className="w-4 h-4 text-[var(--color-accent)]" />
+          Keyboard Shortcuts
+        </span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {shortcutsList.map(s => (
+            <div key={s.key} className="flex items-center justify-between bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)]">
+              <span className="text-xs text-[var(--color-text)]">{s.label}</span>
+              <span className="text-[10px] font-mono text-[var(--color-text-muted)] bg-[var(--color-surface)] px-2 py-0.5 rounded">{s.keyDisplay}</span>
+            </div>
+          ))}
+        </div>
+        <SettingToggle label="Enable shortcuts" desc="Toggle keyboard navigation" checked={settings.shortcutsEnabled} onChange={v => updateSettings({ shortcutsEnabled: v })} />
+      </div>
+    </div>
+  );
+
+  const renderBoardTab = () => (
+    <div className="space-y-5">
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+          <Palette className="w-4 h-4 text-[var(--color-accent)]" />
+          <span>Board Theme</span>
+        </label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {AVAILABLE_THEMES.map(theme => {
+            const sel = settings.boardColor === theme.id;
+            return (
+              <button
+                key={theme.id}
+                onClick={() => updateSettings({ boardColor: theme.id as any })}
+                className={`rounded-xl border p-3 flex flex-col items-center gap-2 text-center h-20 transition-all ${
+                  sel
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+                    : 'border-[var(--color-border)] bg-[var(--color-background)]'
+                }`}
+              >
+                <div className="flex gap-0.5">
+                  <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: theme.light }} />
+                  <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: theme.dark }} />
+                </div>
+                <span className="text-[9px] font-bold text-[var(--color-text)] leading-none">{theme.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <SettingToggle
+        label="Show Coordinates"
+        desc="Display a-h, 1-8 labels on the board"
+        checked={settings.featureToggles.showCoordinates}
+        onChange={v => updateSettings({ featureToggles: { ...settings.featureToggles, showCoordinates: v } })}
+      />
+
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Board Orientation</label>
+        <div className="flex gap-2">
+          {(['white', 'black'] as const).map(side => (
+            <button
+              key={side}
+              onClick={() => updateSettings({ boardOrientation: side })}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
+                settings.boardOrientation === side
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+              }`}
+            >
+              {side === 'white' ? 'White Bottom' : 'Black Bottom'}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAudioTab = () => (
+    <div className="space-y-5">
+      <SettingToggle
+        label="Sound Effects"
+        desc="Play sounds for moves and alerts"
+        checked={settings.audioEnabled}
+        onChange={v => updateSettings({ audioEnabled: v })}
+      />
+
+      <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
+        <div className="flex items-center gap-2.5">
+          <div>
+            <div className="text-xs font-semibold text-[var(--color-text)]">Volume</div>
+            <div className="text-[10px] text-[var(--color-text-muted)]">{Math.round(settings.audioVolume * 100)}%</div>
+          </div>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={Math.round(settings.audioVolume * 100)}
+          onChange={e => updateSettings({ audioVolume: parseInt(e.target.value, 10) / 100 })}
+          className="w-24 accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
+        />
+      </div>
+
+      <div className="space-y-3 pt-3 border-t border-[var(--color-border)]">
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
+          <Bell className="w-4 h-4 text-[var(--color-accent)]" />
+          Notifications
+        </span>
+        <SettingToggle
+          label="Analysis Notifications"
+          desc="Show legendary alerts after analysis"
+          checked={settings.notificationsEnabled}
+          onChange={v => updateSettings({ notificationsEnabled: v })}
+        />
+      </div>
+    </div>
+  );
+
+  const renderClockTab = () => (
+    <div className="space-y-5">
+      <div className="space-y-3">
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
+          <Clock className="w-4 h-4 text-[var(--color-accent)]" />
+          Clock Alerts
+        </span>
+        <div className="grid grid-cols-1 gap-3">
+          <SettingToggle
+            label="Time Alert"
+            desc="Warn when time is low"
+            checked={settings.timeAlertEnabled}
+            onChange={v => updateSettings({ timeAlertEnabled: v })}
+          />
+          <SettingToggle
+            label="Alert Sound"
+            desc="Play warning beep"
+            checked={settings.timeAlertSound}
+            onChange={v => updateSettings({ timeAlertSound: v })}
+          />
+        </div>
+      </div>
+
+      <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-2.5">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs font-semibold text-[var(--color-text)]">Alert Threshold</span>
+          <span className="text-[10px] font-mono font-bold text-[var(--color-accent)] bg-[var(--color-surface)] px-2 py-0.5 rounded">{settings.timeAlertThreshold}s</span>
+        </div>
+        <input
+          type="range"
+          min={5}
+          max={120}
+          step={5}
+          value={settings.timeAlertThreshold}
+          onChange={e => updateSettings({ timeAlertThreshold: parseInt(e.target.value, 10) })}
+          className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
+          disabled={!settings.timeAlertEnabled}
+        />
+        <div className="flex justify-between text-[9px] text-[var(--color-text-muted)] font-mono mt-0.5">
+          <span>5s</span>
+          <span>30s</span>
+          <span>60s</span>
+          <span>120s</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderColorsTab = () => {
+    const themeKeys = Object.keys(THEME_PRESETS);
+
+    return (
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+            <Paintbrush className="w-4 h-4 text-[var(--color-accent)]" />
+            <span>Theme Preset</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {themeKeys.map(key => {
+              const preset = THEME_PRESETS[key];
+              const sel = settings.themePreset === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => {
+                    updateSettings({
+                      themePreset: key as any,
+                      siteColors: { ...preset.siteColors },
+                      boardCustomColors: { ...preset.boardCustomColors },
+                    });
+                  }}
+                  className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                    sel
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+                      : 'border-[var(--color-border)] bg-[var(--color-background)]'
+                  }`}
+                >
+                  <div className="flex gap-1">
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.primary }} />
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.accent }} />
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.background }} />
+                  </div>
+                  <span className="text-[9px] font-bold text-[var(--color-text)] capitalize leading-none">{key}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2.5 pt-4 border-t border-[var(--color-border)]">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Site Colors</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {Object.entries(settings.siteColors).map(([key, value]) => (
+              <button
+                key={key}
+                onClick={() => setColorPickerTarget('site')}
+                className="flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
+              >
+                <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
+                <div>
+                  <div className="text-xs font-semibold text-[var(--color-text)] capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                  <div className="text-[10px] font-mono text-[var(--color-text-muted)]">{value}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setColorPickerTarget('site')}
+            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
+          >
+            Customize Site Colors
+          </button>
+        </div>
+
+        <div className="space-y-2.5 pt-4 border-t border-[var(--color-border)]">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Board Colors</label>
+          <div className="flex gap-3">
+            {Object.entries(settings.boardCustomColors).map(([key, value]) => (
+              <button
+                key={key}
+                onClick={() => setColorPickerTarget('board')}
+                className="flex-1 flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
+              >
+                <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
+                <div>
+                  <div className="text-xs font-semibold text-[var(--color-text)] capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
+                  <div className="text-[10px] font-mono text-[var(--color-text-muted)]">{value}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setColorPickerTarget('board')}
+            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
+          >
+            Customize Board Colors
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'account': return renderAccountTab();
+      case 'engine': return renderEngineTab();
+      case 'board': return renderBoardTab();
+      case 'audio': return renderAudioTab();
+      case 'clock': return renderClockTab();
+      case 'colors': return renderColorsTab();
+    }
+  };
+
+  const handleColorSave = (fields: { key: string; label: string; value: string }[]) => {
+    if (colorPickerTarget === 'site') {
+      const siteColors = { ...settings.siteColors };
+      fields.forEach(f => { (siteColors as Record<string, string>)[f.key] = f.value; });
+      updateSettings({ siteColors, themePreset: 'custom' });
+    } else if (colorPickerTarget === 'board') {
+      const boardCustomColors = { ...settings.boardCustomColors };
+      fields.forEach(f => { (boardCustomColors as Record<string, string>)[f.key] = f.value; });
+      updateSettings({ boardCustomColors, themePreset: 'custom' });
+    }
+    setColorPickerTarget(null);
+  };
+
+  return (
+    <div className="max-w-4xl mx-auto space-y-5" id="profile-container">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
+        {user && (
+          <button
+            onClick={resetSettings}
+            className="text-xs font-semibold px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all"
+          >
+            Reset Defaults
+          </button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
+        <div className="md:col-span-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
+          {renderTabNav()}
+        </div>
+
+        <div className="md:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 min-h-[400px]">
+          {renderTabContent()}
+        </div>
+      </div>
+
+      {colorPickerTarget && (
+        <ColorPicker
+          title={colorPickerTarget === 'site' ? 'Customize Site Colors' : 'Customize Board Colors'}
+          fields={
+            colorPickerTarget === 'site'
+              ? Object.entries(settings.siteColors).map(([key, value]) => ({ key, label: key.replace(/([A-Z])/g, ' $1').trim(), value }))
+              : Object.entries(settings.boardCustomColors).map(([key, value]) => ({ key, label: key.replace(/([A-Z])/g, ' $1').trim(), value }))
+          }
+          onSave={handleColorSave}
+          onClose={() => setColorPickerTarget(null)}
+        />
+      )}
+    </div>
+  );
+}

@@ -108,6 +108,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { selectedGame, analyzing } = get();
     if (!selectedGame || analyzing || selectedGame.moves.length === 0) return;
 
+    let abortController: AbortController | null = null;
+
     set({ analyzing: true, analysisProgress: 1 });
 
     try {
@@ -122,6 +124,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
       });
 
+      abortController = evaluator.controller;
       const evaluatedGame = await evaluator.evaluate();
 
       set({ analysisProgress: 95 });
@@ -137,8 +140,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         analysisProgress: 100,
       });
 
-      await new Promise(resolve => setTimeout(resolve, 400));
-
       set({ analyzing: false });
 
       const authStore = useAuthStore.getState();
@@ -147,8 +148,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         await authStore.updateStreakOnAnalysis();
       }
     } catch (err: any) {
-      if (err.message === 'abort') return;
-      console.error(err);
+      if (err.message === 'aborted' || err.message === 'abort') return;
       set({ analyzing: false, analysisProgress: 0 });
     }
   },
@@ -184,8 +184,7 @@ function hydratePgnMoves(pgn: string): AnalyzedMove[] {
         fen: chess.fen(),
         color: moveResult.color,
       });
-    } catch (e) {
-      console.warn(`PGN hydration stopped at move: ${rawMove}`, e);
+    } catch {
       break;
     }
   }

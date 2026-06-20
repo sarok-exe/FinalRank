@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
@@ -24,7 +24,7 @@ interface ChessboardProps {
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
-export default function Chessboard({
+const Chessboard = memo(function Chessboard({
   fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
   onMove,
   playable = true,
@@ -193,12 +193,12 @@ export default function Chessboard({
 
   const flipped = orientation === 'black';
   const displayRows = flipped
-    ? boardGrid.toReversed().map(r => [...r].reverse())
+    ? [...boardGrid].reverse().map(r => [...r].reverse())
     : boardGrid;
 
   return (
     <div className={`relative aspect-square w-full ${className}`}>
-      <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-lg bg-[#2a2a2a] border-4 border-[#2a2a2a] overflow-hidden relative select-none">
+      <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-lg bg-[var(--color-surface)] border-4 border-[#2a2a2a] overflow-hidden relative select-none">
         
         {displayRows.map((rowArr, rowIndex) => {
           return rowArr.map((piece, colIndex) => {
@@ -290,4 +290,6 @@ export default function Chessboard({
       `}</style>
     </div>
   );
-}
+});
+
+export default Chessboard;

@@ -1,0 +1,14 @@
+[project]
+project_id = "sbqmmqzfsstukdqfbbkw"
+name = "FinalRank"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public"]
+
+[db]
+major_version = 15
+
+[auth]
+enabled = true

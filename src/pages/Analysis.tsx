@@ -247,19 +247,19 @@ export default function Analysis() {
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
             Analyze a Chess Game
           </h1>
-          <p className="text-sm text-[#a0a0a0]">
+          <p className="text-sm text-[var(--color-text-muted)]">
             Import from Chess.com or paste a PGN to start analyzing with Stockfish 17.
           </p>
         </div>
 
-        <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-6" id="analysis-settings-card">
-          <div className="flex border-b border-[#4a4a4a] mb-4">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6" id="analysis-settings-card">
+          <div className="flex border-b border-[var(--color-border)] mb-4">
             <button
               onClick={() => setImportMode('chesscom')}
               className={`pb-3 px-4 text-sm font-semibold border-b-2 ${
                 importMode === 'chesscom'
-                  ? 'border-[#606c38] text-[#606c38]'
-                  : 'border-transparent text-[#a0a0a0]'
+                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                  : 'border-transparent text-[var(--color-text-muted)]'
               }`}
             >
               <Search className="w-4 h-4 inline mr-1" />
@@ -269,8 +269,8 @@ export default function Analysis() {
               onClick={() => setImportMode('pgn')}
               className={`pb-3 px-4 text-sm font-semibold border-b-2 ${
                 importMode === 'pgn'
-                  ? 'border-[#606c38] text-[#606c38]'
-                  : 'border-transparent text-[#a0a0a0]'
+                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                  : 'border-transparent text-[var(--color-text-muted)]'
               }`}
             >
               <FileText className="w-4 h-4 inline mr-1" />
@@ -285,13 +285,13 @@ export default function Analysis() {
                 value={usernameInput}
                 onChange={(e) => setUsernameInput(e.target.value)}
                 placeholder="e.g. Hikaru"
-                className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#888888] flex-1"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[var(--color-text-muted)] flex-1"
                 id="chesscom-user-input"
               />
               <button
                 type="submit"
                 disabled={loadingGames}
-                className="bg-[#606c38] text-white text-sm px-5 py-2.5 rounded-lg font-bold disabled:opacity-50"
+                className="bg-[var(--color-primary)] text-white text-sm px-5 py-2.5 rounded-lg font-bold disabled:opacity-50"
                 id="api-fetch-submit"
               >
                 {loadingGames ? 'Searching...' : 'Fetch Games'}
@@ -304,12 +304,12 @@ export default function Analysis() {
                 onChange={(e) => setPgnInput(e.target.value)}
                 placeholder="Paste PGN here..."
                 rows={3}
-                className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg p-3 text-xs font-mono text-white placeholder-[#888888]"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono text-white placeholder-[var(--color-text-muted)]"
                 id="pgn-textarea-input"
               />
               <button
                 type="submit"
-                className="bg-[#606c38] text-white font-bold text-sm py-2.5 rounded-lg self-end px-6"
+                className="bg-[var(--color-primary)] text-white font-bold text-sm py-2.5 rounded-lg self-end px-6"
                 id="pgn-import-submit"
               >
                 Analyze PGN
@@ -318,7 +318,7 @@ export default function Analysis() {
           )}
 
           {importError && (
-            <div className="flex items-center space-x-2 text-xs bg-[#3d3d3d] text-[#bc6c25] p-2.5 rounded-lg mt-3" id="import-error-banner">
+            <div className="flex items-center space-x-2 text-xs bg-[var(--color-surface)] text-[var(--color-accent)] p-2.5 rounded-lg mt-3" id="import-error-banner">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>{importError}</span>
             </div>
@@ -326,9 +326,9 @@ export default function Analysis() {
         </div>
 
         {showGameList && games.length > 0 && (
-          <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5" id="games-archive-card">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-[#bc6c25]" />
+              <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Recent Games ({games.length})</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -340,20 +340,20 @@ export default function Analysis() {
                     onClick={() => selectGame(g.id)}
                     className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 ${
                       isSel
-                        ? 'bg-[#3d3d3d] border-[#606c38]'
-                        : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                        ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                     }`}
                     id={`game-selector-${g.id}`}
                   >
                     <div>
-                      <div className="flex items-center justify-between text-[10px] text-[#a0a0a0] font-semibold mb-1">
+                      <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
                         <span>{g.date}</span>
-                        <span className="font-mono bg-[#3d3d3d] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                        <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                       </div>
                       <div className="text-xs font-bold text-white truncate">
                         {g.white.username} vs {g.black.username}
                       </div>
-                      <div className="text-[10px] text-[#888888] mt-1">
+                      <div className="text-[10px] text-[var(--color-text-muted)] mt-1">
                         {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
                       </div>
                     </div>
@@ -366,13 +366,13 @@ export default function Analysis() {
 
         {!showGameList && games.length > 0 && (
           <div className="text-center">
-            <p className="text-xs text-[#888888] mb-3">Or try a legendary game:</p>
+            <p className="text-xs text-[var(--color-text-muted)] mb-3">Or try a legendary game:</p>
             <div className="flex flex-wrap gap-2 justify-center">
               {LEGENDARY_PRESET_GAMES.map((g) => (
                 <button
                   key={g.id}
                   onClick={() => selectGame(g.id)}
-                  className="text-xs bg-[#333333] border border-[#4a4a4a] text-[#a0a0a0] px-3 py-2 rounded-lg"
+                  className="text-xs bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-3 py-2 rounded-lg"
                 >
                   {g.white.username} vs {g.black.username}
                 </button>
@@ -391,7 +391,7 @@ export default function Analysis() {
       {!focusMode && (
         <button
           onClick={handleBackToImport}
-          className="flex items-center space-x-1.5 text-xs text-[#bc6c25] mb-1"
+          className="flex items-center space-x-1.5 text-xs text-[var(--color-accent)] mb-1"
           id="back-to-import-btn"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
@@ -405,46 +405,46 @@ export default function Analysis() {
           : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}
       `.trim()} id="game-arena-grid">
         {focusMode && selectedGame && (
-        <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 flex flex-col items-center gap-3" id="focus-players-panel">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center gap-3" id="focus-players-panel">
           <div className="flex flex-col items-center gap-1.5">
             {selectedGame.black.avatar ? (
-              <img src={selectedGame.black.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[#888888] flex-shrink-0" />
+              <img src={selectedGame.black.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
             ) : (
-              <span className="w-[34px] h-[34px] rounded-[10px] bg-[#2a2a2a] border border-[#888888] flex-shrink-0 block" />
+              <span className="w-[34px] h-[34px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
             )}
             <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
               {selectedGame.black.username}
-              {selectedGame.black.rating && <span className="text-[#a0a0a0] ml-1">({selectedGame.black.rating})</span>}
+              {selectedGame.black.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.black.rating})</span>}
             </div>
           </div>
           {selectedGame.accuracy && (
             <div className="text-center -mt-1">
-              <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Accuracy</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
               <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
             </div>
           )}
-          <div className="text-xs text-[#606c38] font-bold uppercase tracking-widest">VS</div>
+          <div className="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest">VS</div>
           {selectedGame.accuracy && (
             <div className="text-center -mt-1">
-              <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Accuracy</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
               <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
             </div>
           )}
           <div className="flex flex-col items-center gap-1.5 mt-[10px]">
             {selectedGame.white.avatar ? (
-              <img src={selectedGame.white.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[#a0a0a0] flex-shrink-0" />
+              <img src={selectedGame.white.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
             ) : (
-              <span className="w-[34px] h-[34px] rounded-[10px] bg-white border border-[#a0a0a0] flex-shrink-0 block" />
+              <span className="w-[34px] h-[34px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
             )}
             <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
               {selectedGame.white.username}
-              {selectedGame.white.rating && <span className="text-[#a0a0a0] ml-1">({selectedGame.white.rating})</span>}
+              {selectedGame.white.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.white.rating})</span>}
             </div>
           </div>
-          <div className="mt-2 pt-3 border-t border-[#4a4a4a] w-full text-center">
-            <div className="text-[10px] text-[#a0a0a0] font-bold uppercase">Result</div>
+          <div className="mt-2 pt-3 border-t border-[var(--color-border)] w-full text-center">
+            <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Result</div>
             <div className="text-sm font-bold text-white font-mono">{selectedGame.result}</div>
-            <div className="text-[10px] text-[#a0a0a0]">{selectedGame.date}</div>
+            <div className="text-[10px] text-[var(--color-text-muted)]">{selectedGame.date}</div>
           </div>
         </div>
         )}
@@ -468,23 +468,23 @@ export default function Analysis() {
             </div>
           </div>
 
-          <div className="w-full flex items-center justify-between bg-[#333333] border border-[#4a4a4a] rounded-xl p-3" id="game-controls-console" style={{ maxWidth: boardWidth }}>
+          <div className="w-full flex items-center justify-between bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex space-x-1">
-              <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[#3d3d3d] text-[#a0a0a0] rounded-lg disabled:opacity-30" title="First Move">
+              <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move">
                 <ChevronsLeft className="w-5 h-5" />
               </button>
-              <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[#3d3d3d] text-[#a0a0a0] rounded-lg disabled:opacity-30" title="Previous Move">
+              <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move">
                 <ChevronLeft className="w-5 h-5" />
               </button>
             </div>
-            <span className="text-xs text-[#a0a0a0] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
+            <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
               Move {currentMoveIndex + 1} / {selectedGame.moves.length}
             </span>
             <div className="flex space-x-1">
-              <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[#3d3d3d] text-[#a0a0a0] rounded-lg disabled:opacity-30" title="Next Move">
+              <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
                 <ChevronRight className="w-5 h-5" />
               </button>
-              <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[#3d3d3d] text-[#a0a0a0] rounded-lg disabled:opacity-30" title="Last Move">
+              <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move">
                 <ChevronsRight className="w-5 h-5" />
               </button>
             </div>
@@ -493,7 +493,7 @@ export default function Analysis() {
           <div className="w-full flex items-center gap-2" style={{ maxWidth: boardWidth }}>
             <button
               onClick={toggleOrientation}
-              className="flex items-center gap-1.5 bg-[#3d3d3d] border border-[#4a4a4a] px-3 py-2 rounded-lg text-xs text-[#a0a0a0]"
+              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
               title="Flip board (F)"
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -502,7 +502,7 @@ export default function Analysis() {
             <div className="flex-1" />
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-shortcuts'))}
-              className="flex items-center gap-1.5 bg-[#3d3d3d] border border-[#4a4a4a] px-3 py-2 rounded-lg text-xs text-[#a0a0a0]"
+              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
               title="Keyboard shortcuts (?)"
             >
               <Keyboard className="w-3.5 h-3.5" />
@@ -512,8 +512,8 @@ export default function Analysis() {
               onClick={toggleFocusMode}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border ${
                 focusMode
-                  ? 'bg-[#606c38] text-white border-[#606c38]'
-                  : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                  : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
               }`}
               title="Toggle focus mode (Z)"
             >
@@ -522,7 +522,7 @@ export default function Analysis() {
             </button>
             <button
               onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 bg-[#3d3d3d] border border-[#4a4a4a] px-3 py-2 rounded-lg text-xs text-[#a0a0a0]"
+              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
               title="Toggle fullscreen (F11)"
             >
               <Maximize className="w-3.5 h-3.5" />
@@ -530,20 +530,20 @@ export default function Analysis() {
           </div>
 
           {!focusMode && (
-          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-[#606c38]" />
+                  <Zap className="w-4 h-4 text-[var(--color-primary)]" />
                   <span>Stockfish 17</span>
                 </h3>
-                <p className="text-[11px] text-[#a0a0a0]">Depth {settings.engineDepth} &middot; Non-blocking analysis</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Depth {settings.engineDepth} &middot; Non-blocking analysis</p>
               </div>
               <div className="flex items-center space-x-2">
                 <select
                   value={settings.engineDepth}
                   onChange={(e) => updateSettings({ engineDepth: parseInt(e.target.value, 10) })}
-                  className="bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-2 py-1.5 text-xs text-white"
+                  className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
                   id="depth-picker"
                 >
                   <option value={6}>Depth 6</option>
@@ -558,8 +558,8 @@ export default function Analysis() {
                   disabled={analyzing}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
                     analyzing
-                      ? 'bg-[#4a5530] opacity-70 cursor-wait'
-                      : 'bg-[#606c38]'
+                      ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
+                      : 'bg-[var(--color-primary)]'
                   }`}
                   id="analyze-game-button"
                 >
@@ -571,12 +571,12 @@ export default function Analysis() {
             {analyzing && (
               <div className="space-y-1" id="analysis-progressbar-group">
                 <div className="flex items-center justify-between text-[11px] font-medium">
-                  <span className="text-[#606c38]">Analyzing positions...</span>
-                  <span className="text-[#606c38] font-bold">{analysisProgress}%</span>
+                  <span className="text-[var(--color-primary)]">Analyzing positions...</span>
+                  <span className="text-[var(--color-primary)] font-bold">{analysisProgress}%</span>
                 </div>
-                <div className="w-full h-2 bg-[#3d3d3d] rounded-full overflow-hidden">
+                <div className="w-full h-2 bg-[var(--color-surface)] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-[#606c38] rounded-full"
+                    className="h-full bg-[var(--color-primary)] rounded-full"
                     style={{ width: `${analysisProgress}%` }}
                   />
                 </div>
@@ -590,23 +590,23 @@ export default function Analysis() {
         {!focusMode && (
         <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
           {legendaryData && !notificationDismissed && (
-            <div className="bg-[#3d3d3d] border border-[#bc6c25] rounded-xl p-4 text-[#bc6c25] relative" id="legendary-achievement-banner">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl p-4 text-[var(--color-accent)] relative" id="legendary-achievement-banner">
               <button
-                className="absolute top-2 right-2 text-[#bc6c25] text-sm font-bold w-5 h-5 rounded-full flex items-center justify-center bg-[#4a4a4a]"
+                className="absolute top-2 right-2 text-[var(--color-accent)] text-sm font-bold w-5 h-5 rounded-full flex items-center justify-center bg-[var(--color-border)]"
                 onClick={() => setNotificationDismissed(true)}
               >
                 &#x2715;
               </button>
               <div className="flex items-start space-x-3">
-                <div className="bg-[#bc6c25] text-white p-1.5 rounded-lg shrink-0 mt-0.5">
+                <div className="bg-[var(--color-accent)] text-white p-1.5 rounded-lg shrink-0 mt-0.5">
                   <Award className="w-5 h-5 stroke-[2.5]" />
                 </div>
                 <div>
-                  <h4 className="font-extrabold text-[#bc6c25] tracking-tight uppercase text-xs flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-[#bc6c25]" />
+                  <h4 className="font-extrabold text-[var(--color-accent)] tracking-tight uppercase text-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[var(--color-accent)]" />
                     Legendary Game!
                   </h4>
-                  <p className="text-xs text-[#d0d0d0] mt-1 pr-6 leading-relaxed">
+                  <p className="text-xs text-[var(--color-text)] mt-1 pr-6 leading-relaxed">
                     {legendaryData.hasBrilliant && `Brilliant moves: ${legendaryData.brilliantsWhite} by White, ${legendaryData.brilliantsBlack} by Black. `}
                     {legendaryData.hasHighAccuracy && `Accuracy: White ${legendaryData.whiteAcc}%, Black ${legendaryData.blackAcc}%.`}
                   </p>
@@ -616,42 +616,42 @@ export default function Analysis() {
           )}
 
           {!focusMode && selectedGame && (
-          <div className="w-full bg-[#333333] border border-[#4a4a4a] rounded-xl p-3.5 flex items-start justify-between" id="game-info-card">
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3.5 flex items-start justify-between" id="game-info-card">
             <div className="space-y-1.5 flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-[#a0a0a0] font-semibold">
-                <TrendingUp className="w-3.5 h-3.5 text-[#606c38]" />
+              <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] font-semibold">
+                <TrendingUp className="w-3.5 h-3.5 text-[var(--color-primary)]" />
                 <span>Result: </span>
-                <span className="text-white bg-[#3d3d3d] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
+                <span className="text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
                 <span className="mx-1">&bull;</span>
                 <span className="truncate">{selectedGame.date}</span>
               </div>
               <div className="text-sm font-bold text-white flex flex-col gap-1">
                 <div className="flex items-center space-x-2.5">
                   {selectedGame.white.avatar ? (
-                    <img src={selectedGame.white.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[#a0a0a0] flex-shrink-0" />
+                    <img src={selectedGame.white.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
                   ) : (
-                    <span className="w-[44px] h-[44px] rounded-[10px] bg-white border border-[#a0a0a0] flex-shrink-0 block" />
+                    <span className="w-[44px] h-[44px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
                   )}
-                  <span className="truncate">{selectedGame.white.username} {selectedGame.white.rating && <span className="text-[#a0a0a0]">({selectedGame.white.rating})</span>}</span>
+                  <span className="truncate">{selectedGame.white.username} {selectedGame.white.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.white.rating})</span>}</span>
                 </div>
                 <div className="flex items-center space-x-2.5 mt-[3px]">
                   {selectedGame.black.avatar ? (
-                    <img src={selectedGame.black.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[#888888] flex-shrink-0" />
+                    <img src={selectedGame.black.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
                   ) : (
-                    <span className="w-[44px] h-[44px] rounded-[10px] bg-[#2a2a2a] border border-[#888888] flex-shrink-0 block" />
+                    <span className="w-[44px] h-[44px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
                   )}
-                  <span className="truncate">{selectedGame.black.username} {selectedGame.black.rating && <span className="text-[#a0a0a0]">({selectedGame.black.rating})</span>}</span>
+                  <span className="truncate">{selectedGame.black.username} {selectedGame.black.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.black.rating})</span>}</span>
                 </div>
               </div>
             </div>
             {selectedGame.accuracy && (
-              <div className="flex items-center space-x-3 border-l border-[#4a4a4a] pl-3.5 ml-2 shrink-0">
+              <div className="flex items-center space-x-3 border-l border-[var(--color-border)] pl-3.5 ml-2 shrink-0">
                 <div className="text-center">
-                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">W</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">W</div>
                   <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider">B</div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">B</div>
                   <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
                 </div>
               </div>
@@ -659,14 +659,14 @@ export default function Analysis() {
           </div>
           )}
 
-          <div className="flex-1 bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
-            <h3 className="text-xs font-bold text-[#a0a0a0] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
-              <History className="w-4 h-4 text-[#bc6c25]" />
+          <div className="flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
+              <History className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Move Log</span>
             </h3>
             <div className="flex-1 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-track-[#2a2a2a] scrollbar-thumb-[#4a4a4a]" id="moves-log-container">
               {selectedGame.moves.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-[#888888] italic p-6">
+                <div className="h-full flex items-center justify-center text-xs text-[var(--color-text-muted)] italic p-6">
                   Click 'Analyze' to evaluate positions.
                 </div>
               ) : (
@@ -677,13 +677,13 @@ export default function Analysis() {
                     const turnNum = rowIndex + 1;
                     return (
                       <div key={rowIndex} className="col-span-2 grid grid-cols-12 py-1.5 px-2 rounded-lg bg-transparent items-center">
-                        <div className="col-span-2 text-xs text-[#888888] font-bold">{turnNum}.</div>
+                        <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-bold">{turnNum}.</div>
                         <button
                           onClick={() => setCurrentMoveIndex(whiteMove.index)}
                           className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
                             currentMoveIndex === whiteMove.index
-                              ? 'bg-[#3d3d3d] text-[#606c38]'
-                              : 'text-[#d0d0d0]'
+                              ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                              : 'text-[var(--color-text)]'
                           }`}
                           id={`move-${whiteMove.index}`}
                         >
@@ -697,8 +697,8 @@ export default function Analysis() {
                             onClick={() => setCurrentMoveIndex(blackMove.index)}
                             className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
                               currentMoveIndex === blackMove.index
-                                ? 'bg-[#3d3d3d] text-[#606c38]'
-                                : 'text-[#d0d0d0]'
+                                ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                                : 'text-[var(--color-text)]'
                             }`}
                             id={`move-${blackMove.index}`}
                           >
@@ -718,18 +718,18 @@ export default function Analysis() {
             </div>
           </div>
 
-          <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
-            <h3 className="text-xs font-bold text-[#a0a0a0] uppercase tracking-wider mb-2 flex items-center space-x-1.5">
-              <Activity className="w-4 h-4 text-[#bc6c25]" />
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 flex items-center space-x-1.5">
+              <Activity className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Engine Diagnosis</span>
             </h3>
             {currentMoveIndex === -1 ? (
-              <div className="text-xs text-[#888888] italic leading-relaxed py-2">
+              <div className="text-xs text-[var(--color-text-muted)] italic leading-relaxed py-2">
                 Starting position. Browse moves or click 'Analyze' to compute.
               </div>
             ) : currentMove ? (
               <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-[#4a4a4a] pb-2">
+                <div className="flex items-center justify-between border-b border-[var(--color-border)] pb-2">
                   <div className="flex items-center space-x-2">
                     <span className="font-extrabold text-sm" style={{ color: currentMove.classification ? classificationColours[currentMove.classification] : '#606c38' }}>
                       {currentMove.san}
@@ -747,16 +747,16 @@ export default function Analysis() {
                     )}
                   </div>
                   {currentMove.evaluation && (
-                    <div className="flex items-center space-x-2 text-xs font-mono font-bold bg-[#2a2a2a] px-2.5 py-1 rounded border border-[#4a4a4a]">
-                      <span className="text-[#a0a0a0]">Eval:</span>
-                      <span className={currentMove.evaluation.score > 0 ? 'text-[#606c38]' : 'text-white'}>
+                    <div className="flex items-center space-x-2 text-xs font-mono font-bold bg-[var(--color-surface)] px-2.5 py-1 rounded border border-[var(--color-border)]">
+                      <span className="text-[var(--color-text-muted)]">Eval:</span>
+                      <span className={currentMove.evaluation.score > 0 ? 'text-[var(--color-primary)]' : 'text-white'}>
                         {currentMove.evaluation.score > 0 ? `+${currentMove.evaluation.score.toFixed(2)}` : currentMove.evaluation.score.toFixed(2)}
                       </span>
                     </div>
                   )}
                 </div>
                 {currentMove.opening && (
-                  <div className="flex items-center space-x-1.5 text-xs text-[#dda15e] font-semibold">
+                  <div className="flex items-center space-x-1.5 text-xs text-[var(--color-accent)] font-semibold">
                     <BookOpen className="w-3 h-3" />
                     <span>{currentMove.opening}</span>
                   </div>
@@ -765,9 +765,9 @@ export default function Analysis() {
                   {currentMove.explanation || `Move ${currentMove.index + 1}.`}
                 </p>
                 {currentMove.evaluation?.bestMove && (
-                  <div className="flex items-center justify-between bg-[#2a2a2a] p-2 rounded text-xs">
-                    <span className="text-[#a0a0a0]">Best line:</span>
-                    <span className="font-bold font-mono text-[#606c38]">{currentMove.evaluation.bestMove}</span>
+                  <div className="flex items-center justify-between bg-[var(--color-surface)] p-2 rounded text-xs">
+                    <span className="text-[var(--color-text-muted)]">Best line:</span>
+                    <span className="font-bold font-mono text-[var(--color-primary)]">{currentMove.evaluation.bestMove}</span>
                   </div>
                 )}
               </div>
@@ -782,7 +782,7 @@ export default function Analysis() {
       <>
       <button
         onClick={() => setShowGameList(!showGameList)}
-        className="flex items-center space-x-1.5 text-xs text-[#a0a0a0]"
+        className="flex items-center space-x-1.5 text-xs text-[var(--color-text-muted)]"
       >
         <BookOpen className="w-3.5 h-3.5" />
         <span>Game library ({games.length})</span>
@@ -790,7 +790,7 @@ export default function Analysis() {
       </button>
 
       {showGameList && (
-        <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5" id="games-archive-card">
+        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {games.map((g) => (
               <button
@@ -798,21 +798,21 @@ export default function Analysis() {
                 onClick={() => selectGame(g.id)}
                 className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 ${
                   selectedGame?.id === g.id
-                    ? 'bg-[#3d3d3d] border-[#606c38]'
-                    : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                 }`}
               >
                 <div>
-                  <div className="flex items-center justify-between text-[10px] text-[#a0a0a0] font-semibold mb-1">
+                  <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
                     <span>{g.date}</span>
-                    <span className="font-mono bg-[#3d3d3d] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                    <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                   </div>
                   <div className="text-xs font-bold text-white truncate">
                     {g.white.username} vs {g.black.username}
                   </div>
                 </div>
                 {selectedGame?.id === g.id && (
-                  <span className="text-[10px] font-bold text-white bg-[#606c38] px-2 py-0.5 rounded-full self-start mt-2">
+                  <span className="text-[10px] font-bold text-white bg-[var(--color-primary)] px-2 py-0.5 rounded-full self-start mt-2">
                     Active
                   </span>
                 )}
@@ -826,57 +826,57 @@ export default function Analysis() {
 
       {showShortcuts && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
-          <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Keyboard className="w-5 h-5 text-[#606c38]" />
+                <Keyboard className="w-5 h-5 text-[var(--color-primary)]" />
                 Keyboard Shortcuts
               </h2>
-              <button onClick={() => setShowShortcuts(false)} className="text-[#a0a0a0] text-xl leading-none">&times;</button>
+              <button onClick={() => setShowShortcuts(false)} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Flip board</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">F</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">F</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Analyze game</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">A</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">A</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Next move</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">&rarr;</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">&rarr;</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Previous move</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">&larr;</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">&larr;</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">First move</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">Home</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Home</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Last move</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">End</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">End</span>
               </div>
               <div className="flex justify-between text-sm py-1.5">
                 <span className="text-white">Show shortcuts</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">?</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">?</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-t border-[#4a4a4a] pt-3 mt-1">
-                <span className="text-[#606c38] font-bold text-xs">Display</span>
+              <div className="flex justify-between text-sm py-1.5 border-t border-[var(--color-border)] pt-3 mt-1">
+                <span className="text-[var(--color-primary)] font-bold text-xs">Display</span>
                 <span />
               </div>
-              <div className="flex justify-between text-sm py-1.5 border-b border-[#4a4a4a]">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Toggle focus mode</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">Z</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Z</span>
               </div>
               <div className="flex justify-between text-sm py-1.5">
                 <span className="text-white">Toggle fullscreen</span>
-                <span className="text-[#a0a0a0] font-mono text-xs bg-[#3d3d3d] px-2 py-0.5 rounded">F11</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">F11</span>
               </div>
             </div>
-            <p className="text-xs text-[#666666] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>
+            <p className="text-xs text-[var(--color-text-muted)] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>
           </div>
         </div>
       )}

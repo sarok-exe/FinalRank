@@ -117,15 +117,16 @@ export function createGameEvaluator(
            gameEngineLines[currentFenIndex] = lines;
            options.onProgress?.(getProgress());
            evaluateNextPosition(engine, engineIndex);
-         }).catch(() => {
-           progresses[currentFenIndex] = 1;
-           options.onProgress?.(getProgress());
-           const newEngine = new Engine(options.engineVersion);
-           options.engineConfig?.(newEngine);
-           newEngine.onError(() => {});
-           engines[engineIndex] = newEngine;
-           evaluateNextPosition(newEngine, engineIndex);
-         });
+          }).catch(() => {
+            progresses[currentFenIndex] = 1;
+            options.onProgress?.(getProgress());
+            engine.terminate();
+            const newEngine = new Engine(options.engineVersion);
+            options.engineConfig?.(newEngine);
+            newEngine.onError(() => {});
+            engines[engineIndex] = newEngine;
+            evaluateNextPosition(newEngine, engineIndex);
+          });
       }
 
       const remainingCount = fens.length - 1 - evaluatedCount;

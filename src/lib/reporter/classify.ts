@@ -1,5 +1,5 @@
 import { Chess } from 'chess.js';
-import { EngineLine, CLASSIFICATION_VALUES } from '../../types';
+import { EngineLine, CLASSIFICATION_VALUES, MoveClassification } from '../../types';
 import { getTopEngineLine } from '../engine';
 import { AnalysisOptions } from './types';
 import { extractPreviousStateTreeNode, extractCurrentStateTreeNode } from './utils/extractNode';
@@ -15,7 +15,7 @@ export function classifyMove(
   currEngineLines: EngineLine[],
   playedMoveSan: string,
   options?: AnalysisOptions
-): { classification?: string; opening?: string } {
+): { classification?: MoveClassification; opening?: string } {
   const opts: Required<AnalysisOptions> = {
     includeBrilliant: true,
     includeCritical: true,
@@ -45,7 +45,7 @@ export function classifyMove(
   if (!prev || !curr) return {};
 
   const topMovePlayed = prev.topMove.san === curr.playedMove.san;
-  let classification = topMovePlayed ? 'best' : pointLossClassify(prev, curr);
+  let classification: MoveClassification | undefined = topMovePlayed ? 'best' : pointLossClassify(prev, curr);
 
   if (opts.includeCritical && topMovePlayed && considerCriticalClassification(prev, curr)) {
     classification = 'critical';

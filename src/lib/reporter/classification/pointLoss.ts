@@ -1,11 +1,12 @@
 import { WHITE } from 'chess.js';
+import { MoveClassification } from '../../../types';
 import { ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
 import { getExpectedPointsLoss } from '../expectedPoints';
 
 export function pointLossClassify(
   previous: ExtractedPreviousNode,
   current: ExtractedCurrentNode
-): string {
+): MoveClassification {
   const previousSubjectiveValue = previous.evaluation.value * (current.playedMove.color === WHITE ? 1 : -1);
   const subjectiveValue = current.subjectiveEvaluation.value;
 

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 
 interface EvalBarProps {
   score: number | null;
@@ -6,7 +6,7 @@ interface EvalBarProps {
   flipped?: boolean;
 }
 
-export default function EvalBar({ score, mate, flipped = false }: EvalBarProps) {
+const EvalBar = memo(function EvalBar({ score, mate, flipped = false }: EvalBarProps) {
   const displayText = useMemo(() => {
     if (mate !== null && mate !== undefined) {
       return mate > 0 ? `M${Math.abs(mate)}` : `-M${Math.abs(mate)}`;
@@ -34,7 +34,7 @@ export default function EvalBar({ score, mate, flipped = false }: EvalBarProps) 
   const whiteAdvantage = whitePercent > 50;
 
   return (
-    <div className="relative w-[30px] h-full rounded overflow-hidden border border-[#4a4a4a] bg-[#333333] flex-shrink-0">
+    <div className="relative w-[30px] h-full rounded overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">
       <div
         className="w-full transition-all duration-300 ease-out flex flex-col"
         style={{ height: `${whiteHeight}%` }}
@@ -55,8 +55,10 @@ export default function EvalBar({ score, mate, flipped = false }: EvalBarProps) 
             {displayText}
           </span>
         )}
-        <div className="flex-1 bg-[#2a2a2a]" />
+        <div className="flex-1 bg-[var(--color-surface)]" />
       </div>
     </div>
   );
-}
+});
+
+export default EvalBar;

@@ -3,6 +3,7 @@ export interface User {
   username: string;
   email: string;
   avatar: string;
+  authProvider: 'google' | 'guest';
   streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
@@ -10,6 +11,22 @@ export interface User {
 }
 
 export type EngineGoMode = 'depth' | 'time';
+
+export interface SiteColorScheme {
+  primary: string;
+  secondary: string;
+  accent: string;
+  background: string;
+  surface: string;
+  text: string;
+  textMuted: string;
+  border: string;
+}
+
+export interface BoardCustomColors {
+  lightSquare: string;
+  darkSquare: string;
+}
 
 export interface UserSettings {
   engineDepth: number;
@@ -25,6 +42,9 @@ export interface UserSettings {
   timeAlertEnabled: boolean;
   timeAlertThreshold: number;
   timeAlertSound: boolean;
+  themePreset: 'olive' | 'dark' | 'ember' | 'ocean' | 'forest' | 'custom';
+  siteColors: SiteColorScheme;
+  boardCustomColors: BoardCustomColors;
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;

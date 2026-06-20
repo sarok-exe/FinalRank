@@ -100,16 +100,16 @@ function FeatureCard({
   return (
     <button
       onClick={onClick}
-      className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-8 flex flex-col items-center text-center hover:border-[#606c38] transition-colors group aspect-square justify-center"
+      className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] transition-colors group aspect-square justify-center"
     >
-      <div className="w-12 h-12 bg-[#3d3d3d] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[#606c38] transition-colors">
+      <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] transition-colors">
         <Icon className="w-6 h-6 text-white" />
       </div>
       <h3 className="text-lg font-extrabold text-white mb-2">{title}</h3>
-      <p className="text-sm text-[#a0a0a0] leading-relaxed mb-5">{description}</p>
+      <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-5">{description}</p>
       <div className="flex flex-wrap gap-2 justify-center">
         {tags.map((t) => (
-          <span key={t} className="text-xs font-bold text-[#bc6c25] bg-[#3d3d3d] px-2.5 py-1 rounded">
+          <span key={t} className="text-xs font-bold text-[var(--color-accent)] bg-[var(--color-surface)] px-2.5 py-1 rounded">
             {t}
           </span>
         ))}
@@ -124,7 +124,7 @@ function ToolsLanding({ onSelect }: { onSelect: (f: ActiveFeature) => void }) {
     <div className="max-w-5xl mx-auto space-y-8" id="tools-landing">
       <div className="text-center space-y-3 mb-2">
         <h1 className="text-4xl font-extrabold text-white tracking-tight">Tools</h1>
-        <p className="text-base text-[#a0a0a0]">
+        <p className="text-base text-[var(--color-text-muted)]">
           Play against Stockfish, challenge a friend on the same device, or use the chess clock.
         </p>
       </div>
@@ -261,7 +261,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
       <div className="flex items-center justify-between">
         <button
           onClick={() => { destroyEngine(); onBack(); }}
-          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Tools</span>
@@ -273,8 +273,8 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                 onClick={toggleFocusMode}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
                   focusMode
-                    ? 'bg-[#606c38] text-white border-[#606c38]'
-                    : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+                    ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                 }`}
                 title="Toggle focus mode (Z)"
               >
@@ -283,7 +283,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
               </button>
               <button
                 onClick={toggleFullscreen}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
                 title="Toggle fullscreen (F11)"
               >
                 <Maximize className="w-3 h-3" />
@@ -295,17 +295,17 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
 
       {!gameStarted ? (
         <div className="flex flex-col items-center justify-center min-h-[400px]">
-          <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-8 flex flex-col items-center text-center space-y-4 max-w-md w-full">
-            <Cpu className="w-14 h-14 text-[#bc6c25]" />
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-8 flex flex-col items-center text-center space-y-4 max-w-md w-full">
+            <Cpu className="w-14 h-14 text-[var(--color-accent)]" />
             <div>
               <h3 className="font-extrabold text-white text-lg">Play vs Stockfish</h3>
-              <p className="text-xs text-[#a0a0a0] mt-1">
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
                 Choose your engine strength and play against the local Stockfish 17 Lite engine.
               </p>
             </div>
             <button
               onClick={startNewGame}
-              className="bg-[#606c38] text-white px-6 py-2.5 rounded-lg font-bold text-sm"
+              className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm"
             >
               New Game
             </button>
@@ -338,9 +338,9 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
           {!focusMode && (
           <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
             <div className="grid grid-cols-2 gap-4 w-full">
-              <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 space-y-2.5" id="engine-controls-panel">
+              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5" id="engine-controls-panel">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
-                  <Cpu className="w-4 h-4 text-[#bc6c25]" />
+                  <Cpu className="w-4 h-4 text-[var(--color-accent)]" />
                   Engine Strength
                 </h3>
 
@@ -349,8 +349,8 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                     onClick={() => setEngineGoMode('depth')}
                     className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
                       engineGoMode === 'depth'
-                        ? 'bg-[#606c38] text-white border-[#606c38]'
-                        : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                        ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                     }`}
                   >
                     <Layers className="w-3 h-3" />
@@ -360,8 +360,8 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                     onClick={() => setEngineGoMode('time')}
                     className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
                       engineGoMode === 'time'
-                        ? 'bg-[#606c38] text-white border-[#606c38]'
-                        : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                        ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                     }`}
                   >
                     <Timer className="w-3 h-3" />
@@ -378,43 +378,43 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                           onClick={() => handleDepthPreset(p.id, p.depth)}
                           className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold border ${
                             engineDepthPreset === p.id
-                              ? 'bg-[#606c38] text-white border-[#606c38]'
-                              : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                              ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                              : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                           }`}
                         >
                           {p.name}
                         </button>
                       ))}
                     </div>
-                    <div className="flex items-center gap-2 text-[10px] text-[#a0a0a0]">
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
                       <span>Depth:</span>
                       <input
                         type="range" min={1} max={30}
                         value={engineDepth}
                         onChange={(e) => { setEngineDepth(parseInt(e.target.value, 10)); setEngineDepthPreset('custom'); }}
-                        className="flex-1 accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
+                        className="flex-1 accent-[var(--color-primary)] h-1 bg-[var(--color-surface)] rounded-lg cursor-pointer"
                       />
-                      <span className="font-mono font-bold text-[#606c38] w-6 text-center">{engineDepth}</span>
+                      <span className="font-mono font-bold text-[var(--color-primary)] w-6 text-center">{engineDepth}</span>
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 text-[10px] text-[#a0a0a0]">
+                  <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
                     <span>Time:</span>
                     <input
                       type="range" min={100} max={30000} step={100}
                       value={engineThinkingTime}
                       onChange={(e) => setEngineThinkingTime(parseInt(e.target.value, 10))}
-                      className="flex-1 accent-[#606c38] h-1 bg-[#3d3d3d] rounded-lg cursor-pointer"
+                      className="flex-1 accent-[var(--color-primary)] h-1 bg-[var(--color-surface)] rounded-lg cursor-pointer"
                     />
-                    <span className="font-mono font-bold text-[#606c38] w-12 text-center">
+                    <span className="font-mono font-bold text-[var(--color-primary)] w-12 text-center">
                       {(engineThinkingTime / 1000).toFixed(1)}s
                     </span>
                   </div>
                 )}
               </div>
 
-              <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvc-moves-panel">
-                <span className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider block mb-2">Moves</span>
+              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvc-moves-panel">
+                <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider block mb-2">Moves</span>
                 <div className="flex-1 overflow-y-auto font-mono text-xs text-white grid grid-cols-2 gap-y-1 content-start pr-1">
                   {moveHistory.length > 0 ? (
                     moveHistory.map((m, idx) => {
@@ -422,23 +422,23 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                       const num = Math.floor(idx / 2) + 1;
                       return (
                         <div key={idx} className="flex space-x-1 justify-start">
-                          {isWhite && <span className="text-[#666666] font-bold">{num}.</span>}
-                          <span className="font-semibold text-[#606c38]">{m}</span>
+                          {isWhite && <span className="text-[var(--color-text-muted)] font-bold">{num}.</span>}
+                          <span className="font-semibold text-[var(--color-primary)]">{m}</span>
                         </div>
                       );
                     })
                   ) : (
-                    <span className="text-[#666666] text-[10px] col-span-2">Waiting for your first move...</span>
+                    <span className="text-[var(--color-text-muted)] text-[10px] col-span-2">Waiting for your first move...</span>
                   )}
                 </div>
               </div>
             </div>
 
-            <div className="text-xs text-white bg-[#3d3d3d] p-2.5 rounded-lg border border-[#4a4a4a] leading-relaxed text-center" id="engine-feedback-banner">
+            <div className="text-xs text-white bg-[var(--color-surface)] p-2.5 rounded-lg border border-[var(--color-border)] leading-relaxed text-center" id="engine-feedback-banner">
               {engineFeedback || 'Make your move.'}
             </div>
 
-            <button onClick={startNewGame} className="w-full bg-[#3d3d3d] text-white border border-[#4a4a4a] py-2 rounded-lg text-xs font-bold">
+            <button onClick={startNewGame} className="w-full bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
               New Game
             </button>
           </div>
@@ -474,6 +474,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
   const [customBlackMin, setCustomBlackMin] = useState(5);
   const [customBlackSec, setCustomBlackSec] = useState(0);
   const [customInc, setCustomInc] = useState(0);
+  const movePendingRef = useRef(false);
   const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
   const boardWidth = focusMode ? 490 : fullscreenMode ? 593 : 385;
 
@@ -518,6 +519,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
   }, [resetClock]);
 
   const handleMove = useCallback((from: string, to: string) => {
+    if (movePendingRef.current) return;
+    movePendingRef.current = true;
     try {
       const fresh = new Chess(fen);
       const rawMove = fresh.move({ from, to, promotion: 'q' });
@@ -537,6 +540,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         else if (fresh.isStalemate()) msg = 'Stalemate!';
         setGameOver(msg);
         playGameEnd(msg);
+        movePendingRef.current = false;
         return;
       }
 
@@ -544,8 +548,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         setPerspective(fresh.turn() === 'w' ? 'white' : 'black');
       }
     } catch {
-      // illegal move
     }
+    movePendingRef.current = false;
   }, [fen, autoFlip, playFromSan, playGameEnd, isRunning, activeColor, switchTurn]);
 
   const isInAlert = (timeMs: number) =>
@@ -562,7 +566,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Tools</span>
@@ -572,8 +576,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             onClick={() => setAutoFlip(!autoFlip)}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
               autoFlip
-                ? 'bg-[#606c38] text-white border-[#606c38]'
-                : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
             }`}
             title="Auto-flip board to the current player's perspective"
           >
@@ -584,8 +588,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             onClick={toggleFocusMode}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
               focusMode
-                ? 'bg-[#606c38] text-white border-[#606c38]'
-                : 'bg-[#3d3d3d] border-[#4a4a4a] text-[#a0a0a0]'
+                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
             }`}
             title="Toggle focus mode (Z)"
           >
@@ -594,7 +598,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
           </button>
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
             title="Toggle fullscreen (F11)"
           >
             <Maximize className="w-3 h-3" />
@@ -617,20 +621,20 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             </div>
           </div>
           {gameOver ? (
-            <div className="w-full text-center text-sm font-bold text-[#bc6c25] bg-[#3d3d3d] border border-[#bc6c25] rounded-lg py-2" style={{ maxWidth: boardWidth }}>
+            <div className="w-full text-center text-sm font-bold text-[var(--color-accent)] bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-lg py-2" style={{ maxWidth: boardWidth }}>
               {gameOver}
             </div>
           ) : (
             <div className="w-full flex items-center justify-between" style={{ maxWidth: boardWidth }}>
-              <div className="flex items-center gap-2 text-xs text-[#a0a0a0]">
-                <span className={`w-2.5 h-2.5 rounded-full ${fen.includes(' w ') ? 'bg-white border border-[#888]' : 'bg-[#2a2a2a] border border-[#888]'}`} />
+              <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
+                <span className={`w-2.5 h-2.5 rounded-full ${fen.includes(' w ') ? 'bg-white border border-[#888]' : 'bg-[var(--color-surface)] border border-[#888]'}`} />
                 <span className="font-bold">
                   {fen.includes(' w ') ? "White's turn" : "Black's turn"}
                 </span>
               </div>
               <button
                 onClick={() => setPerspective(perspective === 'white' ? 'black' : 'white')}
-                className="text-[10px] text-[#a0a0a0] font-bold hover:text-white transition-colors"
+                className="text-[10px] text-[var(--color-text-muted)] font-bold hover:text-white transition-colors"
               >
                 <RotateCcw className="w-3 h-3 inline mr-1" />
                 Flip board
@@ -643,12 +647,12 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         {!focusMode && (
         <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
           <div className="grid grid-cols-2 gap-4 w-full">
-            <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-4 space-y-2.5 text-center" id="pvp-settings-card">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5 text-center" id="pvp-settings-card">
               <h3 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
-                <Users className="w-4 h-4 text-[#bc6c25]" />
+                <Users className="w-4 h-4 text-[var(--color-accent)]" />
                 Local Two-Player
               </h3>
-              <p className="text-[10px] text-[#a0a0a0] leading-relaxed">
+              <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed">
                 White moves first, then Black.
               </p>
               <label className="flex items-center justify-center gap-2 cursor-pointer">
@@ -656,14 +660,14 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                   type="checkbox"
                   checked={autoFlip}
                   onChange={() => setAutoFlip(!autoFlip)}
-                  className="accent-[#606c38] w-4 h-4 rounded"
+                  className="accent-[var(--color-primary)] w-4 h-4 rounded"
                 />
                 <span className="text-xs text-white font-medium">Auto-flip</span>
               </label>
             </div>
 
-            <div className="bg-[#333333] border border-[#4a4a4a] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvp-moves-panel">
-              <span className="text-[10px] text-[#a0a0a0] font-bold uppercase tracking-wider block mb-2">Moves</span>
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden min-h-[200px] max-h-[300px]" id="pvp-moves-panel">
+              <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider block mb-2">Moves</span>
               <div className="flex-1 overflow-y-auto font-mono text-xs text-white grid grid-cols-2 gap-y-1 content-start pr-1">
                 {moveHistory.length > 0 ? (
                   moveHistory.map((m, idx) => {
@@ -671,32 +675,32 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                     const num = Math.floor(idx / 2) + 1;
                     return (
                       <div key={idx} className="flex space-x-1 justify-start">
-                        {isWhite && <span className="text-[#666666] font-bold">{num}.</span>}
-                        <span className={`font-semibold ${isWhite ? 'text-white' : 'text-[#606c38]'}`}>{m}</span>
+                        {isWhite && <span className="text-[var(--color-text-muted)] font-bold">{num}.</span>}
+                        <span className={`font-semibold ${isWhite ? 'text-white' : 'text-[var(--color-primary)]'}`}>{m}</span>
                       </div>
                     );
                   })
                 ) : (
-                  <span className="text-[#666666] text-[10px] col-span-2">White to move...</span>
+                  <span className="text-[var(--color-text-muted)] text-[10px] col-span-2">White to move...</span>
                 )}
               </div>
             </div>
           </div>
 
           {/* Mini Chess Clock */}
-          <div className="bg-[#333333] border border-[#4a4a4a] rounded-xl p-3" id="pvp-clock-widget">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3" id="pvp-clock-widget">
             <div className="flex gap-2 mb-2">
               <div
                 className={`flex-1 rounded-lg border p-2 text-center ${
                   isInAlert(whiteTime)
                     ? 'bg-[#8b1a1a] border-[#ff4444]'
                     : activeColor === 'w' && isRunning
-                      ? 'bg-[#3d3d3d] border-[#606c38]'
-                      : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                      ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                 }`}
               >
-                <div className="text-[9px] font-bold text-[#a0a0a0] uppercase tracking-wider flex items-center justify-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded bg-white border border-[#a0a0a0]" />
+                <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded bg-white border border-[var(--color-text-muted)]" />
                   White
                 </div>
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
@@ -708,12 +712,12 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                   isInAlert(blackTime)
                     ? 'bg-[#8b1a1a] border-[#ff4444]'
                     : activeColor === 'b' && isRunning
-                      ? 'bg-[#3d3d3d] border-[#606c38]'
-                      : 'bg-[#2a2a2a] border-[#4a4a4a]'
+                      ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                 }`}
               >
-                <div className="text-[9px] font-bold text-[#a0a0a0] uppercase tracking-wider flex items-center justify-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded bg-[#2a2a2a] border border-[#888888]" />
+                <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                   Black
                 </div>
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
@@ -723,22 +727,22 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             </div>
             {winner && (
               <div className={`text-[9px] font-bold p-1.5 rounded-lg border mb-2 text-center ${
-                winner === 'w' ? 'bg-[#3d3d3d] border-[#606c38] text-[#606c38]' : 'bg-[#3d3d3d] border-[#bc6c25] text-[#bc6c25]'
+                winner === 'w' ? 'bg-[var(--color-surface)] border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-[var(--color-surface)] border-[var(--color-accent)] text-[var(--color-accent)]'
               }`}>
                 {winner === 'w' ? 'White wins' : 'Black wins'} via {reason}
               </div>
             )}
             <div className="flex items-center justify-center gap-1 mb-2">
               {!isRunning ? (
-                <button onClick={startClock} disabled={!!winner} className="bg-[#606c38] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
+                <button onClick={startClock} disabled={!!winner} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
                   Start
                 </button>
               ) : (
-                <button onClick={pauseClock} className="bg-[#bc6c25] text-white px-3 py-1.5 rounded text-[9px] font-bold">
+                <button onClick={pauseClock} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold">
                   Stop
                 </button>
               )}
-              <button onClick={resetClock} className="bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock">
+              <button onClick={resetClock} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock">
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
@@ -749,8 +753,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                   onClick={() => setClockCategory(idx)}
                   className={`text-[9px] py-1 px-2 rounded font-bold ${
                     clockCategory === idx
-                      ? 'bg-[#3d3d3d] text-[#606c38] border border-[#606c38]'
-                      : 'text-[#a0a0a0] border border-transparent'
+                      ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] border border-transparent'
                   }`}
                 >
                   {cat.name}
@@ -761,41 +765,41 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
               <div className="space-y-2">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">White Time</label>
+                    <label className="text-[9px] font-bold text-[var(--color-text-muted)] block mb-1">White Time</label>
                     <div className="flex items-center gap-1">
                       <input
                         type="number" min="0" max="999"
                         value={customWhiteMin}
                         onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
-                      <span className="text-[#666666] text-[10px] font-bold">:</span>
+                      <span className="text-[var(--color-text-muted)] text-[10px] font-bold">:</span>
                       <input
                         type="number" min="0" max="59"
                         value={customWhiteSec}
                         onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">Black Time</label>
+                    <label className="text-[9px] font-bold text-[var(--color-text-muted)] block mb-1">Black Time</label>
                     <div className="flex items-center gap-1">
                       <input
                         type="number" min="0" max="999"
                         value={customBlackMin}
                         onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
-                      <span className="text-[#666666] text-[10px] font-bold">:</span>
+                      <span className="text-[var(--color-text-muted)] text-[10px] font-bold">:</span>
                       <input
                         type="number" min="0" max="59"
                         value={customBlackSec}
                         onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
                     </div>
@@ -803,12 +807,12 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <label className="text-[9px] font-bold text-[#a0a0a0] block mb-1">Increment (sec)</label>
+                    <label className="text-[9px] font-bold text-[var(--color-text-muted)] block mb-1">Increment (sec)</label>
                     <input
                       type="number" min="0" max="999"
                       value={customInc}
                       onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       placeholder="sec"
                     />
                   </div>
@@ -818,7 +822,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
                       setCustomTime(whiteMs, blackMs, customInc);
                     }}
-                    className="bg-[#606c38] text-white px-4 py-1.5 rounded text-[9px] font-bold"
+                    className="bg-[var(--color-primary)] text-white px-4 py-1.5 rounded text-[9px] font-bold"
                   >
                     Apply
                   </button>
@@ -839,8 +843,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       }}
                       className={`text-[9px] py-1 rounded border text-center font-bold font-mono ${
                         active
-                          ? 'bg-[#606c38] text-white border-[#606c38]'
-                          : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                       }`}
                     >
                       {p.name}
@@ -851,7 +855,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             )}
           </div>
 
-          <button onClick={resetGame} className="w-full bg-[#3d3d3d] text-white border border-[#4a4a4a] py-2 rounded-lg text-xs font-bold">
+          <button onClick={resetGame} className="w-full bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
             New Game
           </button>
         </div>
@@ -952,18 +956,18 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
       <div className="flex items-center justify-between">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-bold text-[#a0a0a0] hover:text-white transition-colors"
+          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Tools</span>
         </button>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] uppercase font-bold text-[#a0a0a0] bg-[#3d3d3d] px-2 py-1 rounded">
+          <span className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] bg-[var(--color-surface)] px-2 py-1 rounded">
             {activePresetId === 'custom' ? 'Custom' : activePresetId}
           </span>
           <button
             onClick={toggleFullscreen}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[#3d3d3d] border border-[#4a4a4a] text-[#a0a0a0]"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
             title="Toggle fullscreen (F11)"
           >
             <Maximize className="w-3 h-3" />
@@ -973,7 +977,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
 
       <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
       <div className="flex flex-col items-center overflow-visible">
-        <div className={`bg-[#333333] border border-[#4a4a4a] rounded-2xl p-5 ${focusMode ? '' : 'max-w-md w-full'} ${fullscreenMode ? 'scale-[1.7] transform-gpu origin-center' : ''}`}>
+        <div className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 ${focusMode ? '' : 'max-w-md w-full'} ${fullscreenMode ? 'scale-[1.7] transform-gpu origin-center' : ''}`}>
           <div className="grid grid-rows-2 gap-3" id="clock-sides">
             <button
               onClick={() => { switchTurn('w'); play('clock-tick'); }}
@@ -982,16 +986,16 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                 isInAlert(whiteTime)
                   ? 'bg-[#8b1a1a] border-[#ff4444]'
                   : activeColor === 'w' && isRunning
-                    ? 'bg-[#3d3d3d] border-[#606c38]'
-                    : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
+                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed'
               }`}
               id="clock-side-white"
             >
-              <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
-                <span className="w-2 h-2 rounded bg-white border border-[#a0a0a0]" />
+              <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span className="w-2 h-2 rounded bg-white border border-[var(--color-text-muted)]" />
                 White
               </div>
-              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[#606c38]' : 'text-white'}`}>
+              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(whiteTime)}
               </span>
             </button>
@@ -1003,16 +1007,16 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                 isInAlert(blackTime)
                   ? 'bg-[#8b1a1a] border-[#ff4444]'
                   : activeColor === 'b' && isRunning
-                    ? 'bg-[#3d3d3d] border-[#606c38]'
-                    : 'bg-[#2a2a2a] border-[#4a4a4a] opacity-60 disabled:cursor-not-allowed'
+                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed'
               }`}
               id="clock-side-black"
             >
-              <div className="text-[10px] font-bold text-[#a0a0a0] uppercase tracking-wider mb-1 flex items-center gap-1">
-                <span className="w-2 h-2 rounded bg-[#2a2a2a] border border-[#888888]" />
+              <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
+                <span className="w-2 h-2 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                 Black
               </div>
-              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[#606c38]' : 'text-white'}`}>
+              <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(blackTime)}
               </span>
             </button>
@@ -1020,7 +1024,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
 
           {winner && (
             <div className={`text-xs font-bold p-2 rounded-xl border mt-3 ${
-              winner === 'w' ? 'bg-[#3d3d3d] border-[#606c38] text-[#606c38]' : 'bg-[#3d3d3d] border-[#bc6c25] text-[#bc6c25]'
+              winner === 'w' ? 'bg-[var(--color-surface)] border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-[var(--color-surface)] border-[var(--color-accent)] text-[var(--color-accent)]'
             }`} id="clock-winner-banner">
               {winner === 'w' ? 'White wins' : 'Black wins'} via {reason}
             </div>
@@ -1028,27 +1032,27 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
 
           <div className="flex gap-2 mt-3">
             {!isRunning ? (
-              <button onClick={startClock} disabled={!!winner} className="flex-1 bg-[#606c38] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
+              <button onClick={startClock} disabled={!!winner} className="flex-1 bg-[var(--color-primary)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
                 <Play className="w-4 h-4" />
                 <span>Start</span>
               </button>
             ) : (
-              <button onClick={pauseClock} className="flex-1 bg-[#bc6c25] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
+              <button onClick={pauseClock} className="flex-1 bg-[var(--color-accent)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
                 <Pause className="w-4 h-4" />
                 <span>Pause</span>
               </button>
             )}
-            <button onClick={resetClock} className="px-4 py-2.5 bg-[#3d3d3d] border border-[#4a4a4a] rounded-lg text-[#a0a0a0] flex items-center justify-center" title="Reset" id="clock-reset-btn">
+            <button onClick={resetClock} className="px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-muted)] flex items-center justify-center" title="Reset" id="clock-reset-btn">
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
 
           {!focusMode && (
           <div className="mt-4">
-            <div className="text-center text-[9px] text-[#666666] font-mono mb-2">
-              Press <span className="text-[#a0a0a0] bg-[#3d3d3d] px-1.5 py-0.5 rounded font-bold">Space</span> to switch turns
+            <div className="text-center text-[9px] text-[var(--color-text-muted)] font-mono mb-2">
+              Press <span className="text-[var(--color-text-muted)] bg-[var(--color-surface)] px-1.5 py-0.5 rounded font-bold">Space</span> to switch turns
             </div>
-          <div className="pt-4 border-t border-[#4a4a4a]">
+          <div className="pt-4 border-t border-[var(--color-border)]">
             <div className="flex gap-1 mb-2">
               {PRESET_CATEGORIES.map((cat, idx) => (
                 <button
@@ -1056,8 +1060,8 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                   onClick={() => setClockCategory(idx)}
                   className={`text-[10px] py-1.5 px-3 rounded-lg font-bold ${
                     clockCategory === idx
-                      ? 'bg-[#3d3d3d] text-[#606c38] border border-[#606c38]'
-                      : 'text-[#a0a0a0] border border-transparent'
+                      ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] border border-transparent'
                   }`}
                 >
                   {cat.name}
@@ -1068,41 +1072,41 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               <div className="space-y-3 pt-1">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">White Time</label>
+                    <label className="text-[10px] font-bold text-[var(--color-text-muted)] block mb-1.5">White Time</label>
                     <div className="flex items-center gap-1">
                       <input
                         type="number" min="0" max="999"
                         value={customWhiteMin}
                         onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
-                      <span className="text-[#666666] text-xs font-bold">:</span>
+                      <span className="text-[var(--color-text-muted)] text-xs font-bold">:</span>
                       <input
                         type="number" min="0" max="59"
                         value={customWhiteSec}
                         onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">Black Time</label>
+                    <label className="text-[10px] font-bold text-[var(--color-text-muted)] block mb-1.5">Black Time</label>
                     <div className="flex items-center gap-1">
                       <input
                         type="number" min="0" max="999"
                         value={customBlackMin}
                         onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
-                      <span className="text-[#666666] text-xs font-bold">:</span>
+                      <span className="text-[var(--color-text-muted)] text-xs font-bold">:</span>
                       <input
                         type="number" min="0" max="59"
                         value={customBlackSec}
                         onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                        className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
                     </div>
@@ -1110,12 +1114,12 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                 </div>
                 <div className="flex gap-2 items-end">
                   <div className="flex-1">
-                    <label className="text-[10px] font-bold text-[#a0a0a0] block mb-1.5">Increment (sec)</label>
+                    <label className="text-[10px] font-bold text-[var(--color-text-muted)] block mb-1.5">Increment (sec)</label>
                     <input
                       type="number" min="0" max="999"
                       value={customInc}
                       onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       placeholder="sec"
                     />
                   </div>
@@ -1125,7 +1129,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
                       setCustomTime(whiteMs, blackMs, customInc);
                     }}
-                    className="bg-[#606c38] text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-[#4a5530] transition-colors"
+                    className="bg-[var(--color-primary)] text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-primary)] transition-colors"
                   >
                     Apply
                   </button>
@@ -1146,8 +1150,8 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       }}
                       className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono ${
                         active
-                          ? 'bg-[#606c38] text-white border-[#606c38]'
-                          : 'bg-[#2a2a2a] border-[#4a4a4a] text-[#a0a0a0]'
+                          ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
                       }`}
                       id={`preset-btn-${p.id}`}
                     >

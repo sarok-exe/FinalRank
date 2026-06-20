@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 interface PieceIconProps {
   type: string;
   color: 'w' | 'b';
@@ -14,7 +16,7 @@ const PIECE_MAP: Record<string, string> = {
   p: 'p',
 };
 
-export function PieceIcon({ type, color }: PieceIconProps) {
+export const PieceIcon = memo(function PieceIcon({ type, color }: PieceIconProps) {
   const id = color + (PIECE_MAP[type.toLowerCase()] || type.toLowerCase());
 
   return (
@@ -22,4 +24,4 @@ export function PieceIcon({ type, color }: PieceIconProps) {
       <use href={`${SPRITE_URL}#${id}`} />
     </svg>
   );
-}
+});
