@@ -5,8 +5,9 @@ import { createGameEvaluator, getEngineVersion } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { getCachedAnalysis, saveCachedAnalysis, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
+import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
 import { saveUserGame, fetchUserGames, deleteUserGame, fetchPublishedGame } from '../lib/firebase';
+import { fetchGameFromApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
 
 interface GameState {
@@ -390,7 +391,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ selectedGame: existing, currentMoveIndex: -1 });
       return existing;
     }
-    const data = await fetchPublishedGame(shortId);
+    let data: Record<string, unknown> | null = null;
+    try {
+      data = await fetchGameFromApi(shortId) as unknown as Record<string, unknown> | null;
+    } catch {}
+    if (!data) {
+      data = await fetchPublishedGame(shortId);
+    }
     if (!data) {
       const authUser = useAuthStore.getState().user;
       if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
@@ -520,6 +527,11 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   }));
 
   saveCachedAnalysis(analysedGame, depth);
+
+  const shortId = analysedGame.shortId || game.shortId || gameId;
+  if (shortId) {
+    saveSharedGameToTurso(shortId, analysedGame);
+  }
 
   const gameForFirestore = {
     ...analysedGame,

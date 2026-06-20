@@ -63,6 +63,30 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number): Promis
   }
 }
 
+export async function saveSharedGameToTurso(shortId: string, game: ChessGame): Promise<void> {
+  if (!isTursoConfigured()) return;
+  const db = getTurso();
+  if (!db || !shortId) return;
+  try {
+    const payload = {
+      ...game,
+      moves: JSON.parse(JSON.stringify(game.moves)),
+      userSaved: false,
+    };
+    await db.execute({
+      sql: `INSERT INTO shared_games (short_id, game_data, uid, updated_at)
+            VALUES (?, ?, ?, datetime('now'))
+            ON CONFLICT(short_id) DO UPDATE SET
+              game_data = excluded.game_data,
+              uid = excluded.uid,
+              updated_at = datetime('now')`,
+      args: [shortId, JSON.stringify(payload), ''],
+    });
+  } catch {
+    markTursoUnhealthy();
+  }
+}
+
 export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): Promise<Record<string, boolean>> {
   if (!isTursoConfigured() || games.length === 0) return {};
   const db = getTurso();
