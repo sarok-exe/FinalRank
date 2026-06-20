@@ -83,6 +83,7 @@ export default function Analysis() {
   const [autoplay, setAutoplay] = useState(false);
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
   const [showShare, setShowShare] = useState(false);
+  const [copied, setCopied] = useState(false);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -649,7 +650,7 @@ function formatDuration(ms: number | undefined): string {
                 <button
                   onClick={() => setAutoplay(!autoplay)}
                   disabled={currentMoveIndex === selectedGame.moves.length - 1}
-                  className={`p-2 rounded-lg ${autoplay ? 'bg-[var(--color-primary)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-muted)]'}`}
+                  className={`p-0 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                 >
                   <span className="text-lg">{autoplay ? '■' : '▶'}</span>
@@ -1160,7 +1161,18 @@ function formatDuration(ms: number | undefined): string {
                 <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold mb-1 block">Game URL</label>
                 <div className="flex gap-2">
                   <input readOnly value={`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`} className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => (e.target as HTMLInputElement).select()} />
-                  <button onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`); }} className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg shrink-0">Copy</button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1500);
+                    }}
+                    className={`shrink-0 text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-150 active:scale-90 hover:scale-105 ${
+                      copied
+                        ? 'bg-green-600 text-white'
+                        : 'bg-[var(--color-primary)] text-white'
+                    }`}
+                  >{copied ? 'Copied!' : 'Copy'}</button>
                 </div>
               </div>
               <div>
@@ -1181,7 +1193,7 @@ function formatDuration(ms: number | undefined): string {
                   a.click();
                   URL.revokeObjectURL(url);
                 }}
-                className="w-full bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2"
+                className="w-full bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 active:scale-[0.98] hover:brightness-110 transition-all duration-150"
               >
                 <FileText className="w-3.5 h-3.5" />
                 Download PGN
