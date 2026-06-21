@@ -39,7 +39,7 @@ export default function Shell({ children }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-white flex flex-col font-sans" id="app-shell">
-      <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-6 h-16 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
+      <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-6 h-16 flex items-center justify-between max-w-7xl mx-auto overflow-hidden ${fullscreenMode ? 'hidden' : ''}`}>
         <div className="flex items-center space-x-6">
           <Link to="/" className="flex items-center space-x-3">
             <img src="/logo.webp" alt="FinalRank" className="w-8 h-8" />
