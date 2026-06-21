@@ -317,8 +317,8 @@ const Chessboard = memo(function Chessboard({
             }
             if (isRightClicked) {
               squareBg = isDark
-                ? 'bg-[rgba(80,140,210,0.55)]'
-                : 'bg-[rgba(80,140,210,0.45)]';
+                ? 'bg-[rgba(0,48,136,0.55)]'
+                : 'bg-[rgba(0,48,136,0.40)]';
             }
             return (
               <div
@@ -405,7 +405,7 @@ const Chessboard = memo(function Chessboard({
           });
         })}
 
-        {/* Arrow shapes SVG layer */}
+        {/* Arrow shapes — single filled path per arrow (shaft + head as one shape) */}
         {(() => {
           const arrowShapes = drawingArrow
             ? [...internalArrows, { ...drawingArrow, color: drawingArrow.color || '#ffaa00' }]
@@ -424,21 +424,22 @@ const Chessboard = memo(function Chessboard({
                 if (len < 0.1) return null;
                 const ux = dx / len, uy = dy / len;
                 const px = -uy, py = ux;
-                const headLen = Math.min(7, len * 0.35);
-                const headHalf = 3.5;
-                const shaftEnd = len - headLen;
-                const lx = s.x + ux * shaftEnd, ly = s.y + uy * shaftEnd;
-                const tipX = e.x, tipY = e.y;
-                const wx1 = lx + px * headHalf, wy1 = ly + py * headHalf;
-                const wx2 = lx - px * headHalf, wy2 = ly - py * headHalf;
-                return (
-                  <g key={i} opacity={isDrawing ? 0.45 : 0.7}>
-                    <line x1={s.x} y1={s.y} x2={lx} y2={ly}
-                      stroke={color} strokeWidth={3} strokeLinecap="round" />
-                    <polygon points={`${tipX},${tipY} ${wx1},${wy1} ${wx2},${wy2}`}
-                      fill={color} stroke={color} strokeWidth={0.5} strokeLinejoin="round" />
-                  </g>
-                );
+                const sw = 1.2;
+                const hw = 3;
+                const hl = Math.min(6.5, len * 0.38);
+                const se = len - hl;
+                const lx = s.x + ux * se, ly = s.y + uy * se;
+                const tx = e.x, ty = e.y;
+                const d = [
+                  `M${s.x + px * sw},${s.y + py * sw}`,
+                  `L${lx + px * sw},${ly + py * sw}`,
+                  `L${lx + px * hw},${ly + py * hw}`,
+                  `L${tx},${ty}`,
+                  `L${lx - px * hw},${ly - py * hw}`,
+                  `L${lx - px * sw},${ly - py * sw}`,
+                  'Z',
+                ].join(' ');
+                return <path key={i} d={d} fill={color} opacity={isDrawing ? 0.4 : 0.65} />;
               })}
             </svg>
           );
