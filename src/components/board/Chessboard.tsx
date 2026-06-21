@@ -1,8 +1,30 @@
-import React, { memo, useEffect, useRef, useState } from 'react';
+import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Chess } from 'chess.js';
 import { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
+
+export type Arrow = { from: string; to: string; color?: string };
+
+function findKingSquare(fen: string, side: 'w' | 'b'): string | null {
+  const boardPart = fen.split(' ')[0];
+  const rows = boardPart.split('/');
+  const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+  const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  for (let r = 0; r < 8; r++) {
+    let col = 0;
+    for (const ch of rows[r]) {
+      if (/\d/.test(ch)) { col += parseInt(ch); continue; }
+      const pieceColor = ch === ch.toUpperCase() ? 'w' : 'b';
+      const pieceType = ch.toLowerCase();
+      if (pieceType === 'k' && pieceColor === side) {
+        return FILES[col] + RANKS[r];
+      }
+      col++;
+    }
+  }
+  return null;
+}
 
 interface ChessboardProps {
   fen: string;
@@ -21,6 +43,12 @@ interface ChessboardProps {
   };
   rightClickedSquares?: string[];
   onSquareRightClick?: (square: string) => void;
+  arrows?: Arrow[];
+  onArrowsChange?: (arrows: Arrow[]) => void;
+  winnerOverlay?: boolean;
+  winnerSide?: 'w' | 'b';
+  checkmateOverlay?: boolean;
+  checkmateSide?: 'w' | 'b';
 }
 
 const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
@@ -36,10 +64,21 @@ const Chessboard = memo(function Chessboard({
   bestMoveArrow,
   rightClickedSquares = [],
   onSquareRightClick,
+  arrows = [],
+  onArrowsChange,
+  winnerOverlay = false,
+  winnerSide,
+  checkmateOverlay = false,
+  checkmateSide,
 }: ChessboardProps) {
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
+  const [drawingArrow, setDrawingArrow] = useState<{ from: string; to: string } | null>(null);
+  const drawingStartRef = useRef<string | null>(null);
+  const drewArrowRef = useRef(false);
+  const boardRef = useRef<HTMLDivElement>(null);
 
   const fenParts = fen.split(' ');
   const positionPart = fenParts[0];
@@ -283,9 +322,47 @@ const Chessboard = memo(function Chessboard({
                 key={squareName}
                 className={`relative w-full h-full flex items-center justify-center ${squareBg}`}
                 onClick={() => handleSquareClick(squareName, piece)}
+                onMouseDown={(e) => {
+                  if (e.button === 2) {
+                    drawingStartRef.current = squareName;
+                    setDrawingArrow({ from: squareName, to: squareName });
+                  }
+                  if (e.button === 0) {
+                    setInternalArrows([]);
+                    onArrowsChange?.([]);
+                  }
+                }}
+                onMouseOver={(e) => {
+                  if (e.buttons === 2 && drawingStartRef.current) {
+                    setDrawingArrow({ from: drawingStartRef.current, to: squareName });
+                  }
+                }}
+                onMouseUp={(e) => {
+                  if (e.button === 2 && drawingStartRef.current) {
+                    if (drawingStartRef.current !== squareName) {
+                      const from = drawingStartRef.current;
+                      const newArr = { from, to: squareName, color: '#ffaa00' };
+                      setInternalArrows(prev => {
+                        const exists = prev.some(a => a.from === from && a.to === squareName);
+                        const next = exists
+                          ? prev.filter(a => !(a.from === from && a.to === squareName))
+                          : [...prev, newArr];
+                        onArrowsChange?.(next);
+                        return next;
+                      });
+                      drewArrowRef.current = true;
+                    }
+                    drawingStartRef.current = null;
+                    setDrawingArrow(null);
+                  }
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault();
-                  if (onSquareRightClick) onSquareRightClick(squareName);
+                  if (drewArrowRef.current) {
+                    drewArrowRef.current = false;
+                  } else if (onSquareRightClick) {
+                    onSquareRightClick(squareName);
+                  }
                 }}
               >
                 {settings.featureToggles.showCoordinates && (
@@ -324,25 +401,58 @@ const Chessboard = memo(function Chessboard({
           });
         })}
 
-        {bestMoveArrow && (() => {
-          const s = squareToPoint(bestMoveArrow.from);
-          const e = squareToPoint(bestMoveArrow.to);
+        {[...internalArrows, ...(drawingArrow ? [drawingArrow] : [])].map((arr, i) => {
+          const s = squareToPoint(arr.from);
+          const e = squareToPoint(arr.to);
+          const color = (arr as Arrow).color || '#ffaa00';
+          const isDrawing = drawingArrow?.from === arr.from && drawingArrow?.to === arr.to;
           return (
-            <svg
-              viewBox="0 0 100 100"
-              className="absolute inset-0 w-full h-full pointer-events-none z-20"
-            >
+            <svg key={i} viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20">
+              <defs>
+                <marker id={`arrowhead-${i}`} markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto" markerUnits="userSpaceOnUse">
+                  <polygon points="0 0, 6 2, 0 4" fill={color} />
+                </marker>
+              </defs>
               <line
                 x1={s.x} y1={s.y} x2={e.x} y2={e.y}
-                stroke="#14b8a6"
-                strokeWidth="1.8"
-                strokeDasharray="5 4"
+                stroke={color}
+                strokeWidth={isDrawing ? 2 : 1.5}
                 strokeLinecap="round"
-                className="opacity-85"
-                style={{ animation: 'ch-arrow-dash 3s linear infinite' }}
+                markerEnd={`url(#arrowhead-${i})`}
+                opacity={isDrawing ? 0.5 : 0.7}
               />
-              <circle cx={e.x} cy={e.y} r="2.5" fill="#14b8a6" className="opacity-85" />
             </svg>
+          );
+        })}
+        {winnerOverlay && winnerSide && (() => {
+          const sq = findKingSquare(fen, winnerSide);
+          if (!sq) return null;
+          const f = sq.charCodeAt(0) - 97;
+          const r = 8 - parseInt(sq[1]);
+          const lf = flipped ? 7 - f : f;
+          const lr = flipped ? 7 - r : r;
+          return (
+            <div className="absolute inset-0 pointer-events-none z-30" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(8, 1fr)' }}>
+              <div style={{ gridRow: lr + 1, gridColumn: lf + 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src="/img/classifications/winner.svg" alt="winner" className="w-[55%] h-[55%] drop-shadow-lg" />
+              </div>
+            </div>
+          );
+        })()}
+        {checkmateOverlay && checkmateSide && (() => {
+          const sq = findKingSquare(fen, checkmateSide);
+          if (!sq) return null;
+          const f = sq.charCodeAt(0) - 97;
+          const r = 8 - parseInt(sq[1]);
+          const lf = flipped ? 7 - f : f;
+          const lr = flipped ? 7 - r : r;
+          const icon = checkmateSide === 'w' ? '/img/classifications/checkmate_white.svg' : '/img/classifications/checkmate_black.svg';
+          return (
+            <div className="absolute inset-0 pointer-events-none z-30" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(8, 1fr)' }}>
+              <div style={{ gridRow: lr + 1, gridColumn: lf + 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src={icon} alt="checkmate" className="w-[55%] h-[55%] drop-shadow-lg" />
+              </div>
+            </div>
           );
         })()}
       </div>

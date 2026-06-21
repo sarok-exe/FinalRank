@@ -678,19 +678,37 @@ function formatDuration(ms: number | undefined): string {
                 />
             </div>
             <div className="flex-1">
-              <Chessboard
-                fen={getCurrentFen()}
-                playable={false}
-                orientation={settings.boardOrientation}
-                highlightSquares={getMoveHighlight()}
-                bestMoveArrow={getBestMoveArrow()}
-                rightClickedSquares={rightClickedSquares}
-                onSquareRightClick={(sq) => {
-                  setRightClickedSquares(prev =>
-                    prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
-                  );
-                }}
-              />
+              {(() => {
+                const isLastMove = selectedGame && currentMoveIndex >= selectedGame.moves.length - 1;
+                let winnerSide: 'w' | 'b' | undefined;
+                let checkmateSide: 'w' | 'b' | undefined;
+                if (selectedGame && isLastMove) {
+                  if (selectedGame.result === '1-0') { winnerSide = 'w'; checkmateSide = 'b'; }
+                  else if (selectedGame.result === '0-1') { winnerSide = 'b'; checkmateSide = 'w'; }
+                }
+                const isCheckmate = checkmateSide && (() => {
+                  try { return new Chess(getCurrentFen()).isCheckmate(); } catch { return false; }
+                })();
+                return (
+                  <Chessboard
+                    fen={getCurrentFen()}
+                    playable={false}
+                    orientation={settings.boardOrientation}
+                    highlightSquares={getMoveHighlight()}
+                    bestMoveArrow={getBestMoveArrow()}
+                    rightClickedSquares={rightClickedSquares}
+                    onSquareRightClick={(sq) => {
+                      setRightClickedSquares(prev =>
+                        prev.includes(sq) ? [] : [...prev, sq]
+                      );
+                    }}
+                    winnerOverlay={isCheckmate && !!winnerSide}
+                    winnerSide={winnerSide}
+                    checkmateOverlay={isCheckmate && !!checkmateSide}
+                    checkmateSide={checkmateSide}
+                  />
+                );
+              })()}
             </div>
           </div>
 

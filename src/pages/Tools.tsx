@@ -341,7 +341,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                   rightClickedSquares={rcSquares}
                   onSquareRightClick={(sq) => {
                     setRcSquares(prev =>
-                      prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
+                      prev.includes(sq) ? [] : [...prev, sq]
                     );
                   }}
                 />
@@ -643,7 +643,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 rightClickedSquares={rcSquares2}
                 onSquareRightClick={(sq) => {
                   setRcSquares2(prev =>
-                    prev.includes(sq) ? prev.filter(s => s !== sq) : [...prev, sq]
+                    prev.includes(sq) ? [] : [...prev, sq]
                   );
                 }}
               />
