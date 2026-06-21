@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { UserSettings } from '../types';
 import { updateUserProfile } from '../lib/firebase';
+import { useAuthStore } from './authStore';
 
 interface SettingsState {
   settings: UserSettings;
@@ -120,6 +121,13 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       localStorage.setItem('finalrank_settings', JSON.stringify(updated));
       applyThemeCss(updated);
       debouncedSyncSettings(updated);
+      // sync into auth store user
+      const auth = useAuthStore.getState();
+      if (auth.user) {
+        const synced = { ...auth.user, settings: updated };
+        useAuthStore.setState({ user: synced });
+        localStorage.setItem('finalrank_user', JSON.stringify(synced));
+      }
     } catch {}
     return { settings: updated };
   }),
@@ -128,6 +136,12 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     try {
       localStorage.setItem('finalrank_settings', JSON.stringify(defaults));
       applyThemeCss(defaults);
+      const auth = useAuthStore.getState();
+      if (auth.user) {
+        const synced = { ...auth.user, settings: defaults };
+        useAuthStore.setState({ user: synced });
+        localStorage.setItem('finalrank_user', JSON.stringify(synced));
+      }
     } catch {}
     return { settings: defaults };
   }),

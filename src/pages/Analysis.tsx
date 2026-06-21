@@ -34,7 +34,6 @@ import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
-import { LEGENDARY_PRESET_GAMES } from '../lib/chessCom';
 import { classificationImages, classificationColours, classificationNames } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
@@ -107,12 +106,6 @@ function formatDuration(ms: number | undefined): string {
   const sec = Math.round(s % 60);
   return `${min}m ${sec}s`;
 }
-
-  useEffect(() => {
-    if (games.length === 0 && !selectedGame) {
-      setGames(LEGENDARY_PRESET_GAMES);
-    }
-  }, []);
 
   useEffect(() => {
     if (urlGameId) {
@@ -528,23 +521,6 @@ function formatDuration(ms: number | undefined): string {
                   </button>
                 );
               })}
-            </div>
-          </div>
-        )}
-
-        {!showGameList && games.length > 0 && (
-          <div className="text-center">
-            <p className="text-xs text-[var(--color-text-muted)] mb-3">Or try a legendary game:</p>
-            <div className="flex flex-wrap gap-2 justify-center">
-              {LEGENDARY_PRESET_GAMES.map((g) => (
-                <button
-                  key={g.id}
-                  onClick={() => handleSelectGame(g.id)}
-                  className="text-xs bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-3 py-2 rounded-lg"
-                >
-                  {g.white.username} vs {g.black.username}
-                </button>
-              ))}
             </div>
           </div>
         )}
