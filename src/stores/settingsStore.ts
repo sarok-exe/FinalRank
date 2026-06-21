@@ -54,6 +54,10 @@ const DEFAULT_SETTINGS: UserSettings = {
     selectedSquare: '#ffaa00',
     rightClick: '#003088',
   },
+  streakSoundEnabled: true,
+  streakSoundVolume: 0.4,
+  streakFlameAnimated: true,
+  streakFlameColorMode: 'heat',
   featureToggles: {
     showArrows: true,
     showCoordinates: true,

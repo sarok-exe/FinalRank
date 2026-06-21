@@ -52,6 +52,10 @@ export interface UserSettings {
     selectedSquare: string;
     rightClick: string;
   };
+  streakSoundEnabled: boolean;
+  streakSoundVolume: number;
+  streakFlameAnimated: boolean;
+  streakFlameColorMode: 'heat' | 'gold' | 'white';
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;
