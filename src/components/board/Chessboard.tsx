@@ -43,6 +43,7 @@ interface ChessboardProps {
   };
   rightClickedSquares?: string[];
   onSquareRightClick?: (square: string) => void;
+  onLeftClick?: () => void;
   arrows?: Arrow[];
   onArrowsChange?: (arrows: Arrow[]) => void;
   winnerOverlay?: boolean;
@@ -64,6 +65,7 @@ const Chessboard = memo(function Chessboard({
   bestMoveArrow,
   rightClickedSquares = [],
   onSquareRightClick,
+  onLeftClick,
   arrows = [],
   onArrowsChange,
   winnerOverlay = false,
@@ -313,10 +315,6 @@ const Chessboard = memo(function Chessboard({
             if (isSelected) {
               squareBg = 'bg-[rgba(255,170,0,0.55)]';
             }
-            if (isRightClicked) {
-              squareBg = 'bg-[rgba(100,200,255,0.45)]';
-            }
-
             return (
               <div
                 key={squareName}
@@ -330,6 +328,7 @@ const Chessboard = memo(function Chessboard({
                   if (e.button === 0) {
                     setInternalArrows([]);
                     onArrowsChange?.([]);
+                    onLeftClick?.();
                   }
                 }}
                 onMouseOver={(e) => {
@@ -401,29 +400,50 @@ const Chessboard = memo(function Chessboard({
           });
         })}
 
-        {[...internalArrows, ...(drawingArrow ? [drawingArrow] : [])].map((arr, i) => {
-          const s = squareToPoint(arr.from);
-          const e = squareToPoint(arr.to);
-          const color = (arr as Arrow).color || '#ffaa00';
-          const isDrawing = drawingArrow?.from === arr.from && drawingArrow?.to === arr.to;
+        {/* Arrow & circle shapes SVG layer */}
+        {(() => {
+          const allShapes = [
+            ...internalArrows,
+            ...rightClickedSquares.map(sq => ({ from: sq, to: sq, color: '#003088' })),
+          ];
+          if (drawingArrow) allShapes.push({ ...drawingArrow, color: drawingArrow.color || '#ffaa00' });
+          const hasArrows = allShapes.length > 0;
+          if (!hasArrows) return null;
+          const defsColor = '#ffaa00';
           return (
-            <svg key={i} viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20">
+            <svg key="shapes" viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20" style={{ overflow: 'visible' }}>
               <defs>
-                <marker id={`arrowhead-${i}`} markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto" markerUnits="userSpaceOnUse">
-                  <polygon points="0 0, 6 2, 0 4" fill={color} />
+                <marker id="arr-head" markerWidth="4.5" markerHeight="4.5" refX="2.4" refY="2.25" orient="auto" markerUnits="userSpaceOnUse">
+                  <path d="M0,0 V4.5 L3.5,2.25 Z" fill={defsColor} />
                 </marker>
               </defs>
-              <line
-                x1={s.x} y1={s.y} x2={e.x} y2={e.y}
-                stroke={color}
-                strokeWidth={isDrawing ? 2 : 1.5}
-                strokeLinecap="round"
-                markerEnd={`url(#arrowhead-${i})`}
-                opacity={isDrawing ? 0.5 : 0.7}
-              />
+              {allShapes.map((arr, i) => {
+                const s = squareToPoint(arr.from);
+                const e = squareToPoint(arr.to);
+                const color = arr.color || '#ffaa00';
+                const isDrawing = drawingArrow?.from === arr.from && drawingArrow?.to === arr.to;
+                const isCircle = arr.from === arr.to;
+                if (isCircle) {
+                  return (
+                    <circle key={i} cx={s.x} cy={s.y} r="3.8" fill="none" stroke={color} strokeWidth="2.8" opacity={isDrawing ? 0.4 : 0.55} />
+                  );
+                }
+                const dx = e.x - s.x, dy = e.y - s.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                const margin = 4.5 / len;
+                const x2 = e.x - dx * margin, y2 = e.y - dy * margin;
+                return (
+                  <line key={i} x1={s.x} y1={s.y} x2={x2} y2={y2}
+                    stroke={color} strokeWidth={isDrawing ? 2.5 : 2}
+                    strokeLinecap="round"
+                    markerEnd={arr.from !== arr.to ? 'url(#arr-head)' : undefined}
+                    opacity={isDrawing ? 0.4 : 0.65}
+                  />
+                );
+              })}
             </svg>
           );
-        })}
+        })()}
         {winnerOverlay && winnerSide && (() => {
           const sq = findKingSquare(fen, winnerSide);
           if (!sq) return null;

@@ -702,6 +702,7 @@ function formatDuration(ms: number | undefined): string {
                         prev.includes(sq) ? [] : [...prev, sq]
                       );
                     }}
+                    onLeftClick={() => setRightClickedSquares([])}
                     winnerOverlay={isCheckmate && !!winnerSide}
                     winnerSide={winnerSide}
                     checkmateOverlay={isCheckmate && !!checkmateSide}

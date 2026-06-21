@@ -344,6 +344,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                       prev.includes(sq) ? [] : [...prev, sq]
                     );
                   }}
+                  onLeftClick={() => setRcSquares([])}
                 />
               </div>
             </div>
@@ -646,6 +647,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                     prev.includes(sq) ? [] : [...prev, sq]
                   );
                 }}
+                onLeftClick={() => setRcSquares2([])}
               />
             </div>
           </div>
