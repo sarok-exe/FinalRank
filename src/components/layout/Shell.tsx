@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
+import StreakFlame from '../StreakFlame';
 
 interface ShellProps {
   children: React.ReactNode;
@@ -76,7 +77,7 @@ export default function Shell({ children }: ShellProps) {
               title="Daily analysis streak"
               id="streak-badge"
             >
-              <Flame className="w-3.5 h-3.5 text-[var(--color-accent)]" />
+              <StreakFlame days={user.streak} size={14} />
               <span>{user.streak} day{user.streak !== 1 ? 's' : ''}</span>
             </div>
           )}

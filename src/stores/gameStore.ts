@@ -289,7 +289,12 @@ export const useGameStore = create<GameState>((set, get) => ({
       const authStore = useAuthStore.getState();
       if (authStore.user) {
         await authStore.incrementAnalyzedGames();
-        await authStore.updateStreakOnAnalysis();
+        const streakResult = await authStore.updateStreakOnAnalysis();
+        if (streakResult.streakIncremented) {
+          useAuthStore.setState({
+            streakToast: { show: true, newStreak: streakResult.newStreak, prevStreak: streakResult.prevStreak },
+          });
+        }
       }
     } catch (err: any) {
       if (err.message === 'aborted' || err.message === 'abort') return;
@@ -509,7 +514,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const analysedGame = getGameAnalysis(evaluatedGame, {
     includeBrilliant: true,
     includeCritical: true,
-    includeTheory: false,
+    includeTheory: true,
   });
 
   const durationMs = Math.round(performance.now() - startTime);

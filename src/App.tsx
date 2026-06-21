@@ -9,6 +9,7 @@ import Analysis from './pages/Analysis';
 import Tools from './pages/Tools';
 import Profile from './pages/Profile';
 import Report from './pages/Report';
+import StreakNotification from './components/StreakNotification';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="*" element={<Analysis />} />
         </Routes>
       </Shell>
+      <StreakNotification />
     </BrowserRouter>
   );
 }

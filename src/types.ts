@@ -47,6 +47,11 @@ export interface UserSettings {
   siteColors: SiteColorScheme;
   boardCustomColors: BoardCustomColors;
   coordinatesSize: number;
+  highlightColors: {
+    moveTrail: string;
+    selectedSquare: string;
+    rightClick: string;
+  };
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;

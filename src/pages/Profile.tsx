@@ -11,6 +11,7 @@ import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
 import { useGameStore } from '../stores/gameStore';
 import { fetchUserGames } from '../lib/firebase';
 import ColorPicker from '../components/ColorPicker';
+import StreakFlame, { getStreakTier } from '../components/StreakFlame';
 import { Search } from 'lucide-react';
 
 type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors';
@@ -222,9 +223,11 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
-            <Flame className="w-6 h-6 text-[var(--color-accent)] mb-1" />
-            <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.streak}</span>
+          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center text-center relative overflow-hidden">
+            <StreakFlame days={user.streak} size={28} />
+            <span className="text-xl font-mono font-black mt-1" style={{ color: getStreakTier(user.streak).color }}>
+              {user.streak}
+            </span>
             <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Day Streak</span>
           </div>
           <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
@@ -455,6 +458,33 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             >
               {side === 'white' ? 'White Bottom' : 'Black Bottom'}
             </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+          <Eye className="w-4 h-4 text-[var(--color-accent)]" />
+          <span>Highlight Colors</span>
+        </label>
+        <div className="grid grid-cols-3 gap-2">
+          {([
+            { key: 'moveTrail', label: 'Move Trail', desc: 'From/to squares' },
+            { key: 'selectedSquare', label: 'Selected', desc: 'Clicked piece' },
+            { key: 'rightClick', label: 'Right-Click', desc: 'Right-click markers' },
+          ] as const).map(({ key, label, desc }) => (
+            <div key={key} className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg p-2.5 space-y-1.5">
+              <div className="text-[10px] font-semibold text-[var(--color-text)]">{label}</div>
+              <div className="text-[9px] text-[var(--color-text-muted)]">{desc}</div>
+              <input
+                type="color"
+                value={settings.highlightColors[key as keyof typeof settings.highlightColors]}
+                onChange={e => updateSettings({
+                  highlightColors: { ...settings.highlightColors, [key]: e.target.value }
+                })}
+                className="w-full h-8 rounded border border-[var(--color-border)] cursor-pointer [&::-webkit-color-swatch-wrapper]:p-1 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded"
+              />
+            </div>
           ))}
         </div>
       </div>

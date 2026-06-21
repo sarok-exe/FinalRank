@@ -49,6 +49,11 @@ const DEFAULT_SETTINGS: UserSettings = {
   siteColors: { ...THEME_PRESETS.olive.siteColors },
   boardCustomColors: { ...THEME_PRESETS.olive.boardCustomColors },
   coordinatesSize: 9,
+  highlightColors: {
+    moveTrail: '#f0c000',
+    selectedSquare: '#ffaa00',
+    rightClick: '#003088',
+  },
   featureToggles: {
     showArrows: true,
     showCoordinates: true,

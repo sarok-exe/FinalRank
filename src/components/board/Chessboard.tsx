@@ -85,6 +85,13 @@ const CUSTOM_PIECES: PieceRenderObject = {
   bP: () => <PieceIcon type="p" color="b" />,
 };
 
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function isDarkSquare(square: string, orientation: 'white' | 'black'): boolean {
   const file = square.charCodeAt(0) - 97;
   const rank = 8 - parseInt(square[1]);
@@ -148,6 +155,8 @@ const Chessboard = memo(function Chessboard({
 
   const colors = THEME_COLORS[settings.boardColor] || THEME_COLORS.green;
 
+  const { moveTrail: mtColor, selectedSquare: ssColor, rightClick: rcColor } = settings.highlightColors;
+
   const squareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
     const setBg = (sq: string, bg: string) => {
@@ -155,24 +164,21 @@ const Chessboard = memo(function Chessboard({
     };
     if (highlightSquares?.from) {
       setBg(highlightSquares.from,
-        isDarkSquare(highlightSquares.from, orientation)
-          ? 'rgba(247,215,108,0.65)' : 'rgba(247,215,108,0.85)');
+        hexToRgba(mtColor, isDarkSquare(highlightSquares.from, orientation) ? 0.65 : 0.85));
     }
     if (highlightSquares?.to) {
       setBg(highlightSquares.to,
-        isDarkSquare(highlightSquares.to, orientation)
-          ? 'rgba(247,215,108,0.65)' : 'rgba(247,215,108,0.85)');
+        hexToRgba(mtColor, isDarkSquare(highlightSquares.to, orientation) ? 0.65 : 0.85));
     }
     if (selectedSquare) {
-      setBg(selectedSquare, 'rgba(255,170,0,0.55)');
+      setBg(selectedSquare, hexToRgba(ssColor, 0.55));
     }
     for (const sq of rightClickedSquares) {
       setBg(sq,
-        isDarkSquare(sq, orientation)
-          ? 'rgba(0,48,136,0.55)' : 'rgba(0,48,136,0.40)');
+        hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
     }
     return styles;
-  }, [highlightSquares, selectedSquare, rightClickedSquares, orientation]);
+  }, [highlightSquares, selectedSquare, rightClickedSquares, orientation, mtColor, ssColor, rcColor]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];

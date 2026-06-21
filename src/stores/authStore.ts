@@ -2,16 +2,20 @@ import { create } from 'zustand';
 import { User } from '../types';
 import { signInWithGoogle, signInAnonymously, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
 
+export type StreakToast = { show: boolean; newStreak: number; prevStreak: number };
+
 interface AuthState {
   user: User | null;
   loading: boolean;
   error: string | null;
+  streakToast: StreakToast | null;
   signInWithGoogle: () => Promise<void>;
   loginAsGuest: (username?: string) => void;
   logout: () => void;
   incrementAnalyzedGames: () => Promise<void>;
-  updateStreakOnAnalysis: () => Promise<void>;
+  updateStreakOnAnalysis: () => Promise<{ streakIncremented: boolean; newStreak: number; prevStreak: number }>;
   setChessComUsername: (username: string) => Promise<void>;
+  clearStreakToast: () => void;
 }
 
 const DEFAULT_GUEST: User = {
@@ -20,9 +24,9 @@ const DEFAULT_GUEST: User = {
   email: '',
   avatar: '',
   authProvider: 'guest',
-  streak: 3,
-  analyzedCount: 14,
-  lastActiveDate: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+  streak: 0,
+  analyzedCount: 0,
+  lastActiveDate: null,
     settings: {
       engineDepth: 10,
       engineGoMode: 'depth',
@@ -53,6 +57,11 @@ const DEFAULT_GUEST: User = {
         darkSquare: '#b58863',
       },
       coordinatesSize: 9,
+      highlightColors: {
+        moveTrail: '#f0c000',
+        selectedSquare: '#ffaa00',
+        rightClick: '#003088',
+      },
       featureToggles: {
         showArrows: true,
         showCoordinates: true,
@@ -82,6 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadUser(),
   loading: false,
   error: null,
+  streakToast: null,
 
   signInWithGoogle: async () => {
     set({ loading: true, error: null });
@@ -131,17 +141,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   updateStreakOnAnalysis: async () => {
     const { user } = get();
-    if (!user) return;
-    const today = new Date().toISOString().split('T')[0];
+    if (!user) return { streakIncremented: false, newStreak: 0, prevStreak: 0 };
+    const now = new Date();
+    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     const lastActive = user.lastActiveDate;
-    let newStreak = user.streak;
+    const prevStreak = user.streak;
+    let newStreak = prevStreak;
+    let streakIncremented = false;
+
     if (!lastActive) {
       newStreak = 1;
+      streakIncremented = true;
     } else {
-      const diffDays = Math.ceil(Math.abs(new Date(today).getTime() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24));
-      newStreak = diffDays === 1 ? newStreak + 1 : diffDays > 1 ? 1 : newStreak;
+      const diffDays = Math.ceil(Math.abs(new Date(todayLocal).getTime() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24));
+      if (diffDays === 1) {
+        newStreak = prevStreak + 1;
+        streakIncremented = true;
+      } else if (diffDays > 1) {
+        newStreak = 1;
+        streakIncremented = true;
+      }
     }
-    const updated = { ...user, streak: newStreak, lastActiveDate: today };
+
+    const updated = { ...user, streak: newStreak, lastActiveDate: todayLocal };
     set({ user: updated });
     saveUser(updated);
     if (user.authProvider === 'google') {
@@ -150,7 +172,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         lastActiveDate: updated.lastActiveDate,
       });
     }
+    return { streakIncremented, newStreak, prevStreak };
   },
+
+  clearStreakToast: () => set({ streakToast: null }),
 
   setChessComUsername: async (chessComUsername: string) => {
     const { user } = get();
@@ -175,9 +200,9 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
     email: fbUser.email || '',
     avatar: fbUser.photoURL || '',
     authProvider: 'google',
-    streak: existing?.streak ?? 1,
+    streak: existing?.streak ?? 0,
     analyzedCount: existing?.analyzedCount ?? 0,
-    lastActiveDate: new Date().toISOString().split('T')[0],
+    lastActiveDate: null,
     chessComUsername: existing?.chessComUsername || undefined,
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
@@ -207,9 +232,9 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       email: '',
       avatar: existing?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${existing?.username || 'Guest'}`,
       authProvider: 'anonymous',
-      streak: existing?.streak ?? 1,
+      streak: existing?.streak ?? 0,
       analyzedCount: existing?.analyzedCount ?? 0,
-      lastActiveDate: existing?.lastActiveDate || new Date().toISOString().split('T')[0],
+      lastActiveDate: existing?.lastActiveDate || null,
       chessComUsername: existing?.chessComUsername || undefined,
       settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
     };
@@ -231,9 +256,9 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       email: fbUser.email || (remoteProfile.email as string) || '',
       avatar: fbUser.photoURL || (remoteProfile.avatar as string) || '',
       authProvider: 'google',
-      streak: (remoteProfile.streak as number) ?? 1,
+      streak: (remoteProfile.streak as number) ?? 0,
       analyzedCount: (remoteProfile.analyzedCount as number) ?? 0,
-      lastActiveDate: (remoteProfile.lastActiveDate as string) || new Date().toISOString().split('T')[0],
+      lastActiveDate: (remoteProfile.lastActiveDate as string) || null,
       chessComUsername: (remoteProfile.chessComUsername as string) || existing?.chessComUsername || undefined,
       settings: (remoteProfile.settings as User['settings']) || { ...DEFAULT_GUEST.settings },
     };
