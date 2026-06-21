@@ -653,62 +653,47 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     </div>
   );
 
-  const moodOrder: Array<{ mood: 'calm' | 'energetic' | 'professional' | 'warm'; label: string; icon: React.ElementType }> = [
-    { mood: 'calm', label: 'Calm', icon: Sun },
-    { mood: 'warm', label: 'Warm', icon: Sun },
-    { mood: 'professional', label: 'Professional', icon: Monitor },
-    { mood: 'energetic', label: 'Energetic', icon: Zap },
-  ];
-
   const renderColorsTab = () => {
     const themeKeys = Object.keys(THEME_PRESETS);
 
     return (
       <div className="space-y-5">
-        {moodOrder.map(({ mood, label, icon: MoodIcon }) => {
-          const moodKeys = themeKeys.filter(k => THEME_PRESETS[k].mood === mood);
-          if (moodKeys.length === 0) return null;
-          return (
-            <div key={mood} className="space-y-2.5">
-              <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
-                <MoodIcon className="w-4 h-4 text-[var(--color-accent)]" />
-                {label}
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {moodKeys.map(key => {
-                  const preset = THEME_PRESETS[key];
-                  const sel = settings.themePreset === key;
-                  return (
-                    <button
-                      key={key}
-                      onClick={() => {
-                        updateSettings({
-                          themePreset: key as any,
-                          siteColors: { ...preset.siteColors },
-                          boardCustomColors: { ...preset.boardCustomColors },
-                          highlightColors: { ...preset.highlightColors },
-                          boardColor: preset.suggestedBoardColor,
-                        });
-                      }}
-                      className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
-                        sel
-                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
-                          : 'border-[var(--color-border)] bg-[var(--color-background)]'
-                      }`}
-                    >
-                      <div className="flex gap-1">
-                        <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.primary }} />
-                        <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.accent }} />
-                        <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.background }} />
-                      </div>
-                      <span className="text-[9px] font-bold text-[var(--color-text)] capitalize leading-none">{key.replace(/-/g, ' ')}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+            <Paintbrush className="w-4 h-4 text-[var(--color-accent)]" />
+            <span>Theme Preset</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {themeKeys.map(key => {
+              const preset = THEME_PRESETS[key];
+              const sel = settings.themePreset === key;
+              return (
+                <button
+                  key={key}
+                  onClick={() => {
+                    updateSettings({
+                      themePreset: key as any,
+                      siteColors: { ...preset.siteColors },
+                      boardCustomColors: { ...preset.boardCustomColors },
+                    });
+                  }}
+                  className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                    sel
+                      ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
+                      : 'border-[var(--color-border)] bg-[var(--color-background)]'
+                  }`}
+                >
+                  <div className="flex gap-1">
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.primary }} />
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.accent }} />
+                    <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.background }} />
+                  </div>
+                  <span className="text-[9px] font-bold text-[var(--color-text)] capitalize leading-none">{key}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         <div className="space-y-2.5 pt-4 border-t border-[var(--color-border)]">
           <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Site Colors</label>
@@ -791,7 +776,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
   return (
     <div className="max-w-4xl mx-auto space-y-5" id="profile-container">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
+        <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
         {user && (
           <button
             onClick={resetSettings}
