@@ -315,6 +315,11 @@ const Chessboard = memo(function Chessboard({
             if (isSelected) {
               squareBg = 'bg-[rgba(255,170,0,0.55)]';
             }
+            if (isRightClicked) {
+              squareBg = isDark
+                ? 'bg-[rgba(80,140,210,0.55)]'
+                : 'bg-[rgba(80,140,210,0.45)]';
+            }
             return (
               <div
                 key={squareName}
@@ -400,45 +405,39 @@ const Chessboard = memo(function Chessboard({
           });
         })}
 
-        {/* Arrow & circle shapes SVG layer */}
+        {/* Arrow shapes SVG layer */}
         {(() => {
-          const allShapes = [
-            ...internalArrows,
-            ...rightClickedSquares.map(sq => ({ from: sq, to: sq, color: '#003088' })),
-          ];
-          if (drawingArrow) allShapes.push({ ...drawingArrow, color: drawingArrow.color || '#ffaa00' });
-          const hasArrows = allShapes.length > 0;
-          if (!hasArrows) return null;
-          const defsColor = '#ffaa00';
+          const arrowShapes = drawingArrow
+            ? [...internalArrows, { ...drawingArrow, color: drawingArrow.color || '#ffaa00' }]
+            : internalArrows;
+          if (arrowShapes.length === 0) return null;
           return (
-            <svg key="shapes" viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20" style={{ overflow: 'visible' }}>
-              <defs>
-                <marker id="arr-head" markerWidth="4.5" markerHeight="4.5" refX="2.4" refY="2.25" orient="auto" markerUnits="userSpaceOnUse">
-                  <path d="M0,0 V4.5 L3.5,2.25 Z" fill={defsColor} />
-                </marker>
-              </defs>
-              {allShapes.map((arr, i) => {
+            <svg key="shapes" viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20">
+              {arrowShapes.map((arr, i) => {
                 const s = squareToPoint(arr.from);
                 const e = squareToPoint(arr.to);
                 const color = arr.color || '#ffaa00';
+                if (arr.from === arr.to) return null;
                 const isDrawing = drawingArrow?.from === arr.from && drawingArrow?.to === arr.to;
-                const isCircle = arr.from === arr.to;
-                if (isCircle) {
-                  return (
-                    <circle key={i} cx={s.x} cy={s.y} r="3.8" fill="none" stroke={color} strokeWidth="2.8" opacity={isDrawing ? 0.4 : 0.55} />
-                  );
-                }
                 const dx = e.x - s.x, dy = e.y - s.y;
                 const len = Math.sqrt(dx * dx + dy * dy);
-                const margin = 4.5 / len;
-                const x2 = e.x - dx * margin, y2 = e.y - dy * margin;
+                if (len < 0.1) return null;
+                const ux = dx / len, uy = dy / len;
+                const px = -uy, py = ux;
+                const headLen = Math.min(7, len * 0.35);
+                const headHalf = 3.5;
+                const shaftEnd = len - headLen;
+                const lx = s.x + ux * shaftEnd, ly = s.y + uy * shaftEnd;
+                const tipX = e.x, tipY = e.y;
+                const wx1 = lx + px * headHalf, wy1 = ly + py * headHalf;
+                const wx2 = lx - px * headHalf, wy2 = ly - py * headHalf;
                 return (
-                  <line key={i} x1={s.x} y1={s.y} x2={x2} y2={y2}
-                    stroke={color} strokeWidth={isDrawing ? 2.5 : 2}
-                    strokeLinecap="round"
-                    markerEnd={arr.from !== arr.to ? 'url(#arr-head)' : undefined}
-                    opacity={isDrawing ? 0.4 : 0.65}
-                  />
+                  <g key={i} opacity={isDrawing ? 0.45 : 0.7}>
+                    <line x1={s.x} y1={s.y} x2={lx} y2={ly}
+                      stroke={color} strokeWidth={3} strokeLinecap="round" />
+                    <polygon points={`${tipX},${tipY} ${wx1},${wy1} ${wx2},${wy2}`}
+                      fill={color} stroke={color} strokeWidth={0.5} strokeLinejoin="round" />
+                  </g>
                 );
               })}
             </svg>
