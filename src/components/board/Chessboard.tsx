@@ -1,8 +1,10 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
+import { Chessboard as RCChessboard } from 'react-chessboard';
 import { Chess } from 'chess.js';
 import { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
+import type { PieceRenderObject } from 'react-chessboard';
 
 export type Arrow = { from: string; to: string; color?: string };
 
@@ -52,8 +54,75 @@ interface ChessboardProps {
   checkmateSide?: 'w' | 'b';
 }
 
-const FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
-const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+const THEME_COLORS: Record<string, { light: string; dark: string }> = {
+  elegant:         { light: '#B0B0B0', dark: '#4D4D4D' },
+  blue:            { light: '#e9edf6', dark: '#4b73be' },
+  brown:           { light: '#f0d9b5', dark: '#b58863' },
+  charcoal:        { light: '#e8ebef', dark: '#4d5d75' },
+  'ocean-sunset':  { light: '#F2E8CF', dark: '#0A9396' },
+  'fresh-greens':  { light: '#F2E8CF', dark: '#6A994E' },
+  'cherry-blossom':{ light: '#FFCCD5', dark: '#C9184A' },
+  'golden-blue':   { light: '#FFF3B0', dark: '#003566' },
+  'pine-forest':   { light: '#EDEDE9', dark: '#3A5A40' },
+  coastal:         { light: '#CAF0F8', dark: '#0077B6' },
+  'amber-glow':    { light: '#FEFAE0', dark: '#D62828' },
+  'soft-sand':     { light: '#F5EBE0', dark: '#A9927D' },
+  green:           { light: '#eedcbf', dark: '#769656' },
+};
+
+const CUSTOM_PIECES: PieceRenderObject = {
+  wK: () => <PieceIcon type="k" color="w" />,
+  wQ: () => <PieceIcon type="q" color="w" />,
+  wR: () => <PieceIcon type="r" color="w" />,
+  wB: () => <PieceIcon type="b" color="w" />,
+  wN: () => <PieceIcon type="n" color="w" />,
+  wP: () => <PieceIcon type="p" color="w" />,
+  bK: () => <PieceIcon type="k" color="b" />,
+  bQ: () => <PieceIcon type="q" color="b" />,
+  bR: () => <PieceIcon type="r" color="b" />,
+  bB: () => <PieceIcon type="b" color="b" />,
+  bN: () => <PieceIcon type="n" color="b" />,
+  bP: () => <PieceIcon type="p" color="b" />,
+};
+
+function isDarkSquare(square: string, orientation: 'white' | 'black'): boolean {
+  const file = square.charCodeAt(0) - 97;
+  const rank = 8 - parseInt(square[1]);
+  const dr = orientation === 'black' ? 7 - rank : rank;
+  const dc = orientation === 'black' ? 7 - file : file;
+  return (dr + dc) % 2 === 1;
+}
+
+function renderClassificationBadge(cls: MoveClassification) {
+  let iconPath: string | undefined;
+
+  switch (cls) {
+    case 'brilliant':  iconPath = '/img/classifications/brilliant.svg';  break;
+    case 'excellent':  iconPath = '/img/classifications/excellent.svg';  break;
+    case 'best':       iconPath = '/img/classifications/best.svg';       break;
+    case 'good':
+    case 'okay':       iconPath = '/img/classifications/good.svg';       break;
+    case 'inaccuracy': iconPath = '/img/classifications/inaccuracy.svg'; break;
+    case 'mistake':    iconPath = '/img/classifications/mistake.svg';    break;
+    case 'blunder':    iconPath = '/img/classifications/blunder.svg';    break;
+    case 'forced':     iconPath = '/img/classifications/forced.svg';     break;
+    case 'book':       iconPath = '/img/classifications/book.svg';       break;
+    case 'critical':   iconPath = '/img/classifications/critical.svg';   break;
+    default: return null;
+  }
+
+  return (
+    <img
+      src={iconPath}
+      alt={cls}
+      style={{
+        position: 'absolute', top: '-8px', right: '-8px',
+        width: '28px', height: '28px', zIndex: 10,
+      }}
+      title={`Move classified as ${cls}`}
+    />
+  );
+}
 
 const Chessboard = memo(function Chessboard({
   fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
@@ -76,411 +145,202 @@ const Chessboard = memo(function Chessboard({
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
-  const [internalArrows, setInternalArrows] = useState<Arrow[]>([]);
-  const [drawingArrow, setDrawingArrow] = useState<{ from: string; to: string } | null>(null);
-  const drawingStartRef = useRef<string | null>(null);
-  const drewArrowRef = useRef(false);
-  const boardRef = useRef<HTMLDivElement>(null);
 
-  const fenParts = fen.split(' ');
-  const positionPart = fenParts[0];
+  const colors = THEME_COLORS[settings.boardColor] || THEME_COLORS.green;
 
-  const rows = positionPart.split('/');
-  const boardGrid: ({ type: string; color: 'w' | 'b' } | null)[][] = rows.map((row) => {
-    const squares: ({ type: string; color: 'w' | 'b' } | null)[] = [];
-    for (let char of row) {
-      if (/\d/.test(char)) {
-        for (let i = 0; i < parseInt(char, 10); i++) {
-          squares.push(null);
-        }
-      } else {
-        squares.push({
-          type: char.toLowerCase(),
-          color: char === char.toUpperCase() ? 'w' : 'b'
-        });
+  const squareStyles = useMemo(() => {
+    const styles: Record<string, React.CSSProperties> = {};
+    const setBg = (sq: string, bg: string) => {
+      styles[sq] = { ...styles[sq], background: bg };
+    };
+    if (highlightSquares?.from) {
+      setBg(highlightSquares.from,
+        isDarkSquare(highlightSquares.from, orientation)
+          ? 'rgba(247,215,108,0.65)' : 'rgba(247,215,108,0.85)');
+    }
+    if (highlightSquares?.to) {
+      setBg(highlightSquares.to,
+        isDarkSquare(highlightSquares.to, orientation)
+          ? 'rgba(247,215,108,0.65)' : 'rgba(247,215,108,0.85)');
+    }
+    if (selectedSquare) {
+      setBg(selectedSquare, 'rgba(255,170,0,0.55)');
+    }
+    for (const sq of rightClickedSquares) {
+      setBg(sq,
+        isDarkSquare(sq, orientation)
+          ? 'rgba(0,48,136,0.55)' : 'rgba(0,48,136,0.40)');
+    }
+    return styles;
+  }, [highlightSquares, selectedSquare, rightClickedSquares, orientation]);
+
+  const boardArrows = useMemo(() => {
+    const result: { startSquare: string; endSquare: string; color: string }[] = [];
+    for (const a of arrows) {
+      result.push({ startSquare: a.from, endSquare: a.to, color: a.color || '#ffaa00' });
+    }
+    if (bestMoveArrow) {
+      result.push({ startSquare: bestMoveArrow.from, endSquare: bestMoveArrow.to, color: '#00a000' });
+    }
+    return result;
+  }, [arrows, bestMoveArrow]);
+
+  const handlePieceDrop = useCallback(
+    ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
+      if (!playable || !targetSquare) return false;
+      onMove?.(sourceSquare, targetSquare);
+      return true;
+    },
+    [playable, onMove],
+  );
+
+  const handleSquareClick = useCallback(
+    ({ square }: { square: string }) => {
+      onLeftClick?.();
+      if (!playable) return;
+
+      if (selectedSquare && validMoves.includes(square)) {
+        if (onMove) onMove(selectedSquare, square);
+        setSelectedSquare(null);
+        setValidMoves([]);
+        return;
       }
-    }
-    return squares;
-  });
 
-  const getThemeClasses = () => {
-    switch (settings.boardColor) {
-      case 'elegant':
-        return {
-          light: 'bg-[#B0B0B0] text-[#1A1A1A]',
-          dark: 'bg-[#4D4D4D] text-[#B0B0B0]',
-        };
-      case 'blue':
-        return {
-          light: 'bg-[#e9edf6] text-[#4b73be]',
-          dark: 'bg-[#4b73be] text-[#e9edf6]',
-        };
-      case 'brown':
-        return {
-          light: 'bg-[#f0d9b5] text-[#b58863]',
-          dark: 'bg-[#b58863] text-[#f0d9b5]',
-        };
-      case 'charcoal':
-        return {
-          light: 'bg-[#e8ebef] text-[#4d5d75]',
-          dark: 'bg-[#4d5d75] text-[#e8ebef]',
-        };
-      case 'ocean-sunset':
-        return {
-          light: 'bg-[#F2E8CF] text-[#0A9396]',
-          dark: 'bg-[#0A9396] text-[#F2E8CF]',
-        };
-      case 'fresh-greens':
-        return {
-          light: 'bg-[#F2E8CF] text-[#6A994E]',
-          dark: 'bg-[#6A994E] text-[#F2E8CF]',
-        };
-      case 'cherry-blossom':
-        return {
-          light: 'bg-[#FFCCD5] text-[#C9184A]',
-          dark: 'bg-[#C9184A] text-[#FFCCD5]',
-        };
-      case 'golden-blue':
-        return {
-          light: 'bg-[#FFF3B0] text-[#003566]',
-          dark: 'bg-[#003566] text-[#FFF3B0]',
-        };
-      case 'pine-forest':
-        return {
-          light: 'bg-[#EDEDE9] text-[#3A5A40]',
-          dark: 'bg-[#3A5A40] text-[#EDEDE9]',
-        };
-      case 'coastal':
-        return {
-          light: 'bg-[#CAF0F8] text-[#0077B6]',
-          dark: 'bg-[#0077B6] text-[#CAF0F8]',
-        };
-      case 'amber-glow':
-        return {
-          light: 'bg-[#FEFAE0] text-[#D62828]',
-          dark: 'bg-[#D62828] text-[#FEFAE0]',
-        };
-      case 'soft-sand':
-        return {
-          light: 'bg-[#F5EBE0] text-[#A9927D]',
-          dark: 'bg-[#A9927D] text-[#F5EBE0]',
-        };
-      case 'green':
-      default:
-        return {
-          light: 'bg-[#eedcbf] text-[#769656]',
-          dark: 'bg-[#769656] text-[#eedcbf]',
-        };
-    }
-  };
-
-  const colors = getThemeClasses();
-
-  const isHighlighted = (squareName: string) => {
-    if (!highlightSquares) return false;
-    return highlightSquares.from === squareName || highlightSquares.to === squareName;
-  };
-
-  const handleSquareClick = (squareName: string, piece: { type: string; color: 'w' | 'b' } | null) => {
-    if (!playable) return;
-
-    if (selectedSquare && validMoves.includes(squareName)) {
-      if (onMove) {
-        onMove(selectedSquare, squareName);
-      }
-      setSelectedSquare(null);
-      setValidMoves([]);
-      return;
-    }
-
-    if (piece) {
       try {
         const chess = new Chess(fen);
-        const legalDestinations = chess
-          .moves({ square: squareName as any, verbose: true })
-          .map((m) => m.to);
-
-        setSelectedSquare(squareName);
-        setValidMoves(legalDestinations);
+        const piece = chess.get(square as any);
+        if (piece) {
+          const moves = chess.moves({ square: square as any, verbose: true }).map(m => m.to);
+          setSelectedSquare(square);
+          setValidMoves(moves);
+        } else {
+          setSelectedSquare(null);
+          setValidMoves([]);
+        }
       } catch {
         setSelectedSquare(null);
         setValidMoves([]);
       }
-    } else {
-      setSelectedSquare(null);
-      setValidMoves([]);
-    }
-  };
+    },
+    [playable, fen, selectedSquare, validMoves, onMove, onLeftClick],
+  );
 
-  const renderClassificationBadge = (cls?: MoveClassification) => {
-    if (!cls) return null;
+  const handleSquareRightClick = useCallback(
+    ({ square }: { square: string }) => { onSquareRightClick?.(square); },
+    [onSquareRightClick],
+  );
 
-    let badgeBg = 'bg-gray-500';
-    let badgeText = '★';
-    let iconPath: string | undefined;
+  const handleArrowsChange = useCallback(
+    ({ arrows: libArrows }: { arrows: { startSquare: string; endSquare: string; color: string }[] }) => {
+      const converted = libArrows.map(a => ({ from: a.startSquare, to: a.endSquare, color: a.color }));
+      onArrowsChange?.(converted);
+    },
+    [onArrowsChange],
+  );
 
-    switch (cls) {
-      case 'brilliant':
-        badgeBg = 'bg-[#1baca6]';
-        iconPath = '/img/classifications/brilliant.svg';
-        break;
-      case 'excellent':
-        badgeBg = 'bg-[#31a354]';
-        iconPath = '/img/classifications/excellent.svg';
-        break;
-      case 'best':
-        badgeBg = 'bg-[#47a829]';
-        iconPath = '/img/classifications/best.svg';
-        break;
-      case 'good':
-      case 'okay':
-        badgeBg = 'bg-[#3182bd]';
-        iconPath = '/img/classifications/good.svg';
-        break;
-      case 'inaccuracy':
-        badgeBg = 'bg-[#f0a600]';
-        iconPath = '/img/classifications/inaccuracy.svg';
-        break;
-      case 'mistake':
-        badgeBg = 'bg-[#e6550d]';
-        iconPath = '/img/classifications/mistake.svg';
-        break;
-      case 'blunder':
-        badgeBg = 'bg-[#de2d26]';
-        iconPath = '/img/classifications/blunder.svg';
-        break;
-      case 'forced':
-        badgeBg = 'bg-[#636363]';
-        iconPath = '/img/classifications/forced.svg';
-        break;
-      case 'book':
-        badgeBg = 'bg-[#a88764]';
-        iconPath = '/img/classifications/book.svg';
-        break;
-      case 'critical':
-        badgeBg = 'bg-[#5b8baf]';
-        iconPath = '/img/classifications/critical.svg';
-        break;
-      default:
-        return null;
-    }
+  const squareRenderer = useCallback(
+    ({ square, children }: { square: string; children?: React.ReactNode }) => {
+      const isDot = validMoves.includes(square);
+      const isBadge = highlightSquares?.to === square && highlightSquares?.classification;
+      if (!isDot && !isBadge) return null;
 
-    return iconPath ? (
-      <img src={iconPath} alt={cls} className="absolute -top-2 -right-2 w-7 h-7 z-10" title={`Move classified as ${cls}`} />
-    ) : (
+      const hasPiece = children != null;
+      return (
+        <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] || {}) }}>
+          {children}
+          {isBadge && renderClassificationBadge(highlightSquares!.classification!)}
+          {isDot && !hasPiece && (
+            <div style={{
+              width: '28%', height: '28%', borderRadius: '50%',
+              backgroundColor: 'rgba(0,0,0,0.25)',
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none', zIndex: 10,
+            }} />
+          )}
+          {isDot && hasPiece && (
+            <div style={{
+              width: '82%', height: '82%', borderRadius: '50%',
+              border: '4px solid rgba(0,0,0,0.2)',
+              position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%, -50%)',
+              pointerEvents: 'none', zIndex: 10,
+            }} />
+          )}
+        </div>
+      );
+    },
+    [validMoves, highlightSquares, squareStyles],
+  );
+
+  const renderSquareOverlay = (kingSquare: string, icon: string) => {
+    const flipped = orientation === 'black';
+    const f = kingSquare.charCodeAt(0) - 97;
+    const r = 8 - parseInt(kingSquare[1]);
+    const col = flipped ? 7 - f : f;
+    const row = flipped ? 7 - r : r;
+    return (
       <div
-        className={`absolute -top-2 -right-2 ${badgeBg} text-white font-bold text-[9px] w-5 h-5 rounded-full flex items-center justify-center z-10`}
-        title={`Move classified as ${cls}`}
+        style={{
+          position: 'absolute',
+          top: `${(row / 8) * 100}%`,
+          left: `${(col / 8) * 100}%`,
+          width: '12.5%',
+          height: '12.5%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 30,
+        }}
       >
-        {badgeText}
+        <img src={icon} alt="" className="w-[55%] h-[55%] drop-shadow-lg" />
       </div>
     );
   };
 
-  const squareToPoint = (sq: string) => {
-    const f = sq.charCodeAt(0) - 97;
-    const r = 8 - parseInt(sq[1]);
-    const x = flipped ? 100 - (f + 0.5) * 12.5 : (f + 0.5) * 12.5;
-    const y = flipped ? 100 - (r + 0.5) * 12.5 : (r + 0.5) * 12.5;
-    return { x, y };
-  };
-
-  const flipped = orientation === 'black';
-  const displayRows = flipped
-    ? [...boardGrid].reverse().map(r => [...r].reverse())
-    : boardGrid;
-
   return (
     <div className={`relative aspect-square w-full ${className}`}>
-      <div className="grid grid-cols-8 grid-rows-8 w-full h-full rounded-lg bg-[var(--color-surface)] border-4 border-[#2a2a2a] overflow-hidden relative select-none">
-        
-        {displayRows.map((rowArr, rowIndex) => {
-          return rowArr.map((piece, colIndex) => {
-            const logicalRowIndex = flipped ? 7 - rowIndex : rowIndex;
-            const logicalColIndex = flipped ? 7 - colIndex : colIndex;
-            const squareName = `${FILES[logicalColIndex]}${RANKS[logicalRowIndex]}`;
-            const isDark = (rowIndex + colIndex) % 2 === 1;
-            const isSelected = selectedSquare === squareName;
-            const isValidDest = validMoves.includes(squareName);
-            const isMoveTrail = isHighlighted(squareName);
-            const isRightClicked = rightClickedSquares.includes(squareName);
-
-            let squareBg = isDark ? colors.dark : colors.light;
-
-            if (isMoveTrail) {
-              squareBg = isDark 
-                ? 'bg-[rgba(247,215,108,0.65)]' 
-                : 'bg-[rgba(247,215,108,0.85)]';
-            }
-            if (isSelected) {
-              squareBg = 'bg-[rgba(255,170,0,0.55)]';
-            }
-            if (isRightClicked) {
-              squareBg = isDark
-                ? 'bg-[rgba(0,48,136,0.55)]'
-                : 'bg-[rgba(0,48,136,0.40)]';
-            }
-            return (
-              <div
-                key={squareName}
-                className={`relative w-full h-full flex items-center justify-center ${squareBg}`}
-                onClick={() => handleSquareClick(squareName, piece)}
-                onMouseDown={(e) => {
-                  if (e.button === 2) {
-                    drawingStartRef.current = squareName;
-                    setDrawingArrow({ from: squareName, to: squareName });
-                  }
-                  if (e.button === 0) {
-                    setInternalArrows([]);
-                    onArrowsChange?.([]);
-                    onLeftClick?.();
-                  }
-                }}
-                onMouseOver={(e) => {
-                  if (e.buttons === 2 && drawingStartRef.current) {
-                    setDrawingArrow({ from: drawingStartRef.current, to: squareName });
-                  }
-                }}
-                onMouseUp={(e) => {
-                  if (e.button === 2 && drawingStartRef.current) {
-                    if (drawingStartRef.current !== squareName) {
-                      const from = drawingStartRef.current;
-                      const newArr = { from, to: squareName, color: '#ffaa00' };
-                      setInternalArrows(prev => {
-                        const exists = prev.some(a => a.from === from && a.to === squareName);
-                        const next = exists
-                          ? prev.filter(a => !(a.from === from && a.to === squareName))
-                          : [...prev, newArr];
-                        onArrowsChange?.(next);
-                        return next;
-                      });
-                      drewArrowRef.current = true;
-                    }
-                    drawingStartRef.current = null;
-                    setDrawingArrow(null);
-                  }
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (drewArrowRef.current) {
-                    drewArrowRef.current = false;
-                  } else if (onSquareRightClick) {
-                    onSquareRightClick(squareName);
-                  }
-                }}
-              >
-                {settings.featureToggles.showCoordinates && (
-                  <>
-                    {colIndex === 0 && (
-                      <span className="absolute top-1 left-1 font-semibold opacity-60 leading-none"
-                        style={{ fontSize: `${Math.max(settings.coordinatesSize, 6)}px` }}>
-                        {RANKS[flipped ? 7 - rowIndex : rowIndex]}
-                      </span>
-                    )}
-                    {rowIndex === 7 && (
-                      <span className="absolute bottom-1 right-1 font-semibold opacity-60 leading-none"
-                        style={{ fontSize: `${Math.max(settings.coordinatesSize, 6)}px` }}>
-                        {FILES[flipped ? 7 - colIndex : colIndex]}
-                      </span>
-                    )}
-                  </>
-                )}
-
-                {highlightSquares?.to === squareName && renderClassificationBadge(highlightSquares.classification)}
-
-                {piece && (
-                  <div className="w-[88%] h-[88%] z-5 select-none">
-                    <PieceIcon type={piece.type} color={piece.color} />
-                  </div>
-                )}
-
-                {isValidDest && !piece && (
-                  <div className="w-3.5 h-3.5 rounded-full bg-black/25 absolute z-10 pointer-events-none" />
-                )}
-                {isValidDest && piece && (
-                  <div className="w-[82%] h-[82%] border-4 border-black/20 rounded-full absolute z-10 pointer-events-none" />
-                )}
-              </div>
-            );
-          });
-        })}
-
-        {/* Arrow shapes — single filled path per arrow (shaft + head as one shape) */}
-        {(() => {
-          const arrowShapes = drawingArrow
-            ? [...internalArrows, { ...drawingArrow, color: drawingArrow.color || '#ffaa00' }]
-            : internalArrows;
-          if (arrowShapes.length === 0) return null;
-          return (
-            <svg key="shapes" viewBox="0 0 100 100" className="absolute inset-0 w-full h-full pointer-events-none z-20">
-              {arrowShapes.map((arr, i) => {
-                const s = squareToPoint(arr.from);
-                const e = squareToPoint(arr.to);
-                const color = arr.color || '#ffaa00';
-                if (arr.from === arr.to) return null;
-                const isDrawing = drawingArrow?.from === arr.from && drawingArrow?.to === arr.to;
-                const dx = e.x - s.x, dy = e.y - s.y;
-                const len = Math.sqrt(dx * dx + dy * dy);
-                if (len < 0.1) return null;
-                const ux = dx / len, uy = dy / len;
-                const px = -uy, py = ux;
-                const sw = 1.2;
-                const hw = 3;
-                const hl = Math.min(6.5, len * 0.38);
-                const se = len - hl;
-                const lx = s.x + ux * se, ly = s.y + uy * se;
-                const tx = e.x, ty = e.y;
-                const d = [
-                  `M${s.x + px * sw},${s.y + py * sw}`,
-                  `L${lx + px * sw},${ly + py * sw}`,
-                  `L${lx + px * hw},${ly + py * hw}`,
-                  `L${tx},${ty}`,
-                  `L${lx - px * hw},${ly - py * hw}`,
-                  `L${lx - px * sw},${ly - py * sw}`,
-                  'Z',
-                ].join(' ');
-                return <path key={i} d={d} fill={color} opacity={isDrawing ? 0.4 : 0.65} />;
-              })}
-            </svg>
-          );
-        })()}
-        {winnerOverlay && winnerSide && (() => {
-          const sq = findKingSquare(fen, winnerSide);
-          if (!sq) return null;
-          const f = sq.charCodeAt(0) - 97;
-          const r = 8 - parseInt(sq[1]);
-          const lf = flipped ? 7 - f : f;
-          const lr = flipped ? 7 - r : r;
-          return (
-            <div className="absolute inset-0 pointer-events-none z-30" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(8, 1fr)' }}>
-              <div style={{ gridRow: lr + 1, gridColumn: lf + 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/img/classifications/winner.svg" alt="winner" className="w-[55%] h-[55%] drop-shadow-lg" />
-              </div>
-            </div>
-          );
-        })()}
-        {checkmateOverlay && checkmateSide && (() => {
-          const sq = findKingSquare(fen, checkmateSide);
-          if (!sq) return null;
-          const f = sq.charCodeAt(0) - 97;
-          const r = 8 - parseInt(sq[1]);
-          const lf = flipped ? 7 - f : f;
-          const lr = flipped ? 7 - r : r;
-          const icon = checkmateSide === 'w' ? '/img/classifications/checkmate_white.svg' : '/img/classifications/checkmate_black.svg';
-          return (
-            <div className="absolute inset-0 pointer-events-none z-30" style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gridTemplateRows: 'repeat(8, 1fr)' }}>
-              <div style={{ gridRow: lr + 1, gridColumn: lf + 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src={icon} alt="checkmate" className="w-[55%] h-[55%] drop-shadow-lg" />
-              </div>
-            </div>
-          );
-        })()}
-      </div>
-      <style>{`
-        @keyframes ch-arrow-dash {
-          to { stroke-dashoffset: -18; }
-        }
-      `}</style>
+      <RCChessboard
+        options={{
+          id: 'finalrank',
+          position: fen,
+          pieces: CUSTOM_PIECES,
+          boardOrientation: orientation,
+          boardStyle: {
+            border: '4px solid #2a2a2a',
+            borderRadius: '8px',
+          },
+          lightSquareStyle: { backgroundColor: colors.light },
+          darkSquareStyle: { backgroundColor: colors.dark },
+          squareStyles,
+          arrows: boardArrows,
+          allowDragging: playable,
+          allowDrawingArrows: true,
+          clearArrowsOnClick: true,
+          clearArrowsOnPositionChange: false,
+          showAnimations: false,
+          showNotation: settings.featureToggles.showCoordinates,
+          alphaNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },
+          numericNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },
+          onPieceDrop: handlePieceDrop,
+          onSquareClick: handleSquareClick,
+          onSquareRightClick: handleSquareRightClick,
+          onArrowsChange: handleArrowsChange,
+          squareRenderer,
+        }}
+      />
+      {winnerOverlay && winnerSide && (() => {
+        const sq = findKingSquare(fen, winnerSide);
+        return sq ? renderSquareOverlay(sq, '/img/classifications/winner.svg') : null;
+      })()}
+      {checkmateOverlay && checkmateSide && (() => {
+        const sq = findKingSquare(fen, checkmateSide);
+        const icon = checkmateSide === 'w'
+          ? '/img/classifications/checkmate_white.svg'
+          : '/img/classifications/checkmate_black.svg';
+        return sq ? renderSquareOverlay(sq, icon) : null;
+      })()}
     </div>
   );
 });
