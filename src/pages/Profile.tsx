@@ -791,7 +791,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
   return (
     <div className="max-w-4xl mx-auto space-y-5" id="profile-container">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
+        <h1 className="text-xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
         {user && (
           <button
             onClick={resetSettings}
