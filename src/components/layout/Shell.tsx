@@ -9,7 +9,6 @@ import {
   X,
   LogOut,
   ChevronDown,
-  Flame,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -39,11 +38,11 @@ export default function Shell({ children }: ShellProps) {
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-white flex flex-col font-sans" id="app-shell">
-      <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-4 h-12 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
-        <div className="flex items-center space-x-4">
-          <Link to="/" className="flex items-center space-x-2">
-            <img src="/logo.webp" alt="FinalRank" className="w-6 h-6" />
-            <h1 className="text-base font-bold tracking-tight text-white">
+      <header className={`border-b border-[var(--color-border)] bg-[var(--color-surface)] sticky top-0 z-50 px-5 h-14 flex items-center justify-between ${fullscreenMode ? 'hidden' : ''}`}>
+        <div className="flex items-center space-x-5">
+          <Link to="/" className="flex items-center space-x-2.5">
+            <img src="/logo.webp" alt="FinalRank" className="w-7 h-7" />
+            <h1 className="text-lg font-bold tracking-tight text-white">
               FinalRank<span className="text-[var(--color-accent)]">.</span>
             </h1>
           </Link>
@@ -62,7 +61,7 @@ export default function Shell({ children }: ShellProps) {
                       : 'text-[var(--color-text-muted)]'
                   }`}
                 >
-                  <Icon className="w-3.5 h-3.5" />
+                  <Icon className="w-4 h-4" />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -73,11 +72,11 @@ export default function Shell({ children }: ShellProps) {
         <div className="flex items-center space-x-3">
           {user && (
             <div
-              className="flex items-center space-x-1 bg-[var(--color-surface)] px-2 py-0.5 rounded-full text-[10px] font-semibold text-[var(--color-text-muted)]"
+              className="flex items-center space-x-1.5 bg-[var(--color-surface)] px-2.5 py-1 rounded-full text-[11px] font-semibold text-[var(--color-text-muted)]"
               title="Daily analysis streak"
               id="streak-badge"
             >
-              <StreakFlame days={user.streak} size={12} />
+              <StreakFlame days={user.streak} size={14} />
               <span>{user.streak}d</span>
             </div>
           )}
@@ -85,7 +84,7 @@ export default function Shell({ children }: ShellProps) {
           {user && (
             <Link
               to="/profile"
-              className={`hidden sm:flex items-center space-x-1 px-2 py-1 rounded-lg text-[10px] font-semibold ${
+              className={`hidden sm:flex items-center space-x-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold ${
                 user.chessComUsername
                   ? 'bg-green-900/30 text-green-400 border border-green-700/50'
                   : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
@@ -99,21 +98,21 @@ export default function Shell({ children }: ShellProps) {
           {user ? (
             <div className="relative">
               <button
-                className="flex items-center space-x-1.5 bg-[var(--color-surface)] px-2 py-1 rounded-lg border border-[var(--color-border)] text-xs"
+                className="flex items-center space-x-1.5 bg-[var(--color-surface)] px-2.5 py-1.5 rounded-lg border border-[var(--color-border)] text-xs"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
                 id="user-profile-dropdown"
               >
                 <img
                   src={user.avatar}
                   alt={user.username}
-                  className="w-5 h-5 rounded-full border border-[var(--color-border)] object-cover"
+                  className="w-6 h-6 rounded-full border border-[var(--color-border)] object-cover"
                   crossOrigin="anonymous"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.username}`;
                   }}
                 />
-                <span className="max-w-[80px] truncate font-medium">{user.username}</span>
-                <ChevronDown className="w-3 h-3 text-[var(--color-text-muted)]" />
+                <span className="max-w-[90px] truncate font-medium">{user.username}</span>
+                <ChevronDown className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
               </button>
 
               {userDropdownOpen && (
@@ -130,7 +129,7 @@ export default function Shell({ children }: ShellProps) {
                       className="w-full flex items-center space-x-2 px-3 py-2 rounded-lg text-xs text-[var(--color-accent)] text-left font-medium"
                       id="logout-btn"
                     >
-                      <LogOut className="w-3.5 h-3.5" />
+                      <LogOut className="w-4 h-4" />
                       <span>Log Out</span>
                     </button>
                   </div>
@@ -140,7 +139,7 @@ export default function Shell({ children }: ShellProps) {
           ) : (
             <button
               onClick={() => loginAsGuest('Guest_Expert')}
-              className="bg-[var(--color-primary)] text-white px-3 py-1 rounded-lg font-semibold text-xs"
+              className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded-lg font-semibold text-xs"
               id="guest-login-nav"
             >
               Guest Login
@@ -199,11 +198,11 @@ export default function Shell({ children }: ShellProps) {
         </div>
       )}
 
-      <main className={`flex-1 w-full mx-auto p-3 md:p-4 ${fullscreenMode ? 'max-w-full' : 'max-w-7xl'}`} id="main-stage">
+      <main className={`flex-1 w-full mx-auto p-4 md:p-5 ${fullscreenMode ? 'max-w-full' : 'max-w-7xl'}`} id="main-stage">
         {children}
       </main>
 
-      <footer className={`border-t border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-[10px] text-[var(--color-text-muted)] flex flex-col sm:flex-row items-center justify-between px-4 max-w-7xl w-full mx-auto ${fullscreenMode ? 'hidden' : ''}`}>
+      <footer className={`border-t border-[var(--color-border)] bg-[var(--color-surface)] py-3 text-center text-xs text-[var(--color-text-muted)] flex flex-col sm:flex-row items-center justify-between px-5 max-w-7xl w-full mx-auto ${fullscreenMode ? 'hidden' : ''}`}>
         <p>&copy; 2026 FinalRank.</p>
         <div className="flex items-center space-x-4 mt-1 sm:mt-0">
           <span className="text-[var(--color-border)]">|</span>
