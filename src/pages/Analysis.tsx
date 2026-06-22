@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Chess } from 'chess.js';
 import {
   Sparkles,
   ChevronLeft,
@@ -38,6 +39,8 @@ import { classificationImages, classificationColours, classificationNames } from
 import { getTopEngineLine } from '../lib/engine';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { SkeletonGameGrid, SkeletonBoard, SkeletonMoveList } from '../components/Skeleton';
+import AnalysisReport from '../components/AnalysisReport';
 
 export default function Analysis() {
   const {
@@ -483,7 +486,13 @@ function formatDuration(ms: number | undefined): string {
           )}
         </div>
 
-        {showGameList && games.length > 0 && (
+        {showGameList && loadingGames && games.length === 0 && (
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card-loading">
+            <div className="h-4 w-32 bg-[var(--color-border)] rounded animate-pulse mb-4" />
+            <SkeletonGameGrid count={6} />
+          </div>
+        )}
+        {showGameList && !loadingGames && games.length > 0 && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
               <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
@@ -525,7 +534,13 @@ function formatDuration(ms: number | undefined): string {
           </div>
         )}
 
-        {authUser?.chessComUsername && linkedGames.length > 0 && (
+        {authUser?.chessComUsername && linkedLoading && linkedGames.length === 0 && (
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
+            <div className="h-4 w-40 bg-[var(--color-border)] rounded animate-pulse mb-4" />
+            <SkeletonGameGrid count={3} />
+          </div>
+        )}
+        {authUser?.chessComUsername && !linkedLoading && linkedGames.length > 0 && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
@@ -603,14 +618,14 @@ function formatDuration(ms: number | undefined): string {
         {focusMode && selectedGame && (
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center gap-3" id="focus-players-panel">
           <div className="flex flex-col items-center gap-1.5">
-            {selectedGame.black.avatar ? (
+            {selectedGame.black?.avatar ? (
               <img src={selectedGame.black.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
             ) : (
               <span className="w-[34px] h-[34px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
             )}
             <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
-              {selectedGame.black.username}
-              {selectedGame.black.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.black.rating})</span>}
+              {selectedGame.black?.username ?? 'Black'}
+              {selectedGame.black?.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.black.rating})</span>}
             </div>
           </div>
           {selectedGame.accuracy && (
@@ -627,14 +642,14 @@ function formatDuration(ms: number | undefined): string {
             </div>
           )}
           <div className="flex flex-col items-center gap-1.5 mt-[10px]">
-            {selectedGame.white.avatar ? (
+            {selectedGame.white?.avatar ? (
               <img src={selectedGame.white.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
             ) : (
               <span className="w-[34px] h-[34px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
             )}
             <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
-              {selectedGame.white.username}
-              {selectedGame.white.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.white.rating})</span>}
+              {selectedGame.white?.username ?? 'White'}
+              {selectedGame.white?.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.white.rating})</span>}
             </div>
           </div>
           <div className="mt-2 pt-3 border-t border-[var(--color-border)] w-full text-center">
@@ -692,10 +707,10 @@ function formatDuration(ms: number | undefined): string {
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex items-center justify-between px-3 py-2">
               <div className="flex items-center space-x-1">
-                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move">
+                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
                   <ChevronsLeft className="w-5 h-5" />
                 </button>
-                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move">
+                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
@@ -703,13 +718,14 @@ function formatDuration(ms: number | undefined): string {
                   disabled={currentMoveIndex === selectedGame.moves.length - 1}
                   className={`p-0 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
+                  aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
                 >
                   <span className="text-lg">{autoplay ? '■' : '▶'}</span>
                 </button>
-                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move">
+                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move">
+                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
                   <ChevronsRight className="w-5 h-5" />
                 </button>
               </div>
@@ -901,20 +917,20 @@ function formatDuration(ms: number | undefined): string {
               </div>
               <div className="text-sm font-bold text-white flex flex-col gap-1">
                 <div className="flex items-center space-x-2.5">
-                  {selectedGame.white.avatar ? (
+                  {selectedGame.white?.avatar ? (
                     <img src={selectedGame.white.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
                   ) : (
                     <span className="w-[44px] h-[44px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
                   )}
-                  <span className="truncate">{selectedGame.white.username} {selectedGame.white.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.white.rating})</span>}</span>
+                  <span className="truncate">{selectedGame.white?.username ?? 'White'} {selectedGame.white?.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.white.rating})</span>}</span>
                 </div>
                 <div className="flex items-center space-x-2.5 mt-[3px]">
-                  {selectedGame.black.avatar ? (
+                  {selectedGame.black?.avatar ? (
                     <img src={selectedGame.black.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
                   ) : (
                     <span className="w-[44px] h-[44px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
                   )}
-                  <span className="truncate">{selectedGame.black.username} {selectedGame.black.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.black.rating})</span>}</span>
+                  <span className="truncate">{selectedGame.black?.username ?? 'Black'} {selectedGame.black?.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.black.rating})</span>}</span>
                 </div>
               </div>
             </div>
@@ -939,15 +955,15 @@ function formatDuration(ms: number | undefined): string {
               <span>Move Log</span>
             </h3>
             <div className="flex-1 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-track-[#2a2a2a] scrollbar-thumb-[#4a4a4a]" id="moves-log-container">
-              {selectedGame.moves.length === 0 ? (
+              {selectedGame.moves?.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--color-text-muted)] italic p-6">
                   Click 'Analyze' to evaluate positions.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-1 text-sm font-mono">
-                  {Array.from({ length: Math.ceil(selectedGame.moves.length / 2) }).map((_, rowIndex) => {
-                    const whiteMove = selectedGame.moves[rowIndex * 2];
-                    const blackMove = selectedGame.moves[rowIndex * 2 + 1];
+                  {Array.from({ length: Math.ceil((selectedGame.moves ?? []).length / 2) }).map((_, rowIndex) => {
+                    const whiteMove = (selectedGame.moves ?? [])[rowIndex * 2];
+                    const blackMove = (selectedGame.moves ?? [])[rowIndex * 2 + 1];
                     const turnNum = rowIndex + 1;
                     return (
                       <div key={rowIndex} className="col-span-2 grid grid-cols-12 py-1.5 px-2 rounded-lg bg-transparent items-center">
@@ -1086,6 +1102,10 @@ function formatDuration(ms: number | undefined): string {
 
       </div>
 
+      {!focusMode && selectedGame && (
+        <AnalysisReport game={selectedGame} />
+      )}
+
       {!focusMode && (
       <>
       <button
@@ -1118,7 +1138,7 @@ function formatDuration(ms: number | undefined): string {
                     <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                   </div>
                   <div className="text-xs font-bold text-white truncate">
-                    {g.white.username} vs {g.black.username}
+                    {g.white?.username ?? 'White'} vs {g.black?.username ?? 'Black'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-start mt-2">
@@ -1141,7 +1161,7 @@ function formatDuration(ms: number | undefined): string {
       )}
 
       {showShortcuts && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShortcuts(false)} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -1198,7 +1218,7 @@ function formatDuration(ms: number | undefined): string {
       )}
 
       {showShare && selectedGame && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShare(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowShare(false)} role="dialog" aria-modal="true" aria-label="Share game">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-lg w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-white flex items-center gap-2">

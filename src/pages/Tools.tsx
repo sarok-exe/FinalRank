@@ -294,6 +294,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                 onClick={toggleFullscreen}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
                 title="Toggle fullscreen (F11)"
+                aria-label="Toggle fullscreen"
               >
                 <Maximize className="w-3 h-3" />
               </button>
@@ -477,6 +478,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
     presets, activePresetId, selectPreset, setCustomTime, startClock, pauseClock,
     resetClock, switchTurn, tick,
   } = useClockStore();
+  const initialWhiteTime = useClockStore(s => s.initialWhiteTime);
+  const initialBlackTime = useClockStore(s => s.initialBlackTime);
   const { settings } = useSettingsStore();
 
   const [vpW2, setVpW2] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
@@ -722,7 +725,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3" id="pvp-clock-widget">
             <div className="flex gap-2 mb-2">
               <div
-                className={`flex-1 rounded-lg border p-2 text-center ${
+                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${
                   isInAlert(whiteTime)
                     ? 'bg-[#8b1a1a] border-[#ff4444]'
                     : activeColor === 'w' && isRunning
@@ -730,6 +733,12 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                 }`}
               >
+                {winner && whiteTime === 0 && (
+                  <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="2" x2="4" y2="22" />
+                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                  </svg>
+                )}
                 <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded bg-white border border-[var(--color-text-muted)]" />
                   White
@@ -737,9 +746,15 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
                   {formatClockTime(whiteTime)}
                 </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-border)]">
+                  <div
+                    className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
+                    style={{ width: `${Math.max(0, (initialWhiteTime > 0 ? whiteTime / initialWhiteTime : 1) * 100)}%` }}
+                  />
+                </div>
               </div>
               <div
-                className={`flex-1 rounded-lg border p-2 text-center ${
+                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${
                   isInAlert(blackTime)
                     ? 'bg-[#8b1a1a] border-[#ff4444]'
                     : activeColor === 'b' && isRunning
@@ -747,12 +762,24 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       : 'bg-[var(--color-surface)] border-[var(--color-border)]'
                 }`}
               >
+                {winner && blackTime === 0 && (
+                  <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="2" x2="4" y2="22" />
+                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                  </svg>
+                )}
                 <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                   Black
                 </div>
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
                   {formatClockTime(blackTime)}
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-border)]">
+                  <div
+                    className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
+                    style={{ width: `${Math.max(0, (initialBlackTime > 0 ? blackTime / initialBlackTime : 1) * 100)}%` }}
+                  />
                 </div>
               </div>
             </div>
@@ -773,7 +800,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                   Stop
                 </button>
               )}
-              <button onClick={resetClock} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock">
+              <button onClick={resetClock} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock" aria-label="Reset clock">
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
@@ -916,6 +943,12 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
   const [customInc, setCustomInc] = useState(0);
   const whiteAlertedRef = useRef(false);
   const blackAlertedRef = useRef(false);
+  const initialWhiteTime = useClockStore(s => s.initialWhiteTime);
+  const initialBlackTime = useClockStore(s => s.initialBlackTime);
+  const whiteFlagFallen = winner && (winner === 'b' || winner === 'draw') && whiteTime === 0;
+  const blackFlagFallen = winner && (winner === 'w' || winner === 'draw') && blackTime === 0;
+  const whiteProgress = initialWhiteTime > 0 ? whiteTime / initialWhiteTime : 1;
+  const blackProgress = initialBlackTime > 0 ? blackTime / initialBlackTime : 1;
 
   useEffect(() => {
     if (!settings.timeAlertEnabled) return;
@@ -1013,7 +1046,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
             <button
               onClick={() => { switchTurn('w'); play('clock-tick'); }}
               disabled={!isRunning || activeColor !== 'w'}
-              className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${
                 isInAlert(whiteTime)
                   ? 'bg-[#8b1a1a] border-[#ff4444]'
                   : activeColor === 'w' && isRunning
@@ -1022,6 +1055,12 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               }`}
               id="clock-side-white"
             >
+              {whiteFlagFallen && (
+                <svg className="absolute top-2 right-2 w-5 h-5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="4" y1="2" x2="4" y2="22" />
+                  <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                </svg>
+              )}
               <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
                 <span className="w-2 h-2 rounded bg-white border border-[var(--color-text-muted)]" />
                 White
@@ -1029,12 +1068,18 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(whiteTime)}
               </span>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-border)]">
+                <div
+                  className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
+                  style={{ width: `${Math.max(0, whiteProgress * 100)}%` }}
+                />
+              </div>
             </button>
 
             <button
               onClick={() => { switchTurn('b'); play('clock-tick'); }}
               disabled={!isRunning || activeColor !== 'b'}
-              className={`rounded-2xl border flex flex-col items-center justify-center p-4 ${
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${
                 isInAlert(blackTime)
                   ? 'bg-[#8b1a1a] border-[#ff4444]'
                   : activeColor === 'b' && isRunning
@@ -1043,6 +1088,12 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               }`}
               id="clock-side-black"
             >
+              {blackFlagFallen && (
+                <svg className="absolute top-2 right-2 w-5 h-5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="4" y1="2" x2="4" y2="22" />
+                  <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                </svg>
+              )}
               <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
                 <span className="w-2 h-2 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                 Black
@@ -1050,6 +1101,12 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(blackTime)}
               </span>
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-border)]">
+                <div
+                  className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
+                  style={{ width: `${Math.max(0, blackProgress * 100)}%` }}
+                />
+              </div>
             </button>
           </div>
 

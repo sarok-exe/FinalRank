@@ -53,11 +53,12 @@ export default function Shell({ children }: ShellProps) {
               const Icon = item.icon;
               const active = isActive(item.path);
               return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium ${
-                    active
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    aria-current={active ? 'page' : undefined}
+                    className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium ${
+                      active
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                       : 'text-[var(--color-text-muted)]'
                   }`}
@@ -151,6 +152,8 @@ export default function Shell({ children }: ShellProps) {
             className="md:hidden text-[var(--color-text-muted)] p-1"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             id="mobile-menu-toggle"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -164,7 +167,7 @@ export default function Shell({ children }: ShellProps) {
               <img src={user.avatar} className="w-10 h-10 rounded-full" alt="Avatar" />
               <div>
                 <h4 className="font-bold text-sm text-white">{user.username}</h4>
-                <p className="text-xs text-[var(--color-text-muted)] truncate">{user.email}</p>
+                <p className="text-xs text-[var(--color-text-muted)] truncate">{user.email ? `${user.email.slice(0, 3)}...${user.email.split('@')[1] || ''}` : ''}</p>
               </div>
             </div>
           )}

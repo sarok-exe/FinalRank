@@ -11,6 +11,8 @@ interface ClockState {
   activePresetId: string;
   whiteTime: number; // in Milliseconds
   blackTime: number; // in Milliseconds
+  initialWhiteTime: number;
+  initialBlackTime: number;
   activeColor: 'w' | 'b' | null;
   isRunning: boolean;
   winner: 'w' | 'b' | 'draw' | null;
@@ -47,6 +49,8 @@ export const useClockStore = create<ClockState>((set, get) => ({
   activePresetId: '3+0',
   whiteTime: 180 * 1000,
   blackTime: 180 * 1000,
+  initialWhiteTime: 180 * 1000,
+  initialBlackTime: 180 * 1000,
   activeColor: null,
   isRunning: false,
   winner: null,
@@ -60,6 +64,8 @@ export const useClockStore = create<ClockState>((set, get) => ({
       activePresetId: id,
       whiteTime: preset.timeLimit * 1000,
       blackTime: preset.timeLimit * 1000,
+      initialWhiteTime: preset.timeLimit * 1000,
+      initialBlackTime: preset.timeLimit * 1000,
       activeColor: null,
       isRunning: false,
       winner: null,
@@ -72,6 +78,8 @@ export const useClockStore = create<ClockState>((set, get) => ({
       activePresetId: 'custom',
       whiteTime: whiteTimeMs,
       blackTime: blackTimeMs,
+      initialWhiteTime: whiteTimeMs,
+      initialBlackTime: blackTimeMs,
       activeColor: null,
       isRunning: false,
       winner: null,
@@ -102,6 +110,8 @@ export const useClockStore = create<ClockState>((set, get) => ({
     set({
       whiteTime: preset.timeLimit * 1000,
       blackTime: preset.timeLimit * 1000,
+      initialWhiteTime: preset.timeLimit * 1000,
+      initialBlackTime: preset.timeLimit * 1000,
       activeColor: null,
       isRunning: false,
       winner: null,

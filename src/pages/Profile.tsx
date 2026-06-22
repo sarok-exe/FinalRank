@@ -245,7 +245,18 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               Saved Games
             </span>
             {loadingSaved ? (
-              <div className="text-[10px] text-[var(--color-text-muted)] py-2">Loading...</div>
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="animate-pulse bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3 space-y-2">
+                    <div className="h-3 w-20 bg-[var(--color-border)] rounded" />
+                    <div className="h-3 w-3/4 bg-[var(--color-border)] rounded" />
+                    <div className="flex gap-2">
+                      <div className="h-3 w-12 bg-[var(--color-border)] rounded" />
+                      <div className="h-3 w-24 bg-[var(--color-border)] rounded" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : savedGames.length === 0 ? (
               <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
             ) : (

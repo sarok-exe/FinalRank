@@ -43,7 +43,11 @@ export interface UserSettings {
   timeAlertEnabled: boolean;
   timeAlertThreshold: number;
   timeAlertSound: boolean;
-  themePreset: 'olive' | 'dark' | 'ember' | 'ocean' | 'forest' | 'custom';
+  themePreset: 'olive' | 'dark' | 'ember' | 'ocean' | 'forest' | 'custom'
+    | 'leafy-green' | 'neutral-harmony' | 'nature-harmony' | 'soft-lavender' | 'cherry-blossom'
+    | 'gothic-glam' | 'fiery-ocean' | 'warm-autumn' | 'autumn-sunset'
+    | 'deep-sea' | 'mystic-mauve' | 'coastal-blues' | 'golden-twilight'
+    | 'fresh-greens' | 'mocha-latte';
   siteColors: SiteColorScheme;
   boardCustomColors: BoardCustomColors;
   coordinatesSize: number;
