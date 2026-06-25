@@ -80,52 +80,62 @@ export default function AnalysisReport({ game }: Props) {
     ? blackAccuracies.reduce((a, b) => a + b, 0) / blackAccuracies.length
     : 0;
 
+  const hasAccuracyData = accuracy?.white != null || accuracy?.black != null || classifiedMoves.length > 0;
+
   const renderAccuracyTab = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[var(--color-background)] rounded-xl p-4 text-center border border-[var(--color-border)]">
-          <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mb-1">White</div>
-          <div className="text-2xl font-black text-white">{accuracy?.white ?? whiteAvgAcc.toFixed(1)}%</div>
-          <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{whiteMoves.length} moves</div>
-        </div>
-        <div className="bg-[var(--color-background)] rounded-xl p-4 text-center border border-[var(--color-border)]">
-          <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mb-1">Black</div>
-          <div className="text-2xl font-black text-white">{accuracy?.black ?? blackAvgAcc.toFixed(1)}%</div>
-          <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{blackMoves.length} moves</div>
-        </div>
-      </div>
-
-      <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
-        <div className="text-xs font-bold text-[var(--color-text)] mb-3">Per-Move Accuracy</div>
-        <div className="space-y-1">
-          {classifiedMoves.slice(-40).map((m, i) => {
-            const pct = m.accuracy ?? 0;
-            const hue = pct >= 90 ? 120 : pct >= 75 ? 60 : pct >= 50 ? 30 : 0;
-            return (
-              <div key={i} className="flex items-center gap-2 text-[10px]">
-                <span className="w-12 font-mono text-[var(--color-text-muted)] shrink-0">
-                  {m.san}
-                </span>
-                <div className="flex-1 h-3 bg-[var(--color-surface)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all"
-                    style={{
-                      width: `${pct}%`,
-                      backgroundColor: `hsl(${hue}, 60%, 45%)`,
-                    }}
-                  />
-                </div>
-                <span className="w-8 text-right font-mono font-bold text-white">{pct}%</span>
-              </div>
-            );
-          })}
-          {classifiedMoves.length === 0 && (
-            <div className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
-              No classified moves yet. Run analysis to see per-move accuracy.
+      {hasAccuracyData ? (
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[var(--color-background)] rounded-xl p-4 text-center border border-[var(--color-border)]">
+              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mb-1">White</div>
+              <div className="text-2xl font-black text-white">{accuracy?.white ?? whiteAvgAcc.toFixed(1)}%</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{whiteMoves.length} moves</div>
             </div>
-          )}
+            <div className="bg-[var(--color-background)] rounded-xl p-4 text-center border border-[var(--color-border)]">
+              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mb-1">Black</div>
+              <div className="text-2xl font-black text-white">{accuracy?.black ?? blackAvgAcc.toFixed(1)}%</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] mt-1">{blackMoves.length} moves</div>
+            </div>
+          </div>
+
+          <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
+            <div className="text-xs font-bold text-[var(--color-text)] mb-3">Per-Move Accuracy</div>
+            <div className="space-y-1">
+              {classifiedMoves.slice(-40).map((m, i) => {
+                const pct = m.accuracy ?? 0;
+                const hue = pct >= 90 ? 120 : pct >= 75 ? 60 : pct >= 50 ? 30 : 0;
+                return (
+                  <div key={i} className="flex items-center gap-2 text-[10px]">
+                    <span className="w-12 font-mono text-[var(--color-text-muted)] shrink-0">
+                      {m.san}
+                    </span>
+                    <div className="flex-1 h-3 bg-[var(--color-surface)] rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{
+                          width: `${pct}%`,
+                          backgroundColor: `hsl(${hue}, 60%, 45%)`,
+                        }}
+                      />
+                    </div>
+                    <span className="w-8 text-right font-mono font-bold text-white">{pct}%</span>
+                  </div>
+                );
+              })}
+              {classifiedMoves.length === 0 && (
+                <div className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
+                  No classified moves yet. Run analysis to see per-move accuracy.
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      ) : (
+        <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">
+          No classified moves yet. Run analysis to see per-move accuracy.
         </div>
-      </div>
+      )}
     </div>
   );
 

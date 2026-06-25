@@ -630,15 +630,15 @@ function formatDuration(ms: number | undefined): string {
           </div>
           {selectedGame.accuracy && (
             <div className="text-center -mt-1">
-              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
-              <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
+              <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
+              <div className="text-xs font-bold text-white">{selectedGame.accuracy.black}%</div>
             </div>
           )}
           <div className="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest">VS</div>
           {selectedGame.accuracy && (
             <div className="text-center -mt-1">
-              <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
-              <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
+              <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
+              <div className="text-xs font-bold text-white">{selectedGame.accuracy.white}%</div>
             </div>
           )}
           <div className="flex flex-col items-center gap-1.5 mt-[10px]">
@@ -935,14 +935,14 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
             {selectedGame.accuracy && (
-              <div className="flex items-center space-x-3 border-l border-[var(--color-border)] pl-3.5 ml-2 shrink-0">
+              <div className="flex items-center space-x-2 border-l border-[var(--color-border)] pl-3 ml-2 shrink-0">
                 <div className="text-center">
-                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">W</div>
-                  <div className="text-base font-black text-white">{selectedGame.accuracy.white}%</div>
+                  <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">W</div>
+                  <div className="text-sm font-bold text-white">{selectedGame.accuracy.white}%</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">B</div>
-                  <div className="text-base font-black text-white">{selectedGame.accuracy.black}%</div>
+                  <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">B</div>
+                  <div className="text-sm font-bold text-white">{selectedGame.accuracy.black}%</div>
                 </div>
               </div>
             )}
