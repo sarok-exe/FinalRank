@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type React from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Chess } from 'chess.js';
 import {
-  Play, Pause, RotateCcw, Clock, Gamepad2, Cpu, Timer, Layers,
-  Maximize, Focus, ChevronLeft, Users, FlipHorizontal, BarChart3,
-  Search, FileText, AlertTriangle, Swords
+  Play, Pause, RotateCcw, Clock, Cpu, Timer, Layers,
+  Maximize, Focus, ChevronLeft, Users, FlipHorizontal,
 } from 'lucide-react';
 import { useClockStore } from '../stores/clockStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -19,7 +19,7 @@ import { STARTING_FEN } from '../types';
 
 type ActiveFeature = 'play-vs-computer' | 'player-vs-player' | 'chess-clock' | null;
 
-interface PresetCategory {
+type PresetCategory = {
   name: string;
   presets: { id: string; name: string }[];
 }
@@ -71,35 +71,21 @@ const ENGINE_DEPTH_PRESETS = [
   { id: 'expert', name: 'Expert', depth: 18 },
 ];
 
-const formatTime = (timeMs: number) => {
-  const minutes = Math.floor(timeMs / 60000);
-  const seconds = Math.floor((timeMs % 60000) / 1000);
-  const tenths = Math.floor((timeMs % 1000) / 100);
-  const minStr = minutes.toString().padStart(2, '0');
-  const secStr = seconds.toString().padStart(2, '0');
-  if (timeMs < 20000 && timeMs > 0) {
-    return `${minutes}:${secStr}.${tenths}`;
-  }
-  return `${minStr}:${secStr}`;
-};
-
 // ── Feature Card ──────────────────────────────────────────
-function FeatureCard({
-  icon: Icon,
-  title,
-  description,
-  tags,
-  onClick,
-}: {
+function FeatureCard(props: Readonly<{
   icon: React.ElementType;
   title: string;
   description: string;
   tags: string[];
-  onClick: () => void;
-}) {
+  onClick(): void;
+}>): React.ReactElement {
+  const Icon = props.icon;
+  const title = props.title;
+  const description = props.description;
+  const tags = props.tags;
   return (
     <button
-      onClick={onClick}
+      onClick={props.onClick}
       className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] transition-colors group aspect-square justify-center"
     >
       <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] transition-colors">
@@ -119,7 +105,7 @@ function FeatureCard({
 }
 
 // ── Landing / Card Grid ───────────────────────────────────
-function ToolsLanding({ onSelect }: { onSelect: (f: ActiveFeature) => void }) {
+function ToolsLanding(props: Readonly<{ onSelect(f: ActiveFeature): void }>): React.ReactElement {
   return (
     <div className="max-w-5xl mx-auto space-y-8" id="tools-landing">
       <div className="text-center space-y-3 mb-2">
@@ -135,21 +121,21 @@ function ToolsLanding({ onSelect }: { onSelect: (f: ActiveFeature) => void }) {
           title="Play Against Computer"
           description="Play a full game against Stockfish with configurable strength, depth, and time settings."
           tags={['Stockfish', 'Configurable']}
-          onClick={() => onSelect('play-vs-computer')}
+          onClick={() => { props.onSelect('play-vs-computer'); }}
         />
         <FeatureCard
           icon={Users}
           title="Player vs Player"
           description="Two players on the same device. Auto-flip rotates the board so each side always faces their pieces."
           tags={['Local Multiplayer', 'Auto-Flip']}
-          onClick={() => onSelect('player-vs-player')}
+          onClick={() => { props.onSelect('player-vs-player'); }}
         />
         <FeatureCard
           icon={Clock}
           title="Chess Clock"
           description="A full-featured chess clock with increment support and presets for all time controls."
           tags={['Timer', 'Increment']}
-          onClick={() => onSelect('chess-clock')}
+          onClick={() => { props.onSelect('chess-clock'); }}
         />
       </div>
     </div>
@@ -157,11 +143,11 @@ function ToolsLanding({ onSelect }: { onSelect: (f: ActiveFeature) => void }) {
 }
 
 // ── Play vs Computer Feature ──────────────────────────────
-function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
-  const { settings } = useSettingsStore();
-  const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
-  const { toggleFullscreen } = useFullscreen();
-  const { play, playFromSan, playGameEnd } = useSound();
+function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.ReactElement {
+  const uiStore = useUIStore();
+  const { focusMode, fullscreenMode } = uiStore;
+  const fullscreen = useFullscreen();
+  const sound = useSound();
 
   const [gameStarted, setGameStarted] = useState(false);
   const [gameInstance, setGameInstance] = useState<Chess | null>(null);
@@ -178,26 +164,28 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
 
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
-    const onResize = () => setVpW(window.innerWidth);
+    const onResize = (): void => { setVpW(window.innerWidth); };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); };
   }, []);
   const pad = 32;
-  const bW1Desired = focusMode ? 819 : fullscreenMode ? 990 : 644;
+  let bW1Desired = 644;
+  if (focusMode) bW1Desired = 819;
+  else if (fullscreenMode) bW1Desired = 990;
   const boardWidth = Math.min(bW1Desired, vpW - pad);
 
   const announceGameEnd = useCallback((game: Chess) => {
     if (game.isCheckmate()) {
       setEngineFeedback('Checkmate!');
-      playGameEnd(game.isCheckmate() ? (game.turn() === 'w' ? '0-1' : '1-0') : '');
+      sound.playGameEnd(game.turn() === 'w' ? '0-1' : '1-0');
     } else if (game.isDraw()) {
       setEngineFeedback('Draw!');
-      play('game-draw');
+      sound.play('game-draw');
     } else {
       setEngineFeedback('Game over.');
-      play('gameend');
+      sound.play('gameend');
     }
-  }, [play, playGameEnd]);
+  }, [sound]);
 
   const startNewGame = useCallback(() => {
     const fresh = new Chess();
@@ -208,8 +196,8 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
     setEngineFeedback('Game started. Make your move.');
     setEngineThinking(false);
     setGameStarted(true);
-    play('game-start');
-  }, [play]);
+    sound.play('game-start');
+  }, [sound]);
 
   const handlePlayerMove = useCallback(async (from: string, to: string) => {
     if (!gameInstance || engineThinking) return;
@@ -221,7 +209,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
       const rawMove = gameInstance.move({ from, to, promotion: 'q' });
       setFen(gameInstance.fen());
       setMoveHistory(prev => [...prev, rawMove.san]);
-      playFromSan(rawMove.san);
+      sound.playFromSan(rawMove.san);
       setEngineFeedback('Engine is thinking...');
 
       if (gameInstance.isGameOver()) {
@@ -240,14 +228,14 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
       const legalMoves = gameInstance.moves({ verbose: true });
       if (legalMoves.length > 0) {
         const bestSan = computedMoveResult.bestMove;
-        const bestVerbose = bestSan
+        const bestVerbose = bestSan != null
           ? legalMoves.find(m => m.san === bestSan)
           : null;
-        const selectedMove = bestVerbose || legalMoves[Math.floor(Math.random() * legalMoves.length)];
+        const selectedMove = bestVerbose ?? legalMoves[Math.floor(Math.random() * legalMoves.length)];
         gameInstance.move(selectedMove.san);
         setFen(gameInstance.fen());
         setMoveHistory(prev => [...prev, selectedMove.san]);
-        playFromSan(selectedMove.san);
+        sound.playFromSan(selectedMove.san);
         setEngineFeedback(`Engine plays ${selectedMove.san}. Your turn.`);
 
         if (gameInstance.isGameOver()) {
@@ -258,9 +246,9 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
     } catch {
       setEngineFeedback('Illegal move.');
     }
-  }, [gameInstance, engineThinking, engineGoMode, engineDepth, engineThinkingTime, playFromSan, announceGameEnd]);
+  }, [gameInstance, engineThinking, engineGoMode, engineDepth, engineThinkingTime, sound, announceGameEnd]);
 
-  const handleDepthPreset = (presetId: string, depth: number) => {
+  const handleDepthPreset = (presetId: string, depth: number): void => {
     setEngineDepthPreset(presetId);
     setEngineDepth(depth);
   };
@@ -279,7 +267,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
           {gameStarted && (
             <>
               <button
-                onClick={toggleFocusMode}
+                onClick={() => { uiStore.toggleFocusMode(); }}
                 className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
                   focusMode
                     ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -291,7 +279,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                 <span>Focus</span>
               </button>
               <button
-                onClick={toggleFullscreen}
+                onClick={() => { void fullscreen.toggleFullscreen(); }}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
                 title="Toggle fullscreen (F11)"
                 aria-label="Toggle fullscreen"
@@ -323,7 +311,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
         </div>
       ) : (
         <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
-        <div className={`${focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}`}>
+        <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}>
           {/* Left: Board + Eval */}
           <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
             <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
@@ -338,14 +326,14 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                 <Chessboard
                   fen={fen}
                   playable={!engineThinking}
-                  onMove={handlePlayerMove}
+                  onMove={(from, to) => { void handlePlayerMove(from, to); }}
                   rightClickedSquares={rcSquares}
                   onSquareRightClick={(sq) => {
                     setRcSquares(prev =>
                       prev.includes(sq) ? [] : [...prev, sq]
                     );
                   }}
-                  onLeftClick={() => setRcSquares([])}
+                  onLeftClick={() => { setRcSquares([]); }}
                 />
               </div>
             </div>
@@ -363,7 +351,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
 
                 <div className="flex gap-1">
                   <button
-                    onClick={() => setEngineGoMode('depth')}
+                    onClick={() => { setEngineGoMode('depth'); }}
                     className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
                       engineGoMode === 'depth'
                         ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -374,7 +362,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                     Depth
                   </button>
                   <button
-                    onClick={() => setEngineGoMode('time')}
+                    onClick={() => { setEngineGoMode('time'); }}
                     className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
                       engineGoMode === 'time'
                         ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -392,7 +380,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                       {ENGINE_DEPTH_PRESETS.map((p) => (
                         <button
                           key={p.id}
-                          onClick={() => handleDepthPreset(p.id, p.depth)}
+                          onClick={() => { handleDepthPreset(p.id, p.depth); }}
                           className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold border ${
                             engineDepthPreset === p.id
                               ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -420,7 +408,7 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
                     <input
                       type="range" min={100} max={30000} step={100}
                       value={engineThinkingTime}
-                      onChange={(e) => setEngineThinkingTime(parseInt(e.target.value, 10))}
+                      onChange={(e) => { setEngineThinkingTime(parseInt(e.target.value, 10)); }}
                       className="flex-1 accent-[var(--color-primary)] h-1 bg-[var(--color-surface)] rounded-lg cursor-pointer"
                     />
                     <span className="font-mono font-bold text-[var(--color-primary)] w-12 text-center">
@@ -468,25 +456,22 @@ function PlayVsComputerFeature({ onBack }: { onBack: () => void }) {
 }
 
 // ── Player vs Player Feature ──────────────────────────────
-function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
-  const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
-  const { toggleFullscreen } = useFullscreen();
-  const { play, playFromSan, playGameEnd } = useSound();
-
-  const {
-    whiteTime, blackTime, activeColor, isRunning, winner, reason,
-    presets, activePresetId, selectPreset, setCustomTime, startClock, pauseClock,
-    resetClock, switchTurn, tick,
-  } = useClockStore();
+function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.ReactElement {
+  const uiStore = useUIStore();
+  const { focusMode, fullscreenMode } = uiStore;
+  const fullscreen = useFullscreen();
+  const sound = useSound();
+  const clockStore = useClockStore();
+  const { whiteTime, blackTime, activeColor, isRunning, winner, reason, activePresetId } = clockStore;
   const initialWhiteTime = useClockStore(s => s.initialWhiteTime);
   const initialBlackTime = useClockStore(s => s.initialBlackTime);
   const { settings } = useSettingsStore();
 
   const [vpW2, setVpW2] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
-    const onResize = () => setVpW2(window.innerWidth);
+    const onResize = (): void => { setVpW2(window.innerWidth); };
     window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
+    return () => { window.removeEventListener('resize', onResize); };
   }, []);
 
   const [rcSquares2, setRcSquares2] = useState<string[]>([]);
@@ -502,48 +487,51 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
   const [customBlackSec, setCustomBlackSec] = useState(0);
   const [customInc, setCustomInc] = useState(0);
   const movePendingRef = useRef(false);
-  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
-  const boardWidth = Math.min(focusMode ? 490 : fullscreenMode ? 593 : 385, vpW2 - 32);
+  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory].presets;
+  let boardWidthTarget = 385;
+  if (focusMode) boardWidthTarget = 490;
+  else if (fullscreenMode) boardWidthTarget = 593;
+  const boardWidth = Math.min(boardWidthTarget, vpW2 - 32);
 
   // Spacebar for clock turn switching (like Chess Clock feature)
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent): void => {
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
-        if (winner) return;
+        if (winner != null) return;
         if (!isRunning) {
-          startClock();
+          clockStore.startClock();
         } else if (activeColor) {
-          switchTurn(activeColor);
-          play('clock-tick');
+          clockStore.switchTurn(activeColor);
+          sound.play('clock-tick');
         }
       }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isRunning, activeColor, winner, startClock, switchTurn, play]);
+    return () => { window.removeEventListener('keydown', handler); };
+  }, [isRunning, activeColor, winner, clockStore, sound]);
 
   useEffect(() => {
     let lastTime = Date.now();
-    let intervalId: any = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     if (isRunning) {
       intervalId = setInterval(() => {
         const now = Date.now();
         const delta = now - lastTime;
         lastTime = now;
-        tick(delta);
+        clockStore.tick(delta);
       }, 50);
     }
-    return () => { if (intervalId) clearInterval(intervalId); };
-  }, [isRunning, tick]);
+    return () => { if (intervalId != null) clearInterval(intervalId); };
+  }, [isRunning, clockStore]);
 
   const resetGame = useCallback(() => {
     setFen(STARTING_FEN);
     setMoveHistory([]);
     setPerspective('white');
     setGameOver(null);
-    resetClock();
-  }, [resetClock]);
+    clockStore.resetClock();
+  }, [clockStore]);
 
   const handleMove = useCallback((from: string, to: string) => {
     if (movePendingRef.current) return;
@@ -553,11 +541,11 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
       const rawMove = fresh.move({ from, to, promotion: 'q' });
       setFen(fresh.fen());
       setMoveHistory(prev => [...prev, rawMove.san]);
-      playFromSan(rawMove.san);
+      sound.playFromSan(rawMove.san);
 
       if (isRunning && activeColor) {
-        switchTurn(activeColor);
-        play('clock-tick');
+        clockStore.switchTurn(activeColor);
+        sound.play('clock-tick');
       }
 
       if (fresh.isGameOver()) {
@@ -566,7 +554,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         else if (fresh.isDraw()) msg = 'Draw!';
         else if (fresh.isStalemate()) msg = 'Stalemate!';
         setGameOver(msg);
-        playGameEnd(msg);
+        sound.playGameEnd(msg);
         movePendingRef.current = false;
         return;
       }
@@ -575,17 +563,37 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         setPerspective(fresh.turn() === 'w' ? 'white' : 'black');
       }
     } catch {
+      console.warn('Invalid move');
     }
     movePendingRef.current = false;
-  }, [fen, autoFlip, playFromSan, playGameEnd, isRunning, activeColor, switchTurn]);
+  }, [fen, autoFlip, sound, isRunning, activeColor, clockStore]);
 
-  const isInAlert = (timeMs: number) =>
+  const isInAlert = (timeMs: number): boolean =>
     settings.timeAlertEnabled && timeMs > 0 && timeMs <= settings.timeAlertThreshold * 1000;
 
-  const formatClockTime = (timeMs: number) => {
+  const formatClockTime = (timeMs: number): string => {
     const minutes = Math.floor(timeMs / 60000);
     const seconds = Math.floor((timeMs % 60000) / 1000);
     return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const renderWhiteClockClass = (): string => {
+    if (isInAlert(whiteTime)) return 'bg-[#8b1a1a] border-[#ff4444]';
+    if (activeColor === 'w' && isRunning) return 'bg-[var(--color-surface)] border-[var(--color-primary)]';
+    return 'bg-[var(--color-surface)] border-[var(--color-border)]';
+  };
+
+  const renderBlackClockClass = (): string => {
+    if (isInAlert(blackTime)) return 'bg-[#8b1a1a] border-[#ff4444]';
+    if (activeColor === 'b' && isRunning) return 'bg-[var(--color-surface)] border-[var(--color-primary)]';
+    return 'bg-[var(--color-surface)] border-[var(--color-border)]';
+  };
+
+  const handlePresetClick = (pId: string): void => {
+    clockStore.selectPreset(pId);
+    setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
+      cat.presets.some((pp) => pp.id === pId)
+    ));
   };
 
   return (
@@ -600,7 +608,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
         </button>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setAutoFlip(!autoFlip)}
+            onClick={() => { setAutoFlip(!autoFlip); }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
               autoFlip
                 ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -612,7 +620,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             <span>Auto-Flip</span>
           </button>
           <button
-            onClick={toggleFocusMode}
+            onClick={() => { uiStore.toggleFocusMode(); }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
               focusMode
                 ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -624,7 +632,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             <span>Focus</span>
           </button>
           <button
-            onClick={toggleFullscreen}
+            onClick={() => { void fullscreen.toggleFullscreen(); }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
             title="Toggle fullscreen (F11)"
           >
@@ -634,14 +642,14 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
-      <div className={`${focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}`}>
+      <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}>
         {/* Left: Board + Turn indicator */}
         <div className={`space-y-3 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
           <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
             <div className="flex-1">
               <Chessboard
                 fen={fen}
-                playable={!gameOver}
+                playable={gameOver == null}
                 onMove={handleMove}
                 orientation={autoFlip ? perspective : undefined}
                 rightClickedSquares={rcSquares2}
@@ -650,11 +658,11 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                     prev.includes(sq) ? [] : [...prev, sq]
                   );
                 }}
-                onLeftClick={() => setRcSquares2([])}
+                onLeftClick={() => { setRcSquares2([]); }}
               />
             </div>
           </div>
-          {gameOver ? (
+          {gameOver != null ? (
             <div className="w-full text-center text-sm font-bold text-[var(--color-accent)] bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-lg py-2" style={{ maxWidth: boardWidth }}>
               {gameOver}
             </div>
@@ -667,7 +675,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 </span>
               </div>
               <button
-                onClick={() => setPerspective(perspective === 'white' ? 'black' : 'white')}
+                onClick={() => { setPerspective(perspective === 'white' ? 'black' : 'white'); }}
                 className="text-[10px] text-[var(--color-text-muted)] font-bold hover:text-white transition-colors"
               >
                 <RotateCcw className="w-3 h-3 inline mr-1" />
@@ -693,7 +701,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 <input
                   type="checkbox"
                   checked={autoFlip}
-                  onChange={() => setAutoFlip(!autoFlip)}
+                  onChange={() => { setAutoFlip(!autoFlip); }}
                   className="accent-[var(--color-primary)] w-4 h-4 rounded"
                 />
                 <span className="text-xs text-white font-medium">Auto-flip</span>
@@ -725,15 +733,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3" id="pvp-clock-widget">
             <div className="flex gap-2 mb-2">
               <div
-                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${
-                  isInAlert(whiteTime)
-                    ? 'bg-[#8b1a1a] border-[#ff4444]'
-                    : activeColor === 'w' && isRunning
-                      ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                      : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-                }`}
+                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${renderWhiteClockClass()}`}
               >
-                {winner && whiteTime === 0 && (
+                {winner != null && whiteTime === 0 && (
                   <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="4" y1="2" x2="4" y2="22" />
                     <polyline points="4,6 20,6 18,10 20,14 4,14" />
@@ -754,15 +756,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
               <div
-                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${
-                  isInAlert(blackTime)
-                    ? 'bg-[#8b1a1a] border-[#ff4444]'
-                    : activeColor === 'b' && isRunning
-                      ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                      : 'bg-[var(--color-surface)] border-[var(--color-border)]'
-                }`}
+                className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${renderBlackClockClass()}`}
               >
-                {winner && blackTime === 0 && (
+                {winner != null && blackTime === 0 && (
                   <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <line x1="4" y1="2" x2="4" y2="22" />
                     <polyline points="4,6 20,6 18,10 20,14 4,14" />
@@ -783,7 +779,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                 </div>
               </div>
             </div>
-            {winner && (
+            {winner != null && (
               <div className={`text-[9px] font-bold p-1.5 rounded-lg border mb-2 text-center ${
                 winner === 'w' ? 'bg-[var(--color-surface)] border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-[var(--color-surface)] border-[var(--color-accent)] text-[var(--color-accent)]'
               }`}>
@@ -792,15 +788,15 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
             )}
             <div className="flex items-center justify-center gap-1 mb-2">
               {!isRunning ? (
-                <button onClick={startClock} disabled={!!winner} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
+                <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
                   Start
                 </button>
               ) : (
-                <button onClick={pauseClock} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold">
+                <button onClick={() => { clockStore.pauseClock(); }} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold">
                   Stop
                 </button>
               )}
-              <button onClick={resetClock} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock" aria-label="Reset clock">
+              <button onClick={() => { clockStore.resetClock(); }} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock" aria-label="Reset clock">
                 <RotateCcw className="w-3 h-3" />
               </button>
             </div>
@@ -808,7 +804,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
               {PRESET_CATEGORIES.map((cat, idx) => (
                 <button
                   key={cat.name}
-                  onClick={() => setClockCategory(idx)}
+                  onClick={() => { setClockCategory(idx); }}
                   className={`text-[9px] py-1 px-2 rounded font-bold ${
                     clockCategory === idx
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
@@ -828,7 +824,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="999"
                         value={customWhiteMin}
-                        onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
@@ -836,7 +832,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="59"
                         value={customWhiteSec}
-                        onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        onChange={(e) => { setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
@@ -848,7 +844,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="999"
                         value={customBlackMin}
-                        onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
@@ -856,7 +852,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="59"
                         value={customBlackSec}
-                        onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        onChange={(e) => { setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
@@ -869,7 +865,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                     <input
                       type="number" min="0" max="999"
                       value={customInc}
-                      onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
+                      onChange={(e) => { setCustomInc(Math.max(0, parseInt(e.target.value) || 0)); }}
                       className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-1.5 py-1 text-[10px] text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       placeholder="sec"
                     />
@@ -878,7 +874,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                     onClick={() => {
                       const whiteMs = (customWhiteMin * 60 + customWhiteSec) * 1000;
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
-                      setCustomTime(whiteMs, blackMs, customInc);
+                      clockStore.setCustomTime(whiteMs, blackMs, customInc);
                     }}
                     className="bg-[var(--color-primary)] text-white px-4 py-1.5 rounded text-[9px] font-bold"
                   >
@@ -893,12 +889,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
                   return (
                     <button
                       key={p.id}
-                      onClick={() => {
-                        selectPreset(p.id);
-                        setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
-                          cat.presets.some((pp) => pp.id === p.id)
-                        ));
-                      }}
+                      onClick={() => { handlePresetClick(p.id); }}
                       className={`text-[9px] py-1 rounded border text-center font-bold font-mono ${
                         active
                           ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -925,16 +916,13 @@ function PlayerVsPlayerFeature({ onBack }: { onBack: () => void }) {
 }
 
 // ── Chess Clock Feature ───────────────────────────────────
-function ChessClockFeature({ onBack }: { onBack: () => void }) {
-  const {
-    whiteTime, blackTime, activeColor, isRunning, winner, reason,
-    activePresetId, selectPreset, setCustomTime, startClock, pauseClock,
-    resetClock, switchTurn, tick,
-  } = useClockStore();
+function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.ReactElement {
+  const clockStore = useClockStore();
+  const { whiteTime, blackTime, activeColor, isRunning, winner, reason, activePresetId } = clockStore;
   const { focusMode, fullscreenMode } = useUIStore();
-  const { toggleFullscreen } = useFullscreen();
+  const fullscreen = useFullscreen();
   const { settings } = useSettingsStore();
-  const { play } = useSound();
+  const sound = useSound();
   const [clockCategory, setClockCategory] = useState(0);
   const [customWhiteMin, setCustomWhiteMin] = useState(5);
   const [customWhiteSec, setCustomWhiteSec] = useState(0);
@@ -945,8 +933,8 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
   const blackAlertedRef = useRef(false);
   const initialWhiteTime = useClockStore(s => s.initialWhiteTime);
   const initialBlackTime = useClockStore(s => s.initialBlackTime);
-  const whiteFlagFallen = winner && (winner === 'b' || winner === 'draw') && whiteTime === 0;
-  const blackFlagFallen = winner && (winner === 'w' || winner === 'draw') && blackTime === 0;
+  const whiteFlagFallen = winner != null && (winner === 'b' || winner === 'draw') && whiteTime === 0;
+  const blackFlagFallen = winner != null && (winner === 'w' || winner === 'draw') && blackTime === 0;
   const whiteProgress = initialWhiteTime > 0 ? whiteTime / initialWhiteTime : 1;
   const blackProgress = initialBlackTime > 0 ? blackTime / initialBlackTime : 1;
 
@@ -954,20 +942,20 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
     if (!settings.timeAlertEnabled) return;
     if (whiteTime > 0 && whiteTime <= settings.timeAlertThreshold * 1000 && !whiteAlertedRef.current) {
       whiteAlertedRef.current = true;
-      if (settings.timeAlertSound) play('tenseconds');
+      if (settings.timeAlertSound) sound.play('tenseconds');
     }
     if (blackTime > 0 && blackTime <= settings.timeAlertThreshold * 1000 && !blackAlertedRef.current) {
       blackAlertedRef.current = true;
-      if (settings.timeAlertSound) play('tenseconds');
+      if (settings.timeAlertSound) sound.play('tenseconds');
     }
     if (whiteTime > settings.timeAlertThreshold * 1000) whiteAlertedRef.current = false;
     if (blackTime > settings.timeAlertThreshold * 1000) blackAlertedRef.current = false;
-  }, [whiteTime, blackTime, settings.timeAlertEnabled, settings.timeAlertThreshold, settings.timeAlertSound, play]);
+  }, [whiteTime, blackTime, settings.timeAlertEnabled, settings.timeAlertThreshold, settings.timeAlertSound, sound]);
 
-  const isInAlert = (timeMs: number) =>
+  const isInAlert = (timeMs: number): boolean =>
     settings.timeAlertEnabled && timeMs > 0 && timeMs <= settings.timeAlertThreshold * 1000;
 
-  const formatTimeWithAlert = (timeMs: number) => {
+  const formatTimeWithAlert = (timeMs: number): string => {
     const minutes = Math.floor(timeMs / 60000);
     const seconds = Math.floor((timeMs % 60000) / 1000);
     const tenths = Math.floor((timeMs % 1000) / 100);
@@ -984,36 +972,55 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
 
   useEffect(() => {
     let lastTime = Date.now();
-    let intervalId: any = null;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     if (isRunning) {
       intervalId = setInterval(() => {
         const now = Date.now();
         const delta = now - lastTime;
         lastTime = now;
-        tick(delta);
+        clockStore.tick(delta);
       }, 50);
     }
-    return () => { if (intervalId) clearInterval(intervalId); };
-  }, [isRunning, tick]);
+    return () => { if (intervalId != null) clearInterval(intervalId); };
+  }, [isRunning, clockStore]);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent): void => {
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
-        if (winner) return;
+        if (winner != null) return;
         if (!isRunning) {
-          startClock();
+          clockStore.startClock();
         } else if (activeColor) {
-          switchTurn(activeColor);
-          play('clock-tick');
+          clockStore.switchTurn(activeColor);
+          sound.play('clock-tick');
         }
       }
     };
     window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [isRunning, activeColor, winner, startClock, switchTurn]);
+    return () => { window.removeEventListener('keydown', handler); };
+  }, [isRunning, activeColor, winner, clockStore, sound]);
 
-  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory]?.presets || [];
+  const currentCategoryPresets = PRESET_CATEGORIES[clockCategory].presets;
+
+  const getWhiteClockClass = (): string => {
+    if (isInAlert(whiteTime)) return 'bg-[#8b1a1a] border-[#ff4444]';
+    if (activeColor === 'w' && isRunning) return 'bg-[var(--color-surface)] border-[var(--color-primary)]';
+    return 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed';
+  };
+
+  const getBlackClockClass = (): string => {
+    if (isInAlert(blackTime)) return 'bg-[#8b1a1a] border-[#ff4444]';
+    if (activeColor === 'b' && isRunning) return 'bg-[var(--color-surface)] border-[var(--color-primary)]';
+    return 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed';
+  };
+
+  const handleChessPresetClick = (pId: string): void => {
+    clockStore.selectPreset(pId);
+    setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
+      cat.presets.some((pp) => pp.id === pId)
+    ));
+  };
 
   return (
     <div className="space-y-4" id="chess-clock-feature">
@@ -1030,7 +1037,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
             {activePresetId === 'custom' ? 'Custom' : activePresetId}
           </span>
           <button
-            onClick={toggleFullscreen}
+            onClick={() => { void fullscreen.toggleFullscreen(); }}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
             title="Toggle fullscreen (F11)"
           >
@@ -1044,15 +1051,9 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
         <div className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 ${focusMode ? '' : 'max-w-md w-full'} ${fullscreenMode ? 'scale-[1.7] transform-gpu origin-center' : ''}`}>
           <div className="grid grid-rows-2 gap-3" id="clock-sides">
             <button
-              onClick={() => { switchTurn('w'); play('clock-tick'); }}
+              onClick={() => { clockStore.switchTurn('w'); sound.play('clock-tick'); }}
               disabled={!isRunning || activeColor !== 'w'}
-              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${
-                isInAlert(whiteTime)
-                  ? 'bg-[#8b1a1a] border-[#ff4444]'
-                  : activeColor === 'w' && isRunning
-                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                    : 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed'
-              }`}
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${getWhiteClockClass()}`}
               id="clock-side-white"
             >
               {whiteFlagFallen && (
@@ -1077,15 +1078,9 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
             </button>
 
             <button
-              onClick={() => { switchTurn('b'); play('clock-tick'); }}
+              onClick={() => { clockStore.switchTurn('b'); sound.play('clock-tick'); }}
               disabled={!isRunning || activeColor !== 'b'}
-              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${
-                isInAlert(blackTime)
-                  ? 'bg-[#8b1a1a] border-[#ff4444]'
-                  : activeColor === 'b' && isRunning
-                    ? 'bg-[var(--color-surface)] border-[var(--color-primary)]'
-                    : 'bg-[var(--color-surface)] border-[var(--color-border)] opacity-60 disabled:cursor-not-allowed'
-              }`}
+              className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${getBlackClockClass()}`}
               id="clock-side-black"
             >
               {blackFlagFallen && (
@@ -1110,7 +1105,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
             </button>
           </div>
 
-          {winner && (
+          {winner != null && (
             <div className={`text-xs font-bold p-2 rounded-xl border mt-3 ${
               winner === 'w' ? 'bg-[var(--color-surface)] border-[var(--color-primary)] text-[var(--color-primary)]' : 'bg-[var(--color-surface)] border-[var(--color-accent)] text-[var(--color-accent)]'
             }`} id="clock-winner-banner">
@@ -1120,17 +1115,17 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
 
           <div className="flex gap-2 mt-3">
             {!isRunning ? (
-              <button onClick={startClock} disabled={!!winner} className="flex-1 bg-[var(--color-primary)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
+              <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="flex-1 bg-[var(--color-primary)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
                 <Play className="w-4 h-4" />
                 <span>Start</span>
               </button>
             ) : (
-              <button onClick={pauseClock} className="flex-1 bg-[var(--color-accent)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
+              <button onClick={() => { clockStore.pauseClock(); }} className="flex-1 bg-[var(--color-accent)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
                 <Pause className="w-4 h-4" />
                 <span>Pause</span>
               </button>
             )}
-            <button onClick={resetClock} className="px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-muted)] flex items-center justify-center" title="Reset" id="clock-reset-btn">
+            <button onClick={() => { clockStore.resetClock(); }} className="px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-muted)] flex items-center justify-center" title="Reset" id="clock-reset-btn">
               <RotateCcw className="w-4 h-4" />
             </button>
           </div>
@@ -1145,7 +1140,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
               {PRESET_CATEGORIES.map((cat, idx) => (
                 <button
                   key={cat.name}
-                  onClick={() => setClockCategory(idx)}
+                  onClick={() => { setClockCategory(idx); }}
                   className={`text-[10px] py-1.5 px-3 rounded-lg font-bold ${
                     clockCategory === idx
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
@@ -1165,7 +1160,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="999"
                         value={customWhiteMin}
-                        onChange={(e) => setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { setCustomWhiteMin(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
@@ -1173,7 +1168,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="59"
                         value={customWhiteSec}
-                        onChange={(e) => setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        onChange={(e) => { setCustomWhiteSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
@@ -1185,7 +1180,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="999"
                         value={customBlackMin}
-                        onChange={(e) => setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0))}
+                        onChange={(e) => { setCustomBlackMin(Math.max(0, parseInt(e.target.value) || 0)); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="min"
                       />
@@ -1193,7 +1188,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                       <input
                         type="number" min="0" max="59"
                         value={customBlackSec}
-                        onChange={(e) => setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                        onChange={(e) => { setCustomBlackSec(Math.min(59, Math.max(0, parseInt(e.target.value) || 0))); }}
                         className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         placeholder="sec"
                       />
@@ -1206,7 +1201,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                     <input
                       type="number" min="0" max="999"
                       value={customInc}
-                      onChange={(e) => setCustomInc(Math.max(0, parseInt(e.target.value) || 0))}
+                      onChange={(e) => { setCustomInc(Math.max(0, parseInt(e.target.value) || 0)); }}
                       className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded px-2 py-1.5 text-xs text-white font-mono text-center [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       placeholder="sec"
                     />
@@ -1215,7 +1210,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                     onClick={() => {
                       const whiteMs = (customWhiteMin * 60 + customWhiteSec) * 1000;
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
-                      setCustomTime(whiteMs, blackMs, customInc);
+                      clockStore.setCustomTime(whiteMs, blackMs, customInc);
                     }}
                     className="bg-[var(--color-primary)] text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-primary)] transition-colors"
                   >
@@ -1230,12 +1225,7 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
                   return (
                     <button
                       key={p.id}
-                      onClick={() => {
-                        selectPreset(p.id);
-                        setClockCategory(PRESET_CATEGORIES.findIndex((cat) =>
-                          cat.presets.some((pp) => pp.id === p.id)
-                        ));
-                      }}
+                      onClick={() => { handleChessPresetClick(p.id); }}
                       className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono ${
                         active
                           ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
@@ -1259,20 +1249,20 @@ function ChessClockFeature({ onBack }: { onBack: () => void }) {
   );
 }
 
-export default function Tools() {
-  const { focusMode } = useUIStore();
+export default function Tools(): React.ReactElement {
   const [activeFeature, setActiveFeature] = useState<ActiveFeature>(null);
+  const fullscreen = useFullscreen();
 
   useKeyboardShortcuts([
     {
       key: 'z',
       description: 'Toggle focus mode',
-      handler: () => useUIStore.getState().toggleFocusMode(),
+      handler: () => { useUIStore.getState().toggleFocusMode(); },
     },
     {
       key: 'F11',
       description: 'Toggle fullscreen',
-      handler: () => useFullscreen().toggleFullscreen(),
+      handler: () => { void fullscreen.toggleFullscreen(); },
     },
     {
       key: 'Escape',
@@ -1289,9 +1279,9 @@ export default function Tools() {
   return (
     <div>
       {activeFeature === null && <ToolsLanding onSelect={setActiveFeature} />}
-      {activeFeature === 'play-vs-computer' && <PlayVsComputerFeature onBack={() => setActiveFeature(null)} />}
-      {activeFeature === 'player-vs-player' && <PlayerVsPlayerFeature onBack={() => setActiveFeature(null)} />}
-      {activeFeature === 'chess-clock' && <ChessClockFeature onBack={() => setActiveFeature(null)} />}
+      {activeFeature === 'play-vs-computer' && <PlayVsComputerFeature onBack={() => { setActiveFeature(null); }} />}
+      {activeFeature === 'player-vs-player' && <PlayerVsPlayerFeature onBack={() => { setActiveFeature(null); }} />}
+      {activeFeature === 'chess-clock' && <ChessClockFeature onBack={() => { setActiveFeature(null); }} />}
     </div>
   );
 }

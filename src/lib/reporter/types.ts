@@ -1,13 +1,13 @@
-import { Chess, Move, Square, PieceSymbol, Color } from 'chess.js';
-import { EngineLine, Evaluation } from '../../types';
+import type { Chess, Move, Square, PieceSymbol, Color } from 'chess.js';
+import type { EngineLine, Evaluation } from '../../types';
 
-export interface BoardPiece {
+export type BoardPiece = {
   square: Square;
   type: PieceSymbol;
   color: Color;
 }
 
-export interface RawMove {
+export type RawMove = {
   piece: PieceSymbol;
   color: Color;
   from: Square;
@@ -15,13 +15,13 @@ export interface RawMove {
   promotion?: PieceSymbol;
 }
 
-export interface AnalysisOptions {
+export type AnalysisOptions = {
   includeBrilliant?: boolean;
   includeCritical?: boolean;
   includeTheory?: boolean;
 }
 
-export interface ExtractedNode {
+export type ExtractedNode = {
   board: Chess;
   fen: string;
   topLine: EngineLine;
@@ -31,24 +31,24 @@ export interface ExtractedNode {
   secondSubjectiveEvaluation?: Evaluation;
 }
 
-export interface ExtractedPreviousNode extends ExtractedNode {
+export type ExtractedPreviousNode = {
   topMove: Move;
   subjectiveEvaluation?: Evaluation;
   playedMove?: Move;
-}
+} & ExtractedNode
 
-export interface ExtractedCurrentNode extends ExtractedNode {
+export type ExtractedCurrentNode = {
   topMove?: Move;
   subjectiveEvaluation: Evaluation;
   playedMove: Move;
-}
+} & ExtractedNode
 
 export function toRawMove(move: Move): RawMove {
   return { piece: move.piece, color: move.color, from: move.from, to: move.to, promotion: move.promotion };
 }
 
 export function getBoardPieces(board: Chess): BoardPiece[] {
-  return board.board().reduce((acc, val) => acc.concat(val)).filter((p): p is BoardPiece => !!p);
+  return board.board().reduce((acc, val) => acc.concat(val), []).filter((p): p is BoardPiece => !!p);
 }
 
 export function toBoardPiece(move: RawMove): BoardPiece {

@@ -1,6 +1,8 @@
-import { Chess, Move, PAWN, KNIGHT, ROOK, KING } from 'chess.js';
+import type { Chess, Move} from 'chess.js';
+import { PAWN, KNIGHT, ROOK, KING } from 'chess.js';
 import { minBy } from 'lodash-es';
-import { BoardPiece, getBoardPieces, toBoardPiece } from '../types';
+import type { BoardPiece} from '../types';
+import { getBoardPieces, toBoardPiece } from '../types';
 import { PIECE_VALUES } from '../../../types';
 import { getAttackingMoves } from './attackers';
 import { getDefendingMoves } from './defenders';

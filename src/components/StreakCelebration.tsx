@@ -36,8 +36,8 @@ export default function StreakCelebration() {
     setShow({ prev, current: days, message: msg });
     setPhase('old');
 
-    const t1 = setTimeout(() => setPhase('flip'), 1000);
-    const t2 = setTimeout(() => setPhase('new'), 1500);
+    const t1 = setTimeout(() => { setPhase('flip'); }, 1000);
+    const t2 = setTimeout(() => { setPhase('new'); }, 1500);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [days, settings.streakSoundEnabled, settings.streakSoundVolume]);
 

@@ -1,10 +1,10 @@
 import { QUEEN } from 'chess.js';
-import { ExtractedPreviousNode, ExtractedCurrentNode } from '../types';
+import type { ExtractedPreviousNode, ExtractedCurrentNode } from '../types';
 
 export function isMoveCriticalCandidate(
   previous: ExtractedPreviousNode,
   current: ExtractedCurrentNode
-) {
+): boolean {
   const secondSubjectiveEval = previous.secondSubjectiveEvaluation;
   if (secondSubjectiveEval) {
     if (secondSubjectiveEval.type === 'centipawn' && secondSubjectiveEval.value >= 700) return false;

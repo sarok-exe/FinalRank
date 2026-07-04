@@ -1,6 +1,6 @@
 import { memo, useMemo } from 'react';
 
-interface EvalBarProps {
+type EvalBarProps = {
   score: number | null;
   mate?: number | null;
   flipped?: boolean;

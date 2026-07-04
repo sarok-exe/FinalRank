@@ -3,7 +3,7 @@ const WAVES: OscillatorType[] = ['sine', 'triangle', 'square', 'sawtooth'];
 function playNote(
   ctx: AudioContext, freq: number, wave: OscillatorType,
   start: number, dur: number, vol: number
-) {
+): void {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = wave;
@@ -21,13 +21,13 @@ function playNote(
 
 let audioCtx: AudioContext | null = null;
 
-function getCtx() {
-  if (!audioCtx) audioCtx = new AudioContext();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+function getCtx(): AudioContext {
+  audioCtx ??= new AudioContext();
+  if (audioCtx.state === 'suspended') void audioCtx.resume();
   return audioCtx;
 }
 
-export function playVictorySound(volume: number = 0.4) {
+export function playVictorySound(volume = 0.4): void {
   try {
     const ctx = getCtx();
     const idx = 16;
@@ -54,5 +54,5 @@ export function playVictorySound(volume: number = 0.4) {
         playNote(ctx, f, n % 4 === 0 ? wave : 'sine', t, noteDur, v * (1 - n * 0.08));
       }
     }
-  } catch {}
+  } catch { console.warn('Victory sound playback failed'); }
 }

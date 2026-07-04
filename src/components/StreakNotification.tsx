@@ -29,9 +29,9 @@ export default function StreakNotification() {
       setVisible(true);
       const timer = setTimeout(() => {
         setVisible(false);
-        setTimeout(() => clearToast(), 300);
+        setTimeout(() => { clearToast(); }, 300);
       }, 4000);
-      return () => clearTimeout(timer);
+      return () => { clearTimeout(timer); };
     }
   }, [toast]);
 

@@ -1,9 +1,11 @@
-import { Chess, Square, PieceSymbol, KING } from 'chess.js';
+import type { Square, PieceSymbol} from 'chess.js';
+import { Chess, KING } from 'chess.js';
 import { isEqual, xorWith } from 'lodash-es';
-import { BoardPiece, RawMove, toRawMove } from '../types';
+import type { BoardPiece, RawMove} from '../types';
+import { toRawMove } from '../types';
 import { setFenTurn, getCaptureSquare } from '../chess';
 
-interface TransitiveAttacker {
+type TransitiveAttacker = {
   directFen: string;
   square: Square;
   type: PieceSymbol;

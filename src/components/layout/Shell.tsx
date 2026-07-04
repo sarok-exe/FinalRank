@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import type React from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BarChart3,
@@ -9,24 +10,24 @@ import {
   X,
   LogOut,
   ChevronDown,
-  Flame,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
 import StreakFlame from '../StreakFlame';
 
-interface ShellProps {
-  children: React.ReactNode;
+type ShellProps = {
+  readonly children: React.ReactNode;
 }
 
-export default function Shell({ children }: ShellProps) {
-  const { user, logout, loginAsGuest } = useAuthStore();
-  const { fullscreenMode, focusMode } = useUIStore();
+export default function Shell({ children }: ShellProps): React.JSX.Element {
+  const auth = useAuthStore();
+  const { user } = auth;
+  const { fullscreenMode } = useUIStore();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string): boolean => location.pathname === path;
 
   const navItems = [
     { name: 'Analysis', path: '/', icon: BarChart3 },
@@ -35,7 +36,7 @@ export default function Shell({ children }: ShellProps) {
     { name: 'Report', path: '/report', icon: Flag },
   ];
 
-  const handleNavClick = () => setMobileMenuOpen(false);
+  const handleNavClick = (): void => { setMobileMenuOpen(false); };
 
   return (
     <div className="min-h-screen bg-[var(--color-surface)] text-white flex flex-col font-sans" id="app-shell">
@@ -87,13 +88,13 @@ export default function Shell({ children }: ShellProps) {
             <Link
               to="/profile"
               className={`hidden sm:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
-                user.chessComUsername
+                user.chessComUsername != null
                   ? 'bg-green-900/30 text-green-400 border border-green-700/50'
                   : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
               }`}
               id="chesscom-link-nav"
             >
-              <span>{user.chessComUsername ? user.chessComUsername : '+ Link Chess.com'}</span>
+              <span>{user.chessComUsername ?? '+ Link Chess.com'}</span>
             </Link>
           )}
 
@@ -101,7 +102,7 @@ export default function Shell({ children }: ShellProps) {
             <div className="relative">
               <button
                 className="flex items-center space-x-2 bg-[var(--color-surface)] px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-sm"
-                onClick={() => setUserDropdownOpen(!userDropdownOpen)}
+                onClick={() => { setUserDropdownOpen(!userDropdownOpen); }}
                 id="user-profile-dropdown"
               >
                 <img
@@ -119,7 +120,7 @@ export default function Shell({ children }: ShellProps) {
 
               {userDropdownOpen && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setUserDropdownOpen(false)} />
+                  <div className="fixed inset-0 z-10" onClick={() => { setUserDropdownOpen(false); }} />
                   <div className="absolute right-0 mt-2 w-52 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-1.5 z-20">
                     <div className="px-3 py-2 border-b border-[var(--color-border)] text-xs text-[var(--color-text-muted)]">
                       Logged in as <p className="font-semibold text-white truncate">
@@ -127,7 +128,7 @@ export default function Shell({ children }: ShellProps) {
                       </p>
                     </div>
                     <button
-                      onClick={() => { setUserDropdownOpen(false); logout(); }}
+                      onClick={() => { setUserDropdownOpen(false); auth.logout(); }}
                       className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg text-sm text-[var(--color-accent)] text-left font-medium"
                       id="logout-btn"
                     >
@@ -140,7 +141,7 @@ export default function Shell({ children }: ShellProps) {
             </div>
           ) : (
             <button
-              onClick={() => loginAsGuest('Guest_Expert')}
+              onClick={() => { auth.loginAsGuest('Guest_Expert'); }}
               className="bg-[var(--color-primary)] text-white px-4 py-1.5 rounded-lg font-semibold text-sm"
               id="guest-login-nav"
             >
@@ -150,7 +151,7 @@ export default function Shell({ children }: ShellProps) {
 
           <button
             className="md:hidden text-[var(--color-text-muted)] p-1"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            onClick={() => { setMobileMenuOpen(!mobileMenuOpen); }}
             id="mobile-menu-toggle"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
@@ -192,7 +193,7 @@ export default function Shell({ children }: ShellProps) {
           })}
           {user && (
             <button
-              onClick={() => { setMobileMenuOpen(false); logout(); }}
+              onClick={() => { setMobileMenuOpen(false); auth.logout(); }}
               className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm text-[var(--color-accent)] text-left"
             >
               <LogOut className="w-4 h-4" />

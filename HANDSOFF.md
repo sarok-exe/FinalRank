@@ -38,3 +38,11 @@
 | `src/lib/chessCom.ts` | Added avatar fetch functions |
 | `src/stores/gameStore.ts` | Call avatars on Chess.com import |
 | `src/pages/Analysis.tsx` | Layout restructure, focus panel, eval fix |
+
+
+
+
+add leaderboard 
+add elo counter 
+add pyments methods 
+

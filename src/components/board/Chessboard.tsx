@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Chessboard as RCChessboard } from 'react-chessboard';
-import { Chess } from 'chess.js';
-import { MoveClassification } from '../../types';
+import { Chess, type Square } from 'chess.js';
+import type { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
 import type { PieceRenderObject } from 'react-chessboard';
@@ -28,9 +28,9 @@ function findKingSquare(fen: string, side: 'w' | 'b'): string | null {
   return null;
 }
 
-interface ChessboardProps {
+type ChessboardProps = {
   fen: string;
-  onMove?: (from: string, to: string) => void;
+  onMove?(from: string, to: string): void;
   playable?: boolean;
   orientation?: 'white' | 'black';
   className?: string;
@@ -44,10 +44,10 @@ interface ChessboardProps {
     to: string;
   };
   rightClickedSquares?: string[];
-  onSquareRightClick?: (square: string) => void;
-  onLeftClick?: () => void;
+  onSquareRightClick?(square: string): void;
+  onLeftClick?(): void;
   arrows?: Arrow[];
-  onArrowsChange?: (arrows: Arrow[]) => void;
+  onArrowsChange?(arrows: Arrow[]): void;
   winnerOverlay?: boolean;
   winnerSide?: 'w' | 'b';
   checkmateOverlay?: boolean;
@@ -100,7 +100,7 @@ function isDarkSquare(square: string, orientation: 'white' | 'black'): boolean {
   return (dr + dc) % 2 === 1;
 }
 
-function renderClassificationBadge(cls: MoveClassification) {
+function renderClassificationBadge(cls: MoveClassification): React.JSX.Element | null {
   let iconPath: string | undefined;
 
   switch (cls) {
@@ -115,6 +115,7 @@ function renderClassificationBadge(cls: MoveClassification) {
     case 'forced':     iconPath = '/img/classifications/forced.svg';     break;
     case 'book':       iconPath = '/img/classifications/book.svg';       break;
     case 'critical':   iconPath = '/img/classifications/critical.svg';   break;
+    case 'risky':      iconPath = '/img/classifications/risky.svg';      break;
     default: return null;
   }
 
@@ -131,46 +132,43 @@ function renderClassificationBadge(cls: MoveClassification) {
   );
 }
 
-const Chessboard = memo(function Chessboard({
-  fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-  onMove,
-  playable = true,
-  orientation = 'white',
-  className = '',
-  highlightSquares,
-  bestMoveArrow,
-  rightClickedSquares = [],
-  onSquareRightClick,
-  onLeftClick,
-  arrows = [],
-  onArrowsChange,
-  winnerOverlay = false,
-  winnerSide,
-  checkmateOverlay = false,
-  checkmateSide,
-}: ChessboardProps) {
+const Chessboard = memo(function Chessboard(props: ChessboardProps) {
+  const {
+    fen,
+    playable = true,
+    orientation = 'white',
+    className = '',
+    highlightSquares,
+    bestMoveArrow,
+    rightClickedSquares = [],
+    arrows = [],
+    winnerOverlay = false,
+    winnerSide,
+    checkmateOverlay = false,
+    checkmateSide,
+  } = props;
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
 
-  const colors = THEME_COLORS[settings.boardColor] || THEME_COLORS.green;
+  const colors = THEME_COLORS[settings.boardColor] ?? THEME_COLORS.green;
 
   const { moveTrail: mtColor, selectedSquare: ssColor, rightClick: rcColor } = settings.highlightColors;
 
   const squareStyles = useMemo(() => {
-    const styles: Record<string, React.CSSProperties> = {};
-    const setBg = (sq: string, bg: string) => {
+    const styles: Record<string, React.CSSProperties | undefined> = {};
+    const setBg = (sq: string, bg: string): void => {
       styles[sq] = { ...styles[sq], background: bg };
     };
-    if (highlightSquares?.from) {
+    if (highlightSquares?.from != null) {
       setBg(highlightSquares.from,
         hexToRgba(mtColor, isDarkSquare(highlightSquares.from, orientation) ? 0.65 : 0.85));
     }
-    if (highlightSquares?.to) {
+    if (highlightSquares?.to != null) {
       setBg(highlightSquares.to,
         hexToRgba(mtColor, isDarkSquare(highlightSquares.to, orientation) ? 0.65 : 0.85));
     }
-    if (selectedSquare) {
+    if (selectedSquare != null) {
       setBg(selectedSquare, hexToRgba(ssColor, 0.55));
     }
     for (const sq of rightClickedSquares) {
@@ -183,9 +181,9 @@ const Chessboard = memo(function Chessboard({
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];
     for (const a of arrows) {
-      result.push({ startSquare: a.from, endSquare: a.to, color: a.color || '#ffaa00' });
+      result.push({ startSquare: a.from, endSquare: a.to, color: a.color ?? '#ffaa00' });
     }
-    if (bestMoveArrow) {
+    if (bestMoveArrow != null) {
       result.push({ startSquare: bestMoveArrow.from, endSquare: bestMoveArrow.to, color: '#00a000' });
     }
     return result;
@@ -193,20 +191,20 @@ const Chessboard = memo(function Chessboard({
 
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
-      if (!playable || !targetSquare) return false;
-      onMove?.(sourceSquare, targetSquare);
+      if (!playable || targetSquare == null) return false;
+      props.onMove?.(sourceSquare, targetSquare);
       return true;
     },
-    [playable, onMove],
+    [playable, props],
   );
 
   const handleSquareClick = useCallback(
     ({ square }: { square: string }) => {
-      onLeftClick?.();
+      props.onLeftClick?.();
       if (!playable) return;
 
-      if (selectedSquare && validMoves.includes(square)) {
-        if (onMove) onMove(selectedSquare, square);
+      if (selectedSquare != null && validMoves.includes(square)) {
+        if (props.onMove) props.onMove(selectedSquare, square);
         setSelectedSquare(null);
         setValidMoves([]);
         return;
@@ -214,9 +212,9 @@ const Chessboard = memo(function Chessboard({
 
       try {
         const chess = new Chess(fen);
-        const piece = chess.get(square as any);
+        const piece = chess.get(square as Square);
         if (piece) {
-          const moves = chess.moves({ square: square as any, verbose: true }).map(m => m.to);
+          const moves = chess.moves({ square: square as Square, verbose: true }).map(m => m.to);
           setSelectedSquare(square);
           setValidMoves(moves);
         } else {
@@ -228,33 +226,33 @@ const Chessboard = memo(function Chessboard({
         setValidMoves([]);
       }
     },
-    [playable, fen, selectedSquare, validMoves, onMove, onLeftClick],
+    [playable, fen, selectedSquare, validMoves, props],
   );
 
   const handleSquareRightClick = useCallback(
-    ({ square }: { square: string }) => { onSquareRightClick?.(square); },
-    [onSquareRightClick],
+    ({ square }: { square: string }) => { props.onSquareRightClick?.(square); },
+    [props],
   );
 
   const handleArrowsChange = useCallback(
     ({ arrows: libArrows }: { arrows: { startSquare: string; endSquare: string; color: string }[] }) => {
       const converted = libArrows.map(a => ({ from: a.startSquare, to: a.endSquare, color: a.color }));
-      onArrowsChange?.(converted);
+      props.onArrowsChange?.(converted);
     },
-    [onArrowsChange],
+    [props],
   );
 
   const squareRenderer = useCallback(
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
       const isDot = validMoves.includes(square);
-      const isBadge = highlightSquares?.to === square && highlightSquares?.classification;
-      if (!isDot && !isBadge) return null;
+      const isBadge = highlightSquares?.to === square && highlightSquares.classification != null;
+      if (!isDot && !isBadge) return <>{children}</>;
 
       const hasPiece = children != null;
       return (
-        <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] || {}) }}>
+        <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
           {children}
-          {isBadge && renderClassificationBadge(highlightSquares!.classification!)}
+          {isBadge && renderClassificationBadge(highlightSquares.classification)}
           {isDot && !hasPiece && (
             <div style={{
               width: '28%', height: '28%', borderRadius: '50%',
@@ -279,7 +277,7 @@ const Chessboard = memo(function Chessboard({
     [validMoves, highlightSquares, squareStyles],
   );
 
-  const renderSquareOverlay = (kingSquare: string, icon: string) => {
+  const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {
     const flipped = orientation === 'black';
     const f = kingSquare.charCodeAt(0) - 97;
     const r = 8 - parseInt(kingSquare[1]);
@@ -336,19 +334,20 @@ const Chessboard = memo(function Chessboard({
           squareRenderer,
         }}
       />
-      {winnerOverlay && winnerSide && (() => {
+      {winnerOverlay && winnerSide != null && (() => {
         const sq = findKingSquare(fen, winnerSide);
-        return sq ? renderSquareOverlay(sq, '/img/classifications/winner.svg') : null;
+        return sq != null ? renderSquareOverlay(sq, '/img/classifications/winner.svg') : null;
       })()}
-      {checkmateOverlay && checkmateSide && (() => {
+      {checkmateOverlay && checkmateSide != null && (() => {
         const sq = findKingSquare(fen, checkmateSide);
         const icon = checkmateSide === 'w'
           ? '/img/classifications/checkmate_white.svg'
           : '/img/classifications/checkmate_black.svg';
-        return sq ? renderSquareOverlay(sq, icon) : null;
+        return sq != null ? renderSquareOverlay(sq, icon) : null;
       })()}
     </div>
   );
 });
 
+Chessboard.displayName = 'Chessboard';
 export default Chessboard;

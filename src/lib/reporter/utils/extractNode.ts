@@ -1,13 +1,13 @@
-import { Chess, WHITE } from 'chess.js';
-import { EngineLine } from '../../../types';
+import { Chess, WHITE, type Move } from 'chess.js';
+import type { EngineLine, Evaluation } from '../../../types';
 import { getTopEngineLine, getLineGroupSibling } from '../../engine';
-import { RawMove, ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
+import type { RawMove, ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
 import { getSubjectiveEvaluation } from '../chess';
 
 type PieceMovement = Pick<RawMove, 'from' | 'to' | 'promotion'>;
 
-function safeMove(fen: string, move: string | PieceMovement) {
-  try { return new Chess(fen).move(move as any); } catch { return undefined; }
+function safeMove(fen: string, move: string | PieceMovement): Move | undefined {
+  try { return new Chess(fen).move(move) ?? undefined; } catch { return undefined; }
 }
 
 function extractSecondTopMove(fen: string, topLine: EngineLine, engineLines: EngineLine[]) {

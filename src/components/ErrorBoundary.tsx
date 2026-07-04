@@ -1,11 +1,11 @@
 import React from 'react';
 import { AlertTriangle, RefreshCw, Copy } from 'lucide-react';
 
-interface Props {
+type Props = {
   children: React.ReactNode;
 }
 
-interface State {
+type State = {
   hasError: boolean;
   error: Error | null;
 }
@@ -59,7 +59,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
               </details>
             )}
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => { window.location.reload(); }}
               className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 mx-auto hover:bg-[var(--color-primary)] transition-colors"
             >
               <RefreshCw className="w-4 h-4" />

@@ -1,4 +1,4 @@
-import { ChessGame } from '../types';
+import type { ChessGame } from '../types';
 
 const API_BASE = '/api';
 
@@ -21,7 +21,7 @@ export async function saveGameToApi(shortId: string, gameData: ChessGame): Promi
         shortId,
         gameData: {
           ...gameData,
-          moves: JSON.parse(JSON.stringify(gameData.moves)),
+          moves: JSON.parse(JSON.stringify(gameData.moves)) as typeof gameData.moves,
         },
       }),
     });

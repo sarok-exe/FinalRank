@@ -1,16 +1,16 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import { ChessGame, AnalyzedMove } from '../types';
+import type { ChessGame, AnalyzedMove } from '../types';
 import { createGameEvaluator, getEngineVersion } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
-import { saveUserGame, fetchUserGames, deleteUserGame, fetchPublishedGame } from '../lib/firebase';
+import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
 
-interface GameState {
+type GameState = {
   games: ChessGame[];
   selectedGame: ChessGame | null;
   currentMoveIndex: number;
@@ -19,30 +19,30 @@ interface GameState {
   analysisProgress: number;
   importError: string | null;
   loadingGames: boolean;
-  analysisCache: Record<string, ChessGame>;
+  analysisCache: Record<string, ChessGame | undefined>;
   analyzedPgnHashes: Record<string, boolean>;
   linkedGames: ChessGame[];
   linkedLoading: boolean;
   linkedAnalyzing: boolean;
   linkedAnalysisProgress: string;
 
-  importChessComGames: (username: string) => Promise<void>;
-  selectGame: (gameId: string) => void;
-  setCurrentMoveIndex: (index: number) => void;
-  importPgnDirectly: (pgn: string) => void;
-  triggerEvaluationPipeline: (depth?: number) => Promise<void>;
-  autoAnalyzeGame: (gameId: string) => Promise<void>;
-  setGames: (games: ChessGame[]) => void;
-  fetchLinkedUserGames: () => Promise<void>;
-  loadUserGames: () => Promise<void>;
-  loadGameByShortId: (shortId: string) => Promise<ChessGame | null>;
-  resetGameStore: () => void;
+  importChessComGames(username: string): Promise<void>;
+  selectGame(gameId: string): void;
+  setCurrentMoveIndex(index: number): void;
+  importPgnDirectly(pgn: string): void;
+  triggerEvaluationPipeline(depth?: number): Promise<void>;
+  autoAnalyzeGame(gameId: string): Promise<void>;
+  setGames(games: ChessGame[]): void;
+  fetchLinkedUserGames(): Promise<void>;
+  loadUserGames(): Promise<void>;
+  loadGameByShortId(shortId: string): Promise<ChessGame | null>;
+  resetGameStore(): void;
 }
 
 const pendingAnalysis = new Map<string, Promise<void>>();
 
 export const useGameStore = create<GameState>((set, get) => ({
-  games: [],
+  games: [] as ChessGame[],
   selectedGame: null,
   currentMoveIndex: -1,
   analyzing: false,
@@ -57,7 +57,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   linkedAnalyzing: false,
   linkedAnalysisProgress: '',
 
-  setGames: (games) => set({ games }),
+  setGames: (games) => { set({ games }); },
 
   selectGame: (gameId) => {
     if (!gameId) {
@@ -71,14 +71,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const hydratedMoves = hydratePgnMoves(game.pgn);
     const cached = analysisCache[gameId];
     const mergedMoves = hydratedMoves.map((move, i) => {
-      if (cached?.moves[i]) {
+      if (cached?.moves[i] != null) {
         return { ...move, ...cached.moves[i] };
       }
       return move;
     });
 
     const updatedGame = { ...game, moves: mergedMoves };
-    if (cached) {
+    if (cached != null) {
       updatedGame.accuracy = cached.accuracy;
       updatedGame.classificationCounts = cached.classificationCounts;
       updatedGame.analyzedAt = cached.analyzedAt;
@@ -108,10 +108,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         const tursoStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
         set({ analyzedPgnHashes: tursoStatus });
         get().selectGame(loaded[0].id);
-        get().autoAnalyzeGame(loaded[0].id);
+        void get().autoAnalyzeGame(loaded[0].id);
       }
-    } catch (err: any) {
-      set({ importError: err.message || 'Failed to fetch games.', loadingGames: false });
+    } catch (err: unknown) {
+      set({ importError: err instanceof Error ? err.message : 'Failed to fetch games.', loadingGames: false });
     }
   },
 
@@ -122,10 +122,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (hydratedMoves.length === 0) {
         throw new Error('Could not parse any chess moves from PGN.');
       }
-      const whiteName = pgn.match(/\[White "(.*?)"\]/)?.[1] || 'White Player';
-      const blackName = pgn.match(/\[Black "(.*?)"\]/)?.[1] || 'Black Player';
-      const date = pgn.match(/\[Date "(.*?)"\]/)?.[1] || new Date().toISOString().split('T')[0];
-      const result = pgn.match(/\[Result "(.*?)"\]/)?.[1] || '*';
+      const whiteName = (/\[White "(.*?)"\]/.exec(pgn))?.[1] ?? 'White Player';
+      const blackName = (/\[Black "(.*?)"\]/.exec(pgn))?.[1] ?? 'Black Player';
+      const date = (/\[Date "(.*?)"\]/.exec(pgn))?.[1] ?? new Date().toISOString().split('T')[0];
+      const result = (/\[Result "(.*?)"\]/.exec(pgn))?.[1] ?? '*';
 
       const newGame: ChessGame = {
         id: `pgn_custom_${Date.now()}`,
@@ -144,9 +144,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         currentMoveIndex: -1,
       }));
 
-      get().autoAnalyzeGame(newGame.id);
-    } catch (err: any) {
-      set({ importError: err.message || 'PGN Parsing Failure' });
+      void get().autoAnalyzeGame(newGame.id);
+    } catch (err: unknown) {
+      set({ importError: err instanceof Error ? err.message : 'PGN Parsing Failure' });
     }
   },
 
@@ -156,15 +156,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (pendingAnalysis.has(gameId)) return;
 
     const { linkedGames } = get();
-    const game = games.find(g => g.id === gameId) || linkedGames.find(g => g.id === gameId);
+    const game = games.find(g => g.id === gameId) ?? linkedGames.find(g => g.id === gameId);
     if (!game || game.moves.length === 0) return;
 
     const settings = useSettingsStore.getState().settings;
     const depth = settings.engineDepth;
-    const autoEnabled = settings.featureToggles?.autoAnalyze ?? true;
+    const autoEnabled = settings.featureToggles.autoAnalyze;
     if (!autoEnabled) return;
 
-    if (get().analysisCache[gameId]) return;
+    if (get().analysisCache[gameId] != null) return;
 
     const cached = await getCachedAnalysis(game.pgn, depth);
     if (cached) {
@@ -176,8 +176,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs }
           : state.selectedGame,
       }));
-      if (cached.shortId) {
-        saveGameToApi(cached.shortId, cached);
+      if (cached.shortId != null) {
+        void saveGameToApi(cached.shortId, cached);
       }
       return;
     }
@@ -205,23 +205,23 @@ export const useGameStore = create<GameState>((set, get) => ({
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
     const cached = get().analysisCache[selectedGame.id];
-    if (cached && cached.analyzedAt) {
+    if (cached?.analyzedAt != null) {
       const isDepthSufficient = cached.moves.every(m => {
-        const topDepth = m.engineLines?.reduce((d, l) => Math.max(d, l.depth || 0), 0) ?? 0;
+        const topDepth = (m.engineLines ?? []).reduce((d, l) => Math.max(d, l.depth), 0);
         return topDepth >= evalDepth;
       });
       if (isDepthSufficient) {
-        set(state => ({
+        set({
           selectedGame: {
-            ...state.selectedGame!,
-            moves: mergeMoves(state.selectedGame!.moves, cached.moves),
+            ...selectedGame,
+            moves: mergeMoves(selectedGame.moves, cached.moves),
             accuracy: cached.accuracy,
             classificationCounts: cached.classificationCounts,
             analyzedAt: cached.analyzedAt,
             analysisDurationMs: cached.analysisDurationMs,
           },
           analysisProgress: 100,
-        }));
+        });
         return;
       }
     }
@@ -229,19 +229,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     const tursoCached = await getCachedAnalysis(selectedGame.pgn, evalDepth);
     if (tursoCached) {
       const pgnHash = hashPgn(selectedGame.pgn);
-      set(state => ({
-        analysisCache: { ...state.analysisCache, [selectedGame.id]: tursoCached },
-        analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
+      set({
+        analysisCache: { ...get().analysisCache, [selectedGame.id]: tursoCached },
+        analyzedPgnHashes: { ...get().analyzedPgnHashes, [pgnHash]: true },
         selectedGame: {
-          ...state.selectedGame!,
-          moves: mergeMoves(state.selectedGame!.moves, tursoCached.moves),
+          ...selectedGame,
+          moves: mergeMoves(selectedGame.moves, tursoCached.moves),
           accuracy: tursoCached.accuracy,
           classificationCounts: tursoCached.classificationCounts,
           analyzedAt: tursoCached.analyzedAt,
           analysisDurationMs: tursoCached.analysisDurationMs,
         },
         analysisProgress: 100,
-      }));
+      });
       return;
     }
 
@@ -251,11 +251,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       try {
         await pending;
         const result = get().analysisCache[selectedGame.id];
-        if (result) {
-          set(state => ({
+        if (result != null) {
+          set({
             selectedGame: {
-              ...state.selectedGame!,
-              moves: mergeMoves(state.selectedGame!.moves, result.moves),
+              ...selectedGame,
+              moves: mergeMoves(selectedGame.moves, result.moves),
               accuracy: result.accuracy,
               classificationCounts: result.classificationCounts,
               analyzedAt: result.analyzedAt,
@@ -264,7 +264,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             analysisProgress: 100,
             analyzing: false,
             autoAnalyzing: false,
-          }));
+          });
         }
       } catch {
         set({ analyzing: false, analysisProgress: 0, autoAnalyzing: false });
@@ -278,7 +278,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
 
       const result = get().analysisCache[selectedGame.id];
-      if (result) {
+      if (result != null) {
         set({
           selectedGame: result,
           analysisProgress: 100,
@@ -296,8 +296,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           });
         }
       }
-    } catch (err: any) {
-      if (err.message === 'aborted' || err.message === 'abort') return;
+    } catch (err: unknown) {
+      if (err instanceof Error && (err.message === 'aborted' || err.message === 'abort')) return;
       set({ analyzing: false, analysisProgress: 0 });
     }
   },
@@ -305,7 +305,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   fetchLinkedUserGames: async () => {
     const authUser = useAuthStore.getState().user;
     const chessComUsername = authUser?.chessComUsername;
-    if (!chessComUsername) return;
+    if (chessComUsername == null) return;
 
     set({ linkedLoading: true, linkedAnalyzing: false, linkedAnalysisProgress: '' });
 
@@ -315,7 +315,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const latest = raw.slice(0, 3);
 
       const withAvatars = await fetchAvatarsForGames(latest);
-      const withIds = withAvatars.map((g, i) => ({ ...g, id: `linked-${g.id}`, shortId: generateShortId() }));
+      const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: generateShortId() }));
 
       const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => ({
@@ -338,7 +338,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const gameId = uncached[i].id;
         set({ linkedAnalysisProgress: `Analyzing ${i + 1} / ${uncached.length}` });
         const existing = get().analysisCache[gameId];
-        if (!existing) {
+        if (existing == null) {
           await get().autoAnalyzeGame(gameId);
         }
       }
@@ -354,19 +354,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
     const raw = await fetchUserGames(authUser.id);
     if (raw.length === 0) return;
-    const parsed: ChessGame[] = raw.map((r: any) => {
-      const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) : (r.moves || []);
+    const parsed: ChessGame[] = raw.map((r: Record<string, unknown>) => {
+      const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) as AnalyzedMove[] : (r.moves as AnalyzedMove[] | undefined) ?? [];
       return {
         id: r.id as string,
-        shortId: (r as any).shortId as string | undefined,
+        shortId: r.shortId as string | undefined,
         white: r.white as ChessGame['white'],
         black: r.black as ChessGame['black'],
         result: r.result as string,
         date: r.date as string,
         pgn: r.pgn as string,
         moves,
-        accuracy: r.accuracy as ChessGame['accuracy'] || undefined,
-        classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] || undefined,
+        accuracy: r.accuracy as ChessGame['accuracy'] ?? undefined,
+        classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
         analyzedAt: r.analyzedAt as string | undefined,
         analysisDurationMs: r.analysisDurationMs as number | undefined,
         initialPosition: r.initialPosition as string | undefined,
@@ -375,10 +375,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const cache: Record<string, ChessGame> = {};
     const pgnMap: Record<string, boolean> = {};
     parsed.forEach(g => {
-      if (g.analyzedAt) {
+      if (g.analyzedAt != null) {
         cache[g.id] = g;
       }
-      if (g.pgn) pgnMap[hashPgn(g.pgn)] = true;
+      if (g.pgn !== '') pgnMap[hashPgn(g.pgn)] = true;
     });
     set(state => ({
       games: [...parsed, ...state.games.filter(g => g.id.startsWith('legend-'))],
@@ -396,29 +396,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     let data: Record<string, unknown> | null = null;
     try {
-      data = await fetchGameFromApi(shortId) as unknown as Record<string, unknown> | null;
-    } catch {}
-    if (!data) {
-      data = await fetchPublishedGame(shortId);
+      data = await fetchGameFromApi(shortId);
+    } catch {
+      console.warn('fetchGameFromApi failed');
     }
-    if (!data) {
+    data ??= await fetchPublishedGame(shortId);
+    if (data == null) {
       const authUser = useAuthStore.getState().user;
       if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
         const raw = await fetchUserGames(authUser.id);
-        const match = raw.find((r: any) => r.shortId === shortId);
+        const match = raw.find((r: Record<string, unknown>) => r.shortId === shortId);
         if (match) {
-          const moves = typeof match.moves === 'string' ? JSON.parse(match.moves as string) : (match.moves || []);
+          const moves = typeof match.moves === 'string' ? JSON.parse(match.moves) as AnalyzedMove[] : (match.moves as AnalyzedMove[] | undefined) ?? [];
           const game: ChessGame = {
             id: match.id as string,
-            shortId: match.shortId as string || shortId,
+            shortId: match.shortId as string | undefined ?? shortId,
             white: match.white as ChessGame['white'],
             black: match.black as ChessGame['black'],
             result: match.result as string,
             date: match.date as string,
             pgn: match.pgn as string,
             moves,
-            accuracy: match.accuracy as ChessGame['accuracy'] || undefined,
-            classificationCounts: match.classificationCounts as ChessGame['classificationCounts'] || undefined,
+            accuracy: match.accuracy as ChessGame['accuracy'] ?? undefined,
+            classificationCounts: match.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
             analyzedAt: match.analyzedAt as string | undefined,
             analysisDurationMs: match.analysisDurationMs as number | undefined,
             initialPosition: match.initialPosition as string | undefined,
@@ -428,30 +428,30 @@ export const useGameStore = create<GameState>((set, get) => ({
             selectedGame: game,
             currentMoveIndex: -1,
           }));
-          if (game.analyzedAt) {
+          if (game.analyzedAt != null) {
             set(state2 => ({
               analysisCache: { ...state2.analysisCache, [game.id]: game },
               analyzedPgnHashes: { ...state2.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
             }));
-            saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)), userSaved: false } as unknown as Record<string, unknown>);
+            void saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)), userSaved: false });
           }
           return game;
         }
       }
       return null;
     }
-    const moves = typeof data.moves === 'string' ? JSON.parse(data.moves as string) : (data.moves || []);
+    const moves = typeof data.moves === 'string' ? JSON.parse(data.moves) as AnalyzedMove[] : (data.moves as AnalyzedMove[] | undefined) ?? [];
     const game: ChessGame = {
       id: data.id as string,
-      shortId: data.shortId as string || shortId,
+      shortId: data.shortId as string | undefined ?? shortId,
       white: data.white as ChessGame['white'],
       black: data.black as ChessGame['black'],
       result: data.result as string,
       date: data.date as string,
       pgn: data.pgn as string,
       moves,
-      accuracy: data.accuracy as ChessGame['accuracy'] || undefined,
-      classificationCounts: data.classificationCounts as ChessGame['classificationCounts'] || undefined,
+      accuracy: data.accuracy as ChessGame['accuracy'] ?? undefined,
+      classificationCounts: data.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
       analyzedAt: data.analyzedAt as string | undefined,
       analysisDurationMs: data.analysisDurationMs as number | undefined,
       initialPosition: data.initialPosition as string | undefined,
@@ -461,7 +461,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       selectedGame: game,
       currentMoveIndex: -1,
     }));
-    if (game.analyzedAt) {
+    if (game.analyzedAt != null) {
       set(state => ({
         analysisCache: { ...state.analysisCache, [game.id]: game },
         analyzedPgnHashes: { ...state.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
@@ -470,7 +470,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     return game;
   },
 
-  resetGameStore: () => set({
+  resetGameStore: () => { set({
     games: [],
     selectedGame: null,
     currentMoveIndex: -1,
@@ -484,7 +484,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     linkedLoading: false,
     linkedAnalyzing: false,
     linkedAnalysisProgress: '',
-  }),
+  }); },
 }));
 
 async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<void> {
@@ -529,45 +529,48 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
       : state.selectedGame,
   }));
 
-  saveCachedAnalysis(analysedGame, depth);
+  void saveCachedAnalysis(analysedGame, depth);
 
-  const shortId = analysedGame.shortId || game.shortId || gameId;
-  if (shortId) {
-    saveSharedGameToTurso(shortId, analysedGame);
-    saveGameToApi(shortId, analysedGame);
-  }
+  const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
+  void saveSharedGameToTurso(shortId, analysedGame);
+  void saveGameToApi(shortId, analysedGame);
 
   const gameForFirestore = {
     ...analysedGame,
-    moves: JSON.parse(JSON.stringify(analysedGame.moves)),
+    moves: JSON.parse(JSON.stringify(analysedGame.moves)) as AnalyzedMove[],
     userSaved: false,
   };
 
   const u = useAuthStore.getState().user;
-  if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
-    saveUserGame(u.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+  if (u != null && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
+    void saveUserGame(u.id, gameId, gameForFirestore);
   } else {
     const unsub = useAuthStore.subscribe((state, prev) => {
       if ((state.user?.authProvider === 'google' || state.user?.authProvider === 'anonymous') && !prev.user) {
         unsub();
-        saveUserGame(state.user.id, gameId || game.id, gameForFirestore as unknown as Record<string, unknown>);
+        void saveUserGame(state.user.id, gameId, gameForFirestore);
       }
     });
-    setTimeout(() => unsub(), 15000);
+    setTimeout(() => { unsub(); }, 15000);
   }
 }
 
 function hydratePgnMoves(pgn: string): AnalyzedMove[] {
-  if (!pgn) return [];
+  if (pgn === '') return [];
   const chess = new Chess();
   const moves: AnalyzedMove[] = [];
-  let cleanPgn = pgn.replace(/\[.*?\]/g, '').trim();
-  cleanPgn = cleanPgn.replace(/\{.*?\}/g, '');
+  let cleanPgn = '';
+  let braceDepth = 0;
+  for (const ch of pgn) {
+    if (ch === '[' || ch === '{') braceDepth++;
+    else if (ch === ']' || ch === '}') braceDepth--;
+    else if (braceDepth === 0) cleanPgn += ch;
+  }
+  cleanPgn = cleanPgn.trim();
   const rawArray = cleanPgn.split(/\s+/).filter(
-    word => word && !word.includes('.') && word !== '*' && !word.match(/^(1-0|0-1|1\/2-1\/2)$/)
+    word => word !== '' && !word.includes('.') && word !== '*' && /^(1-0|0-1|1\/2-1\/2)$/.exec(word) == null
   );
-  for (let i = 0; i < rawArray.length; i++) {
-    const rawMove = rawArray[i];
+  for (const [i, rawMove] of rawArray.entries()) {
     try {
       const moveResult = chess.move(rawMove);
       moves.push({
@@ -587,16 +590,15 @@ function hydratePgnMoves(pgn: string): AnalyzedMove[] {
 
 function mergeMoves(base: AnalyzedMove[], analysis: AnalyzedMove[]): AnalyzedMove[] {
   return base.map((move, i) => {
-    const analyzed = analysis[i];
-    if (!analyzed) return move;
+    const analyzed = analysis[i] ?? move;
     return {
       ...move,
-      engineLines: analyzed.engineLines || move.engineLines,
-      evaluation: analyzed.evaluation || move.evaluation,
-      classification: analyzed.classification || move.classification,
+      engineLines: analyzed.engineLines ?? move.engineLines,
+      evaluation: analyzed.evaluation ?? move.evaluation,
+      classification: analyzed.classification ?? move.classification,
       accuracy: analyzed.accuracy ?? move.accuracy,
-      explanation: analyzed.explanation || move.explanation,
-      opening: analyzed.opening || move.opening,
+      explanation: analyzed.explanation ?? move.explanation,
+      opening: analyzed.opening ?? move.opening,
     };
   });
 }

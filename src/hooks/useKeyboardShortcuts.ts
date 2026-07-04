@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { useSettingsStore } from '../stores/settingsStore';
 
-export interface ShortcutDef {
+export type ShortcutDef = {
   key: string;
   ctrl?: boolean;
   shift?: boolean;
   alt?: boolean;
   description: string;
-  handler: (e: KeyboardEvent) => void;
+  handler(e: KeyboardEvent): void;
 }
 
 export function useKeyboardShortcuts(shortcuts: ShortcutDef[]) {
@@ -34,7 +34,7 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDef[]) {
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => { window.removeEventListener('keydown', handleKeyDown); };
   }, [shortcutsEnabled]);
 }
 

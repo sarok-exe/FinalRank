@@ -20,14 +20,14 @@ const STOPS = [
   { d: MAX, r: 255, g: 180, b: 255 },
 ];
 
-function C(days: number) {
+function C(days: number): { r: number; g: number; b: number; hex(): string; rgba(alpha?: number): string; css(): string } {
   const t = Math.min(Math.max(days, 0), MAX);
   let i = 0;
   for (; i < STOPS.length - 1; i++) if (t <= STOPS[i + 1].d) break;
   const a = STOPS[i], b = STOPS[Math.min(i + 1, STOPS.length - 1)];
   const p = (t - a.d) / (b.d - a.d || 1);
-  const lerp = (x: number, y: number) => Math.round(x + (y - x) * p);
-  const h = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  const lerp = (x: number, y: number): number => Math.round(x + (y - x) * p);
+  const h = (n: number): string => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
   return {
     r: lerp(a.r, b.r), g: lerp(a.g, b.g), b: lerp(a.b, b.b),
     hex: () => `#${h(lerp(a.r, b.r))}${h(lerp(a.g, b.g))}${h(lerp(a.b, b.b))}`,
@@ -36,7 +36,7 @@ function C(days: number) {
   };
 }
 
-function fixedColor(hex: string) {
+function fixedColor(hex: string): { r: number; g: number; b: number; hex(): string; rgba(alpha?: number): string; css(): string } {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
@@ -71,18 +71,18 @@ export const HEAT_TIERS = [
   { min: MAX, l: 'Omega Flame',         h: '∞°C',     m: 'The final form. Beyond heat, beyond time. You are eternal.' },
 ];
 
-export function getHeatTier(days: number) {
+export function getHeatTier(days: number): { min: number; l: string; h: string; m: string } {
   let t = HEAT_TIERS[0];
   for (const e of HEAT_TIERS) if (days >= e.min) t = e;
   return t;
 }
 
-export function getStreakTier(days: number) {
+export function getStreakTier(days: number): { color: string; glow: string } {
   const col = C(days);
   return { color: col.hex(), glow: col.rgba(0.5) };
 }
 
-function getTemplateForStreak(days: number) {
+function getTemplateForStreak(days: number): typeof PRESET_TEMPLATES[number] | typeof OMEGA_TEMPLATE {
   if (days >= 365) return OMEGA_TEMPLATE;
   if (days >= 100) return PRESET_TEMPLATES[1];
   if (days >= 30)  return PRESET_TEMPLATES[0];
@@ -90,7 +90,7 @@ function getTemplateForStreak(days: number) {
   return PRESET_TEMPLATES[4];
 }
 
-function getVarIdx(days: number) {
+function getVarIdx(days: number): number {
   if (days >= 365) return 4;
   if (days >= 200) return 3;
   if (days >= 90)  return 2;
@@ -98,14 +98,14 @@ function getVarIdx(days: number) {
   return 0;
 }
 
-interface Props {
-  days: number;
-  size?: number;
-  showCount?: boolean;
-  className?: string;
+type Props = {
+  readonly days: number;
+  readonly size?: number;
+  readonly showCount?: boolean;
+  readonly className?: string;
 }
 
-export default function StreakFlame({ days, size = 24, showCount, className = '' }: Props) {
+export default function StreakFlame({ days, size = 24, showCount, className = '' }: Props): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animRef = useRef(0);
   const animCtx = useRef<{ running: boolean }>({ running: false });
@@ -170,7 +170,7 @@ export default function StreakFlame({ days, size = 24, showCount, className = ''
       };
     }
 
-    function render(time: number) {
+    function render(time: number): void {
       if (!running || !ctx) return;
       ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
@@ -242,7 +242,7 @@ export default function StreakFlame({ days, size = 24, showCount, className = ''
             filter: `drop-shadow(0 0 ${3 + dayFactor * 10}px ${c.rgba(0.3 + dayFactor * 0.3)})`,
           }}
         />
-        {showCount && (
+        {showCount === true && (
           <span style={{
             fontSize: `${size * 0.85}px`, fontWeight: 800,
             color: c.hex(), transition: 'color 0.6s ease',
@@ -257,7 +257,7 @@ export default function StreakFlame({ days, size = 24, showCount, className = ''
 
   return (
     <span className={className} style={{
-      display: 'inline-flex', alignItems: 'center', gap: showCount ? '6px' : '0',
+      display: 'inline-flex', alignItems: 'center', gap: showCount === true ? '6px' : '0',
       position: 'relative', userSelect: 'none',
     }}>
       <span style={{
@@ -274,7 +274,7 @@ export default function StreakFlame({ days, size = 24, showCount, className = ''
           }}
         />
       </span>
-      {showCount && (
+      {showCount === true && (
         <span style={{
           fontSize: `${size * 0.85}px`, fontWeight: 800,
           color: c.hex(), transition: 'color 0.6s ease',

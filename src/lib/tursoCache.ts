@@ -1,4 +1,4 @@
-import { ChessGame } from '../types';
+import type { ChessGame } from '../types';
 import { getTurso, isTursoConfigured, markTursoUnhealthy } from './turso';
 
 export function hashPgn(pgn: string): string {
@@ -21,8 +21,7 @@ export async function getCachedAnalysis(pgn: string, minDepth: number): Promise<
     });
     if (rs.rows.length === 0) return null;
     const row = rs.rows[0];
-    const data = JSON.parse(row.analysis_data as string);
-    return data as ChessGame;
+    return JSON.parse(row.analysis_data as string) as ChessGame;
   } catch {
     markTursoUnhealthy();
     return null;
@@ -70,7 +69,7 @@ export async function saveSharedGameToTurso(shortId: string, game: ChessGame): P
   try {
     const payload = {
       ...game,
-      moves: JSON.parse(JSON.stringify(game.moves)),
+      moves: JSON.parse(JSON.stringify(game.moves)) as typeof game.moves,
       userSaved: false,
     };
     await db.execute({

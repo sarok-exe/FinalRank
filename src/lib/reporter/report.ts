@@ -1,12 +1,21 @@
-import { ChessGame, EngineLine, EvaluationResult, STARTING_FEN } from '../../types';
+import type { ChessGame, EngineLine, EvaluationResult} from '../../types';
+import { STARTING_FEN } from '../../types';
 import { getTopEngineLine } from '../engine';
-import { AnalysisOptions } from './types';
+import type { AnalysisOptions } from './types';
 import { getMoveAccuracy } from './accuracy';
 import { classifyMove } from './classify';
 
 function extractEvaluation(line: EngineLine): EvaluationResult {
+  let score: number;
+  if (line.evaluation.type === 'centipawn') {
+    score = line.evaluation.value / 100;
+  } else if (line.evaluation.value > 0) {
+    score = 10;
+  } else {
+    score = -10;
+  }
   return {
-    score: line.evaluation.type === 'centipawn' ? line.evaluation.value / 100 : (line.evaluation.value > 0 ? 10 : -10),
+    score,
     isMate: line.evaluation.type === 'mate',
     mateIn: line.evaluation.type === 'mate' ? line.evaluation.value : undefined,
     depthReached: line.depth,
@@ -19,15 +28,16 @@ export function getGameAnalysis(
   game: ChessGame,
   options?: AnalysisOptions
 ): ChessGame {
-  const startingFen = game.initialPosition || STARTING_FEN;
+  const startingFen = game.initialPosition ?? STARTING_FEN;
 
   const updatedMoves = game.moves.map((move, i) => {
     const prevFen = i === 0 ? startingFen : game.moves[i - 1].fen;
     const prevEngineLines: EngineLine[] = [];
-    if (i > 0 && game.moves[i - 1].engineLines) {
-      prevEngineLines.push(...game.moves[i - 1].engineLines);
+    if (i > 0) {
+      const lines = game.moves[i - 1].engineLines;
+      if (lines) prevEngineLines.push(...lines);
     }
-    const currEngineLines = move.engineLines || [];
+    const currEngineLines = move.engineLines ?? [];
 
     if (currEngineLines.length === 0) {
       return { ...move, engineLines: currEngineLines };
@@ -51,10 +61,10 @@ export function getGameAnalysis(
   const blackMoves = updatedMoves.filter(m => m.color === 'b' && m.accuracy !== undefined);
 
   const whiteAccuracy = whiteMoves.length > 0
-    ? Math.round(whiteMoves.reduce((s, m) => s + (m.accuracy || 0), 0) / whiteMoves.length * 10) / 10
+    ? Math.round(whiteMoves.reduce((s, m) => s + (m.accuracy ?? 0), 0) / whiteMoves.length * 10) / 10
     : 0;
   const blackAccuracy = blackMoves.length > 0
-    ? Math.round(blackMoves.reduce((s, m) => s + (m.accuracy || 0), 0) / blackMoves.length * 10) / 10
+    ? Math.round(blackMoves.reduce((s, m) => s + (m.accuracy ?? 0), 0) / blackMoves.length * 10) / 10
     : 0;
 
   const whiteCounts: Record<string, number> = {};

@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import { UserSettings } from '../types';
+import type { UserSettings } from '../types';
 import { updateUserProfile } from '../lib/firebase';
 import { useAuthStore } from './authStore';
 
-interface SettingsState {
+type SettingsState = {
   settings: UserSettings;
-  updateSettings: (newSettings: Partial<UserSettings> | ((prev: UserSettings) => Partial<UserSettings>)) => void;
-  resetSettings: () => void;
+  updateSettings(newSettings: Partial<UserSettings> | ((prev: UserSettings) => Partial<UserSettings>)): void;
+  resetSettings(): void;
 }
 
 export const THEME_PRESETS: Record<string, {
@@ -239,7 +239,7 @@ function debouncedSyncSettings(settings: UserSettings) {
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: getInitialSettings(),
-  updateSettings: (newSettings) => set((state) => {
+  updateSettings: (newSettings) => { set((state) => {
     const updated = typeof newSettings === 'function'
       ? { ...state.settings, ...newSettings(state.settings) }
       : { ...state.settings, ...newSettings };
@@ -256,8 +256,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
     } catch {}
     return { settings: updated };
-  }),
-  resetSettings: () => set(() => {
+  }); },
+  resetSettings: () => { set(() => {
     const defaults = { ...DEFAULT_SETTINGS };
     try {
       localStorage.setItem('finalrank_settings', JSON.stringify(defaults));
@@ -270,5 +270,5 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       }
     } catch {}
     return { settings: defaults };
-  }),
+  }); },
 }));

@@ -1,4 +1,4 @@
-import { ExtractedPreviousNode, ExtractedCurrentNode } from '../types';
+import type { ExtractedPreviousNode, ExtractedCurrentNode } from '../types';
 import { isMoveCriticalCandidate } from '../utils/criticalMove';
 import { getUnsafePieces } from '../utils/pieceSafety';
 import { hasDangerLevels } from '../utils/dangerLevels';
@@ -8,7 +8,7 @@ import { getAttackingMoves } from '../utils/attackers';
 export function considerBrilliantClassification(
   previous: ExtractedPreviousNode,
   current: ExtractedCurrentNode
-) {
+): boolean {
   if (!isMoveCriticalCandidate(previous, current)) return false;
   if (current.playedMove.promotion) return false;
 

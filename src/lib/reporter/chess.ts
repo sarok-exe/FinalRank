@@ -1,5 +1,6 @@
-import { Move, Square, PieceSymbol, Color, PAWN } from 'chess.js';
-import { Evaluation } from '../../types';
+import type { Move, Square, PieceSymbol, Color} from 'chess.js';
+import { PAWN } from 'chess.js';
+import type { Evaluation } from '../../types';
 
 export function setFenTurn(fen: string, colour: Color): string {
   const parts = fen.split(' ');

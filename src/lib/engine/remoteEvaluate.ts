@@ -1,4 +1,5 @@
-import { EngineLine, EngineVersion } from '../../types';
+import type { EngineLine} from '../../types';
+import { EngineVersion } from '../../types';
 import { Chess } from 'chess.js';
 
 const CLOUDFLARE_EVAL_URL = import.meta.env.VITE_CLOUDFLARE_EVAL_URL || '';
@@ -12,19 +13,19 @@ export function isSupabaseEvalConfigured(): boolean {
   return !!SUPABASE_EVAL_URL;
 }
 
-interface RemoteEvalRequest {
+type RemoteEvalRequest = {
   fen: string;
   depth: number;
   multiPv: number;
 }
 
-interface RemoteEvalLine {
+type RemoteEvalLine = {
   evaluation: { type: 'cp' | 'mate'; value: number };
   depth: number;
   pv: string[];
 }
 
-interface RemoteEvalResponse {
+type RemoteEvalResponse = {
   lines: RemoteEvalLine[];
 }
 
@@ -61,10 +62,10 @@ async function parseRemoteResponse(
 export async function getCloudflareEvaluation(
   fen: string,
   depth: number,
-  multiPv: number = 2,
+  multiPv = 2,
 ): Promise<EngineLine[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => { controller.abort(); }, 5000);
   try {
     const res = await fetch(CLOUDFLARE_EVAL_URL, {
       method: 'POST',
@@ -83,10 +84,10 @@ export async function getCloudflareEvaluation(
 export async function getSupabaseEvaluation(
   fen: string,
   depth: number,
-  multiPv: number = 2,
+  multiPv = 2,
 ): Promise<EngineLine[]> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => { controller.abort(); }, 5000);
   try {
     const res = await fetch(SUPABASE_EVAL_URL, {
       method: 'POST',

@@ -1,6 +1,6 @@
 import { memo } from 'react';
 
-interface PieceIconProps {
+type PieceIconProps = {
   type: string;
   color: 'w' | 'b';
 }

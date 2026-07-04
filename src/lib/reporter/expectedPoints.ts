@@ -1,6 +1,6 @@
-import { Evaluation } from '../../types';
+import type { Evaluation } from '../../types';
 
-export function getExpectedPoints(evaluation: Evaluation, moveColour: 'w' | 'b') {
+export function getExpectedPoints(evaluation: Evaluation, moveColour: 'w' | 'b'): number {
   const centipawnGradient = 0.0035;
   if (evaluation.type === 'mate') {
     if (evaluation.value === 0) return moveColour === 'w' ? 1 : 0;
@@ -13,7 +13,7 @@ export function getExpectedPointsLoss(
   previousEvaluation: Evaluation,
   currentEvaluation: Evaluation,
   moveColour: 'w' | 'b'
-) {
+): number {
   const opponentColour = moveColour === 'w' ? 'b' : 'w';
   return Math.max(0,
     (

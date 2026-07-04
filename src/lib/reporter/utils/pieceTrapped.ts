@@ -1,5 +1,5 @@
 import { Chess, KING } from 'chess.js';
-import { BoardPiece } from '../types';
+import type { BoardPiece } from '../types';
 import { isPieceSafe } from './pieceSafety';
 import { moveCreatesGreaterThreat } from './dangerLevels';
 import { setFenTurn } from '../chess';

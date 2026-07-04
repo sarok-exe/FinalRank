@@ -1,26 +1,28 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
+import type { FirebaseApp } from 'firebase/app';
+import { initializeApp } from 'firebase/app';
+import type { Auth,
+  User as FirebaseUser} from 'firebase/auth';
 import {
-  getAuth, Auth, GoogleAuthProvider, signInWithPopup,
-  onAuthStateChanged, signOut as fbSignOut, signInAnonymously as fbSignInAnonymously,
-  User as FirebaseUser,
+  getAuth, GoogleAuthProvider, signInWithPopup,
+  onAuthStateChanged, signOut as fbSignOut, signInAnonymously as fbSignInAnonymously
 } from 'firebase/auth';
+import type { Firestore} from 'firebase/firestore';
 import {
-  getFirestore, Firestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
+  getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
   collection, getDocs, query, orderBy, limit, deleteDoc,
 } from 'firebase/firestore';
 
-import { generateShortId } from './shortId';
-import { getTurso, isTursoConfigured } from './turso';
+import { getTurso } from './turso';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '',
+  apiKey: (import.meta.env.VITE_FIREBASE_API_KEY as string | undefined) ?? '',
+  authDomain: (import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) ?? '',
+  projectId: (import.meta.env.VITE_FIREBASE_PROJECT_ID as string | undefined) ?? '',
+  storageBucket: (import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string | undefined) ?? '',
+  messagingSenderId: (import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string | undefined) ?? '',
+  appId: (import.meta.env.VITE_FIREBASE_APP_ID as string | undefined) ?? '',
 };
 
 let app: FirebaseApp | null = null;
@@ -29,7 +31,7 @@ let provider: GoogleAuthProvider | null = null;
 let db: Firestore | null = null;
 
 export function initFirebase() {
-  if (!app && firebaseConfig.apiKey) {
+  if (!app && firebaseConfig.apiKey !== '') {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
@@ -133,7 +135,7 @@ export function onAuthChanged(callback: AuthCallback): () => void {
 }
 
 export function isFirebaseConfigured(): boolean {
-  return !!firebaseConfig.apiKey;
+  return firebaseConfig.apiKey !== '';
 }
 
 export async function saveUserGame(uid: string, gameId: string, data: Record<string, unknown>) {
@@ -141,16 +143,16 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   if (!db) return;
   try {
     await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
-  } catch {}
-  const shortId = (data as any).shortId || gameId;
-  if (shortId) {
+  } catch { /* empty */ }
+  const shortId = (data.shortId as string | undefined) ?? gameId;
+  if (shortId !== '') {
     try {
       await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
-    } catch {}
+    } catch { /* empty */ }
   }
   // Mirror to Turso for resilience when Firestore is unreachable
   const turso = getTurso();
-  if (turso && shortId) {
+  if (turso && shortId !== '') {
     try {
       await turso.execute({
         sql: `INSERT INTO shared_games (short_id, game_data, uid, updated_at)
@@ -161,7 +163,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
                 updated_at = datetime('now')`,
         args: [shortId, JSON.stringify({ uid, ...data }), uid],
       });
-    } catch {}
+    } catch { /* empty */ }
   }
 }
 
@@ -185,7 +187,7 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
       if (snap.exists()) {
         return { id: snap.id, ...snap.data() };
       }
-    } catch {}
+    } catch { /* empty */ }
   }
   // Fallback to Turso when Firestore is unreachable
   const turso = getTurso();
@@ -200,7 +202,7 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
         const parsed = JSON.parse(row.game_data as string) as Record<string, unknown>;
         return { id: shortId, ...parsed };
       }
-    } catch {}
+    } catch { /* empty */ }
   }
   return null;
 }
@@ -212,5 +214,5 @@ export async function deleteUserGame(uid: string, gameId: string) {
     const shortId = gameId;
     await deleteDoc(doc(db, 'users', uid, 'games', shortId));
     await deleteDoc(doc(db, 'games', shortId));
-  } catch {}
+  } catch { /* empty */ }
 }

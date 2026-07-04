@@ -1,4 +1,4 @@
-export interface User {
+export type User = {
   id: string;
   username: string;
   email: string;
@@ -13,7 +13,7 @@ export interface User {
 
 export type EngineGoMode = 'depth' | 'time';
 
-export interface SiteColorScheme {
+export type SiteColorScheme = {
   primary: string;
   secondary: string;
   accent: string;
@@ -24,12 +24,12 @@ export interface SiteColorScheme {
   border: string;
 }
 
-export interface BoardCustomColors {
+export type BoardCustomColors = {
   lightSquare: string;
   darkSquare: string;
 }
 
-export interface UserSettings {
+export type UserSettings = {
   engineDepth: number;
   engineGoMode: EngineGoMode;
   engineTimeLimitMs: number;
@@ -111,17 +111,17 @@ export enum EngineVersion {
   STOCKFISH_OFFICIAL = 'stockfish-official.js',
 }
 
-export interface Evaluation {
+export type Evaluation = {
   type: 'centipawn' | 'mate';
   value: number;
 }
 
-export interface EngineLineMove {
+export type EngineLineMove = {
   uci: string;
   san: string;
 }
 
-export interface EngineLine {
+export type EngineLine = {
   evaluation: Evaluation;
   source: string;
   depth: number;
@@ -129,7 +129,7 @@ export interface EngineLine {
   moves: EngineLineMove[];
 }
 
-export interface EvaluationResult {
+export type EvaluationResult = {
   score: number;
   isMate: boolean;
   mateIn?: number;
@@ -138,7 +138,7 @@ export interface EvaluationResult {
   depthReached?: number;
 }
 
-export interface AnalyzedMove {
+export type AnalyzedMove = {
   index: number;
   san: string;
   from: string;
@@ -153,7 +153,7 @@ export interface AnalyzedMove {
   opening?: string;
 }
 
-export interface ChessGame {
+export type ChessGame = {
   id: string;
   shortId?: string;
   white: { username: string; rating?: number; avatar?: string };
@@ -175,7 +175,7 @@ export interface ChessGame {
   analysisDurationMs?: number;
 }
 
-export interface ClockPreset {
+export type ClockPreset = {
   id: string;
   name: string;
   timeLimit: number;

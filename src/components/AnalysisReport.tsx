@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import type React from 'react';
+import { useState, useMemo } from 'react';
 import { BarChart3, TrendingUp, PieChart } from 'lucide-react';
 import type { ChessGame } from '../types';
 import { classificationColours } from '../constants/classifications';
@@ -26,19 +27,18 @@ const CLASSIFICATION_LABELS: Record<string, string> = {
   risky: 'Risky',
 };
 
-interface Props {
-  game: ChessGame;
+type Props = {
+  readonly game: ChessGame;
 }
 
-export default function AnalysisReport({ game }: Props) {
+export default function AnalysisReport({ game }: Props): React.JSX.Element {
   const [activeTab, setActiveTab] = useState<ReportTab>('accuracy');
 
-  const moves = game.moves ?? [];
+  const moves = game.moves;
   const accuracy = game.accuracy;
-  const classificationCounts = game.classificationCounts;
 
   const classifiedMoves = useMemo(() => {
-    return moves.filter(m => m.classification);
+    return moves.filter(m => m.classification != null);
   }, [moves]);
 
   const evalData = useMemo(() => {
@@ -63,11 +63,6 @@ export default function AnalysisReport({ game }: Props) {
     return { white, black };
   }, [classifiedMoves]);
 
-  const maxClassificationCount = useMemo(() => {
-    const all = { ...classificationAgg.white, ...classificationAgg.black };
-    return Math.max(1, ...Object.values(all));
-  }, [classificationAgg]);
-
   const whiteMoves = moves.filter(m => m.color === 'w');
   const blackMoves = moves.filter(m => m.color === 'b');
   const whiteAccuracies = whiteMoves.map(m => m.accuracy ?? null).filter(Boolean) as number[];
@@ -82,7 +77,7 @@ export default function AnalysisReport({ game }: Props) {
 
   const hasAccuracyData = accuracy?.white != null || accuracy?.black != null || classifiedMoves.length > 0;
 
-  const renderAccuracyTab = () => (
+  const renderAccuracyTab = (): React.JSX.Element => (
     <div className="space-y-6">
       {hasAccuracyData ? (
         <>
@@ -104,7 +99,10 @@ export default function AnalysisReport({ game }: Props) {
             <div className="space-y-1">
               {classifiedMoves.slice(-40).map((m, i) => {
                 const pct = m.accuracy ?? 0;
-                const hue = pct >= 90 ? 120 : pct >= 75 ? 60 : pct >= 50 ? 30 : 0;
+                let hue = 0;
+                if (pct >= 90) hue = 120;
+                else if (pct >= 75) hue = 60;
+                else if (pct >= 50) hue = 30;
                 return (
                   <div key={i} className="flex items-center gap-2 text-[10px]">
                     <span className="w-12 font-mono text-[var(--color-text-muted)] shrink-0">
@@ -139,8 +137,11 @@ export default function AnalysisReport({ game }: Props) {
     </div>
   );
 
-  const renderEvalTab = () => {
-    const chartMoves = evalData.filter(d => d.score !== null);
+  type EvalChartItem = { moveNumber: number; score: number | null; isMate: boolean; mateIn: number | null; color: 'w' | 'b'; };
+  const renderEvalTab = (): React.JSX.Element => {
+    const chartMoves = evalData.filter(
+      (d): d is EvalChartItem & { score: number } => d.score !== null
+    );
     if (chartMoves.length === 0) {
       return (
         <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">
@@ -149,7 +150,7 @@ export default function AnalysisReport({ game }: Props) {
       );
     }
 
-    const scores = chartMoves.map(d => d.score as number);
+    const scores = chartMoves.map(d => d.score);
     const maxScore = Math.max(...scores.map(Math.abs), 100);
     const minScore = -maxScore;
     const range = maxScore - minScore || 1;
@@ -161,11 +162,11 @@ export default function AnalysisReport({ game }: Props) {
     const totalMoves = chartMoves.length;
     const stepX = totalMoves > 1 ? plotW / (totalMoves - 1) : plotW;
 
-    const toX = (i: number) => padding.left + i * stepX;
-    const toY = (score: number) => padding.top + plotH - ((score - minScore) / range) * plotH;
+    const toX = (i: number): number => padding.left + i * stepX;
+    const toY = (score: number): number => padding.top + plotH - ((score - minScore) / range) * plotH;
 
     const linePath = chartMoves.map((d, i) =>
-      `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.score as number)}`
+      `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.score)}`
     ).join(' ');
 
     const zeroY = toY(0);
@@ -206,7 +207,7 @@ export default function AnalysisReport({ game }: Props) {
           <path d={linePath} fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
           {chartMoves.map((d, i) => {
             const cx = toX(i);
-            const cy = toY(d.score as number);
+            const cy = toY(d.score);
             const isWhite = d.color === 'w';
             return (
               <circle
@@ -233,7 +234,7 @@ export default function AnalysisReport({ game }: Props) {
     );
   };
 
-  const renderClassificationTab = () => {
+  const renderClassificationTab = (): React.JSX.Element => {
     const hasData = Object.keys(classificationAgg.white).length > 0 || Object.keys(classificationAgg.black).length > 0;
 
     if (!hasData) {
@@ -244,7 +245,7 @@ export default function AnalysisReport({ game }: Props) {
       );
     }
 
-    const renderPie = (data: Record<string, number>, label: string) => {
+    const renderPie = (data: Record<string, number>, label: string): React.JSX.Element | null => {
       const entries = Object.entries(data).sort(([, a], [, b]) => b - a);
       const total = entries.reduce((s, [, v]) => s + v, 0);
       if (total === 0) return null;
@@ -305,10 +306,10 @@ export default function AnalysisReport({ game }: Props) {
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {renderPie(classificationAgg.white, 'White') || (
+        {renderPie(classificationAgg.white, 'White') ?? (
           <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">No white classification data.</div>
         )}
-        {renderPie(classificationAgg.black, 'Black') || (
+        {renderPie(classificationAgg.black, 'Black') ?? (
           <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">No black classification data.</div>
         )}
       </div>
@@ -324,7 +325,7 @@ export default function AnalysisReport({ game }: Props) {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => { setActiveTab(tab.id); }}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 active
                   ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)]'

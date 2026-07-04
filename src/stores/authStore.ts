@@ -1,21 +1,21 @@
 import { create } from 'zustand';
-import { User } from '../types';
+import type { User } from '../types';
 import { signInWithGoogle, signInAnonymously, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
 
 export type StreakToast = { show: boolean; newStreak: number; prevStreak: number };
 
-interface AuthState {
+type AuthState = {
   user: User | null;
   loading: boolean;
   error: string | null;
   streakToast: StreakToast | null;
-  signInWithGoogle: () => Promise<void>;
-  loginAsGuest: (username?: string) => void;
-  logout: () => void;
-  incrementAnalyzedGames: () => Promise<void>;
-  updateStreakOnAnalysis: () => Promise<{ streakIncremented: boolean; newStreak: number; prevStreak: number }>;
-  setChessComUsername: (username: string) => Promise<void>;
-  clearStreakToast: () => void;
+  signInWithGoogle(): Promise<void>;
+  loginAsGuest(username?: string): void;
+  logout(): void;
+  incrementAnalyzedGames(): Promise<void>;
+  updateStreakOnAnalysis(): Promise<{ streakIncremented: boolean; newStreak: number; prevStreak: number }>;
+  setChessComUsername(username: string): Promise<void>;
+  clearStreakToast(): void;
 }
 
 const DEFAULT_GUEST: User = {
@@ -77,7 +77,7 @@ const DEFAULT_GUEST: User = {
 function loadUser(): User | null {
   try {
     const raw = localStorage.getItem('finalrank_user');
-    return raw ? JSON.parse(raw) : null;
+    return raw != null ? JSON.parse(raw) as User : null;
   } catch {
     return null;
   }
@@ -121,10 +121,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     saveUser(user);
   },
 
-  logout: async () => {
+  logout: () => {
     const { user } = get();
     if (user?.authProvider === 'google' || user?.authProvider === 'anonymous') {
-      try { await fbSignOut(); } catch {}
+      void fbSignOut().catch(() => {});
     }
     set({ user: null, error: null });
     removeUser();
@@ -137,7 +137,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: updated });
     saveUser(updated);
     if (user.authProvider === 'google') {
-      updateUserProfile(updated.id, {
+      void updateUserProfile(updated.id, {
         analyzedCount: updated.analyzedCount,
       });
     }
@@ -153,7 +153,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     let newStreak = prevStreak;
     let streakIncremented = false;
 
-    if (!lastActive) {
+    if (lastActive == null) {
       newStreak = 1;
       streakIncremented = true;
     } else {
@@ -171,7 +171,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: updated });
     saveUser(updated);
     if (user.authProvider === 'google') {
-      updateUserProfile(updated.id, {
+      void updateUserProfile(updated.id, {
         streak: updated.streak,
         lastActiveDate: updated.lastActiveDate,
       });
@@ -179,7 +179,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     return { streakIncremented, newStreak, prevStreak };
   },
 
-  clearStreakToast: () => set({ streakToast: null }),
+  clearStreakToast: () => { set({ streakToast: null }); },
 
   setChessComUsername: async (chessComUsername: string) => {
     const { user } = get();
@@ -189,8 +189,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ user: updated });
     saveUser(updated);
     if (user.authProvider === 'google') {
-      updateUserProfile(updated.id, {
-        chessComUsername: updated.chessComUsername || null,
+      void updateUserProfile(updated.id, {
+        chessComUsername: updated.chessComUsername ?? null,
       });
     }
   },
@@ -200,14 +200,14 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
   const existing = loadUser();
   return {
     id: fbUser.uid,
-    username: fbUser.displayName || fbUser.email?.split('@')[0] || 'GoogleUser',
-    email: fbUser.email || '',
-    avatar: fbUser.photoURL || '',
+    username: fbUser.displayName ?? fbUser.email?.split('@')[0] ?? 'GoogleUser',
+    email: fbUser.email ?? '',
+    avatar: fbUser.photoURL ?? '',
     authProvider: 'google',
     streak: existing?.streak ?? 0,
     analyzedCount: existing?.analyzedCount ?? 0,
     lastActiveDate: null,
-    chessComUsername: existing?.chessComUsername || undefined,
+    chessComUsername: existing?.chessComUsername ?? undefined,
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
 }
@@ -220,26 +220,26 @@ let receivedUser = false;
 async function handleFirebaseUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null; isAnonymous?: boolean } | null) {
   if (!fbUser) {
     if (!receivedUser && isFirebaseConfigured()) {
-      signInAnonymously();
+      void signInAnonymously();
     }
     useAuthStore.setState({ loading: false });
     return;
   }
 
-  if (fbUser.isAnonymous) {
+  if (fbUser.isAnonymous === true) {
     receivedUser = true;
     useAuthStore.setState({ error: null });
     const existing = loadUser();
     const user: User = {
       id: fbUser.uid,
-      username: existing?.username || 'Guest',
+      username: existing?.username ?? 'Guest',
       email: '',
-      avatar: existing?.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${existing?.username || 'Guest'}`,
+      avatar: existing?.avatar ?? `https://api.dicebear.com/7.x/bottts/svg?seed=${existing?.username ?? 'Guest'}`,
       authProvider: 'anonymous',
       streak: existing?.streak ?? 0,
       analyzedCount: existing?.analyzedCount ?? 0,
-      lastActiveDate: existing?.lastActiveDate || null,
-      chessComUsername: existing?.chessComUsername || undefined,
+      lastActiveDate: existing?.lastActiveDate ?? null,
+      chessComUsername: existing?.chessComUsername ?? undefined,
       settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
@@ -256,15 +256,15 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
   if (remoteProfile) {
     const user: User = {
       id: fbUser.uid,
-      username: fbUser.displayName || (remoteProfile.username as string) || 'GoogleUser',
-      email: fbUser.email || (remoteProfile.email as string) || '',
-      avatar: fbUser.photoURL || (remoteProfile.avatar as string) || '',
+      username: fbUser.displayName ?? (remoteProfile.username as string | undefined) ?? 'GoogleUser',
+      email: fbUser.email ?? (remoteProfile.email as string | undefined) ?? '',
+      avatar: fbUser.photoURL ?? (remoteProfile.avatar as string | undefined) ?? '',
       authProvider: 'google',
-      streak: (remoteProfile.streak as number) ?? 0,
-      analyzedCount: (remoteProfile.analyzedCount as number) ?? 0,
-      lastActiveDate: (remoteProfile.lastActiveDate as string) || null,
-      chessComUsername: (remoteProfile.chessComUsername as string) || existing?.chessComUsername || undefined,
-      settings: (remoteProfile.settings as User['settings']) || { ...DEFAULT_GUEST.settings },
+      streak: (remoteProfile.streak as number | undefined) ?? 0,
+      analyzedCount: (remoteProfile.analyzedCount as number | undefined) ?? 0,
+      lastActiveDate: (remoteProfile.lastActiveDate as string | undefined) ?? null,
+      chessComUsername: (remoteProfile.chessComUsername as string | undefined) ?? existing?.chessComUsername ?? undefined,
+      settings: (remoteProfile.settings as User['settings'] | undefined) ?? { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
     useAuthStore.setState({ user, loading: false });
@@ -274,9 +274,9 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
   if (existing?.id === fbUser.uid) {
     const refreshed = {
       ...existing,
-      username: fbUser.displayName || existing.username,
-      avatar: fbUser.photoURL || existing.avatar,
-      email: fbUser.email || existing.email,
+      username: fbUser.displayName ?? existing.username,
+      avatar: fbUser.photoURL ?? existing.avatar,
+      email: fbUser.email ?? existing.email,
     };
     saveUser(refreshed);
     useAuthStore.setState({ user: refreshed, loading: false });
@@ -294,7 +294,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     streak: user.streak,
     analyzedCount: user.analyzedCount,
     lastActiveDate: user.lastActiveDate,
-    chessComUsername: user.chessComUsername || null,
+    chessComUsername: user.chessComUsername ?? null,
     settings: user.settings,
   });
 }
@@ -311,12 +311,10 @@ export async function initAuth() {
     useAuthStore.setState({ loading: true });
   }
 
-  unsubAuth = onAuthChanged(async (fbUser) => {
-    try {
-      await handleFirebaseUser(fbUser);
-    } catch (err) {
+  unsubAuth = onAuthChanged((fbUser) => {
+    void handleFirebaseUser(fbUser).catch((err) => {
       console.error('[Auth] handleFirebaseUser failed:', err);
       useAuthStore.setState({ error: 'Failed to load profile', loading: false });
-    }
+    });
   });
 }

@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Bug, Send, CheckCircle, AlertTriangle, Mail, Shield, Clock } from 'lucide-react';
+import type React from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { Bug, Send, CheckCircle, AlertTriangle, Mail, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import emailjs from '@emailjs/browser';
 import { useAuthStore } from '../stores/authStore';
@@ -11,19 +12,19 @@ const RESET_HOURS = 24;
 function getLastReportTs(): number | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    return raw != null ? (JSON.parse(raw) as number) : null;
   } catch {
     return null;
   }
 }
 
-function setLocalReportTs() {
+function setLocalReportTs(): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(Date.now()));
 }
 
 function getRemainingSeconds(): number {
   const ts = getLastReportTs();
-  if (!ts) return 0;
+  if (ts == null) return 0;
   const elapsed = Date.now() - ts;
   if (elapsed >= RESET_HOURS * 60 * 60 * 1000) {
     localStorage.removeItem(STORAGE_KEY);
@@ -41,7 +42,7 @@ function formatCooldown(seconds: number): string {
   return `${s}s`;
 }
 
-export default function Report() {
+export default function Report(): React.JSX.Element {
   const { user } = useAuthStore();
   const formRef = useRef<HTMLFormElement>(null);
   const honeypotRef = useRef<HTMLInputElement>(null);
@@ -53,44 +54,46 @@ export default function Report() {
   const [cooldown, setCooldown] = useState(0);
 
   useEffect(() => {
-    checkBlocked();
+    async function checkBlocked(): Promise<void> {
+      const localTs = getLastReportTs();
+      if (localTs != null && Date.now() - localTs < RESET_HOURS * 60 * 60 * 1000) {
+        setBlocked(true);
+        setCooldown(getRemainingSeconds());
+        return;
+      }
+      if (user?.authProvider === 'google') {
+        try {
+          const profile = await fetchUserProfile(user.id);
+          const fbTs = profile?.lastReportAt as { toMillis?(): number } | undefined;
+          if (fbTs?.toMillis) {
+            const ms = fbTs.toMillis();
+            if (Date.now() - ms < RESET_HOURS * 60 * 60 * 1000) {
+              setLocalReportTs();
+              setBlocked(true);
+              setCooldown(getRemainingSeconds());
+              return;
+            }
+          }
+        } catch {
+          console.warn('Failed to check blocked status from Firestore');
+        }
+      }
+      setBlocked(false);
+      setCooldown(0);
+    }
+
+    void checkBlocked();
     const interval = setInterval(() => {
       setCooldown(getRemainingSeconds());
     }, 1000);
-    return () => clearInterval(interval);
+    return () => { clearInterval(interval); };
   }, [user]);
 
-  async function checkBlocked() {
-    const localTs = getLastReportTs();
-    if (localTs && Date.now() - localTs < RESET_HOURS * 60 * 60 * 1000) {
-      setBlocked(true);
-      setCooldown(getRemainingSeconds());
-      return;
-    }
-    if (user?.authProvider === 'google') {
-      try {
-        const profile = await fetchUserProfile(user.id);
-        const fbTs = profile?.lastReportAt as unknown as { toMillis?: () => number } | undefined;
-        if (fbTs?.toMillis) {
-          const ms = fbTs.toMillis();
-          if (Date.now() - ms < RESET_HOURS * 60 * 60 * 1000) {
-            setLocalReportTs();
-            setBlocked(true);
-            setCooldown(getRemainingSeconds());
-            return;
-          }
-        }
-      } catch {}
-    }
-    setBlocked(false);
-    setCooldown(0);
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent): Promise<void> => {
     e.preventDefault();
     if (!message.trim() || !user) return;
 
-    if (honeypotRef.current?.value) return;
+    if (honeypotRef.current?.value != null && honeypotRef.current.value !== '') return;
 
     if (blocked) {
       setStatus('rate-limited');
@@ -100,20 +103,22 @@ export default function Report() {
     setSending(true);
     setStatus('idle');
 
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID as string | undefined;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID as string | undefined;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY as string | undefined;
 
-    async function saveReportTs() {
+    async function saveReportTs(): Promise<void> {
       setLocalReportTs();
-      if (user.authProvider === 'google') {
+      if (user?.authProvider === 'google') {
         try {
           await updateUserProfile(user.id, { lastReportAt: new Date().toISOString() });
-        } catch {}
+        } catch {
+          console.warn('Failed to save report timestamp to Firestore');
+        }
       }
     }
 
-    if (!serviceId || !templateId || !publicKey) {
+    if (serviceId == null || serviceId === '' || templateId == null || templateId === '' || publicKey == null || publicKey === '') {
       window.open(
         `mailto:finalrank@protonmail.com?subject=${encodeURIComponent(subject || 'FinalRank Feedback')}&body=${encodeURIComponent(
           `From: ${user.username} (${user.email || 'no email'})\n\n${message}`
@@ -128,8 +133,15 @@ export default function Report() {
       return;
     }
 
+    const formEl = formRef.current;
+    if (formEl == null) {
+      setSending(false);
+      setStatus('error');
+      return;
+    }
+
     try {
-      await emailjs.sendForm(serviceId, templateId, formRef.current!, publicKey);
+      await emailjs.sendForm(serviceId, templateId, formEl, publicKey);
       await saveReportTs();
       setBlocked(true);
       setCooldown(getRemainingSeconds());
@@ -190,7 +202,7 @@ export default function Report() {
               >
                 Your report has been sent to{' '}
                 <span className="text-[var(--color-primary)] font-semibold">finalrank@protonmail.com</span>.
-                I'll review it as soon as possible.
+                I&apos;ll review it as soon as possible.
               </motion.p>
               <motion.div
                 initial={{ y: 10, opacity: 0 }}
@@ -198,7 +210,7 @@ export default function Report() {
                 transition={{ delay: 0.5 }}
               >
                 <button
-                  onClick={() => setStatus('idle')}
+                  onClick={() => { setStatus('idle'); }}
                   className="text-xs text-[var(--color-accent)] hover:underline mt-2 inline-block"
                 >
                   Send another report
@@ -209,7 +221,7 @@ export default function Report() {
             <motion.form
               key="form"
               ref={formRef}
-              onSubmit={handleSubmit}
+              onSubmit={(e): void => { void handleSubmit(e); }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -240,7 +252,7 @@ export default function Report() {
                 <input
                   type="text"
                   value={subject}
-                  onChange={e => setSubject(e.target.value)}
+                  onChange={e => { setSubject(e.target.value); }}
                   placeholder="Brief summary of the issue..."
                   className="w-full bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors"
                 />
@@ -252,7 +264,7 @@ export default function Report() {
                   required
                   rows={8}
                   value={message}
-                  onChange={e => setMessage(e.target.value)}
+                  onChange={e => { setMessage(e.target.value); }}
                   placeholder="Describe the issue in detail. What were you doing? What happened? What did you expect?"
                   className="w-full bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)] transition-colors resize-y"
                 />
@@ -261,7 +273,7 @@ export default function Report() {
               {user && (
                 <input type="hidden" name="from_name" value={user.username} />
               )}
-              {user?.email && (
+              {user?.email != null && user.email !== '' && (
                 <input type="hidden" name="from_email" value={user.email} />
               )}
               <input type="hidden" name="to_email" value="finalrank@protonmail.com" />
@@ -282,7 +294,7 @@ export default function Report() {
                   <p className="text-xs text-[var(--color-text-muted)]">
                     You can send 1 report per 24 hours. Next report available in{' '}
                     <span className="font-mono text-[var(--color-text)]">{formatCooldown(cooldown)}</span>.
-                    Please email <span className="font-mono text-[var(--color-text)]">finalrank@protonmail.com</span> directly if it's urgent.
+                    Please email <span className="font-mono text-[var(--color-text)]">finalrank@protonmail.com</span> directly if it&apos;s urgent.
                   </p>
                 </div>
               )}
@@ -314,7 +326,7 @@ export default function Report() {
               <a href="mailto:finalrank@protonmail.com" className="text-[var(--color-primary)] underline font-mono">
                 finalrank@protonmail.com
               </a>
-              {' '}and I'll get back to you as soon as possible.
+              {' '}and I&apos;ll get back to you as soon as possible.
             </p>
           </div>
         </div>

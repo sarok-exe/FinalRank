@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { Engine, getTopEngineLine } from './index';
-import { EvaluationResult, EngineGoMode } from '../../types';
+import type { EvaluationResult, EngineGoMode } from '../../types';
 
 let engineInstance: Engine | null = null;
 

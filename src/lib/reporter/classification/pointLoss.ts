@@ -1,6 +1,6 @@
 import { WHITE } from 'chess.js';
-import { MoveClassification } from '../../../types';
-import { ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
+import type { MoveClassification } from '../../../types';
+import type { ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
 import { getExpectedPointsLoss } from '../expectedPoints';
 
 export function pointLossClassify(

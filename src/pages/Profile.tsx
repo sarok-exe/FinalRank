@@ -1,18 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User as UserIcon, Settings, Flame, Trophy, Volume2, VolumeX,
-  Bell, BellOff, Palette, Activity, Zap, LogOut, Keyboard, Clock,
-  Eye, EyeOff, Monitor, ChevronRight, Paintbrush, Sun, Droplets,
-  Gamepad2, BookOpen,
+  User as UserIcon, Flame, Trophy, Volume2,
+  Bell, Palette, Zap, LogOut, Keyboard, Clock,
+  Eye, Monitor, ChevronRight, Paintbrush,
+  BookOpen,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
-import { useGameStore } from '../stores/gameStore';
 import { fetchUserGames } from '../lib/firebase';
 import ColorPicker from '../components/ColorPicker';
 import StreakFlame, { getStreakTier } from '../components/StreakFlame';
 import { Search } from 'lucide-react';
+import type { UserSettings } from '../types';
 
 type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors' | 'streak';
 
@@ -52,29 +53,45 @@ const shortcutsList = [
   { key: 'shortcuts', label: 'Show shortcuts', keyDisplay: '?' },
 ];
 
-export default function Profile() {
-  const { user, loginAsGuest, logout, signInWithGoogle, loading: authLoading, error: authError } = useAuthStore();
-  const { settings, updateSettings, resetSettings } = useSettingsStore();
+type SavedGame = {
+  id: string;
+  shortId?: string;
+  date?: string;
+  white?: { username?: string };
+  black?: { username?: string };
+  result?: string;
+  accuracy?: { white?: number; black?: number };
+  userSaved?: boolean;
+};
+
+export default function Profile(): React.ReactElement {
+  const { user, loading: authLoading, error: authError } = useAuthStore();
+  const loginAsGuest = (name: string): void => { useAuthStore.getState().loginAsGuest(name); };
+  const logout = (): void => { useAuthStore.getState().logout(); };
+  const signInWithGoogle = (): void => { void useAuthStore.getState().signInWithGoogle(); };
+  const { settings } = useSettingsStore();
+  const updateSettings = (newSettings: Partial<UserSettings>): void => { useSettingsStore.getState().updateSettings(newSettings); };
+  const resetSettings = (): void => { useSettingsStore.getState().resetSettings(); };
   const navigate = useNavigate();
   const [typedName, setTypedName] = useState('');
   const [activeTab, setActiveTab] = useState<Tab>('account');
   const [colorPickerTarget, setColorPickerTarget] = useState<'site' | 'board' | null>(null);
-  const [savedGames, setSavedGames] = useState<Record<string, unknown>[]>([]);
+  const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
 
   useEffect(() => {
-    if (user && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
+    if (user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
       setLoadingSaved(true);
       fetchUserGames(user.id).then(games => {
-        setSavedGames(games.filter((g: any) => g.userSaved === true));
+        setSavedGames((games as SavedGame[]).filter(g => g.userSaved === true));
         setLoadingSaved(false);
-      }).catch(() => setLoadingSaved(false));
+      }).catch(() => { setLoadingSaved(false); });
     } else {
       setSavedGames([]);
     }
   }, [user?.id, user?.authProvider]);
 
-  const handleGuestLogin = (e: React.FormEvent) => {
+  const handleGuestLogin = (e: SubmitEvent): void => {
     e.preventDefault();
     if (typedName.trim()) {
       loginAsGuest(typedName.trim());
@@ -83,8 +100,8 @@ export default function Profile() {
   };
 
   const SettingToggle = ({ label, desc, checked, onChange, id }: {
-    label: string; desc: string; checked: boolean; onChange: (v: boolean) => void; id?: string;
-  }) => (
+    label: string; desc: string; checked: boolean; onChange(this: undefined, v: boolean): void; id?: string;
+  }): React.ReactElement => (
     <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer">
       <div>
         <div className="text-xs font-semibold text-[var(--color-text)]">{label}</div>
@@ -93,14 +110,14 @@ export default function Profile() {
       <input
         type="checkbox"
         checked={checked}
-        onChange={e => onChange(e.target.checked)}
+        onChange={e => { onChange(e.target.checked); }}
         id={id}
         className="w-9 h-5 bg-[var(--color-background)] border border-[var(--color-border)] rounded-full appearance-none checked:bg-[var(--color-primary)] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
       />
     </label>
   );
 
-  const renderTabNav = () => (
+  const renderTabNav = (): React.ReactElement => (
     <div className="flex flex-col space-y-1">
       {TABS.map(tab => {
         const Icon = tab.icon;
@@ -108,7 +125,7 @@ export default function Profile() {
         return (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); }}
             className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
               active
                 ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
@@ -124,7 +141,7 @@ export default function Profile() {
     </div>
   );
 
-  const renderAccountTab = () => {
+  const renderAccountTab = (): React.ReactElement => {
     if (authLoading && !user) {
       return (
         <div className="flex items-center justify-center py-20">
@@ -147,7 +164,7 @@ export default function Profile() {
                 type="text"
                 required
                 value={typedName}
-                onChange={e => setTypedName(e.target.value)}
+                onChange={e => { setTypedName(e.target.value); }}
                 placeholder="Choose a display name"
                 className="bg-[var(--color-background)] border border-[var(--color-border)] w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)]"
               />
@@ -164,7 +181,7 @@ export default function Profile() {
 
             <div className="space-y-2">
               <button
-                onClick={signInWithGoogle}
+                onClick={() => { signInWithGoogle(); }}
                 disabled={authLoading}
                 className="w-full bg-white text-[var(--color-background)] py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
               >
@@ -176,14 +193,14 @@ export default function Profile() {
                 </svg>
                 <span>{authLoading ? 'Signing in...' : 'Sign in with Google'}</span>
               </button>
-              {authError && (
+              {authError != null && authError !== '' && (
                 <p className="text-[10px] text-[#fb4934] text-center">{authError}</p>
               )}
               <p className="text-[10px] text-[var(--color-text-muted)] text-center">Link your Google account to save your progress across devices.</p>
             </div>
           </div>
 
-          {authError && authError.includes('configured') && (
+          {authError != null && authError !== '' && authError.includes('configured') && (
             <div className="bg-[var(--color-surface)] border border-[#d65d0e] rounded-xl p-4 space-y-2">
               <p className="text-xs font-bold text-[#d65d0e]">Firebase not configured</p>
               <p className="text-[10px] text-[var(--color-text-muted)]">To enable Google sign-in, create a <code className="text-[var(--color-accent)]">.env</code> file with your Firebase config:</p>
@@ -200,6 +217,39 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       );
     }
 
+    const providerLabel = user.authProvider === 'google' ? 'Google Account' : 'Guest';
+    const emailDisplay = user.email
+      ? `${user.email.slice(0, 3)}...${user.email.split('@')[1] ?? ''}`
+      : providerLabel;
+    const savedGamesContent = savedGames.length === 0
+      ? (
+        <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
+      )
+      : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-thin">
+          {savedGames.map((g: SavedGame) => (
+            <button
+              key={g.id}
+              onClick={() => {
+                const shortId = g.shortId ?? g.id;
+                void navigate(`/game/${shortId}`);
+              }}
+              className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] transition-all"
+            >
+              <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5">{g.date}</div>
+              <div className="text-xs font-bold text-white truncate">
+                {g.white?.username} vs {g.black?.username}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-[10px] font-mono text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{g.result}</span>
+                {g.accuracy != null && (
+                  <span className="text-[10px] text-green-500">W: {g.accuracy.white}% B: {g.accuracy.black}%</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      );
     return (
       <div className="space-y-5">
         <div className="flex flex-col items-center text-center space-y-3">
@@ -216,9 +266,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           <div>
             <h2 className="text-lg font-extrabold text-[var(--color-text)]">{user.username}</h2>
             <p className="text-xs text-[var(--color-text-muted)] font-mono">
-              {user.email
-                ? `${user.email.slice(0, 3)}...${user.email.split('@')[1] || ''}`
-                : user.authProvider === 'google' ? 'Google Account' : 'Guest'}
+              {emailDisplay}
             </p>
           </div>
         </div>
@@ -257,33 +305,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                   </div>
                 ))}
               </div>
-            ) : savedGames.length === 0 ? (
-              <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-thin">
-                  {savedGames.map((g: any) => (
-                    <button
-                      key={g.id}
-                      onClick={() => {
-                        const shortId = g.shortId || g.id;
-                        navigate(`/game/${shortId}`);
-                      }}
-                    className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] transition-all"
-                  >
-                    <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5">{g.date}</div>
-                    <div className="text-xs font-bold text-white truncate">
-                      {g.white?.username} vs {g.black?.username}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] font-mono text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{g.result}</span>
-                      {g.accuracy && (
-                        <span className="text-[10px] text-green-500">W: {g.accuracy.white}% B: {g.accuracy.black}%</span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
+            ) : savedGamesContent}
           </div>
         )}
 
@@ -296,15 +318,15 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           <div className="flex gap-2">
             <input
               type="text"
-              defaultValue={user.chessComUsername || ''}
+              defaultValue={user.chessComUsername ?? ''}
               placeholder="Chess.com username"
               id="chesscom-link-input"
               className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 outline-none focus:border-[var(--color-primary)]"
             />
             <button
               onClick={(e) => {
-                const input = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement;
-                if (input) useAuthStore.getState().setChessComUsername(input.value);
+                const input = (e.target as HTMLElement).parentElement?.querySelector('input');
+                if (input != null) void useAuthStore.getState().setChessComUsername(input.value);
               }}
               className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
             >
@@ -314,7 +336,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </div>
 
         <button
-          onClick={logout}
+          onClick={() => { logout(); }}
           className="w-full flex items-center justify-center gap-2 text-xs text-[var(--color-accent)] border border-[var(--color-border)] px-4 py-2 rounded-lg hover:bg-[var(--color-background)] transition-all"
         >
           <LogOut className="w-3.5 h-3.5" />
@@ -324,7 +346,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     );
   };
 
-  const renderEngineTab = () => (
+  const renderEngineTab = (): React.ReactElement => (
     <div className="space-y-5">
       <div className="space-y-2.5">
         <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
@@ -333,7 +355,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </label>
         <select
           value={settings.engineDepth}
-          onChange={e => updateSettings({ engineDepth: parseInt(e.target.value, 10) })}
+          onChange={e => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
           className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
         >
           <option value={6}>Depth 6 (Fast)</option>
@@ -351,7 +373,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           {(['depth', 'time'] as const).map(mode => (
             <button
               key={mode}
-              onClick={() => updateSettings({ engineGoMode: mode })}
+              onClick={() => { updateSettings({ engineGoMode: mode }); }}
               className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
                 settings.engineGoMode === mode
                   ? 'bg-[var(--color-primary)] text-white'
@@ -373,7 +395,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             max={30000}
             step={500}
             value={settings.engineTimeLimitMs}
-            onChange={e => updateSettings({ engineTimeLimitMs: parseInt(e.target.value, 10) })}
+            onChange={e => { updateSettings({ engineTimeLimitMs: parseInt(e.target.value, 10) }); }}
             className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
           />
           <div className="flex justify-between text-[10px] font-mono text-[var(--color-text-muted)]">
@@ -397,12 +419,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             </div>
           ))}
         </div>
-        <SettingToggle label="Enable shortcuts" desc="Toggle keyboard navigation" checked={settings.shortcutsEnabled} onChange={v => updateSettings({ shortcutsEnabled: v })} />
+        <SettingToggle label="Enable shortcuts" desc="Toggle keyboard navigation" checked={settings.shortcutsEnabled} onChange={v => { updateSettings({ shortcutsEnabled: v }); }} />
       </div>
     </div>
   );
 
-  const renderBoardTab = () => (
+  const renderBoardTab = (): React.ReactElement => (
     <div className="space-y-5">
       <div className="space-y-2.5">
         <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
@@ -415,7 +437,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             return (
               <button
                 key={theme.id}
-                onClick={() => updateSettings({ boardColor: theme.id as any })}
+                onClick={() => { updateSettings({ boardColor: theme.id }); }}
                 className={`rounded-xl border p-3 flex flex-col items-center gap-2 text-center h-20 transition-all ${
                   sel
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
@@ -437,7 +459,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         label="Show Coordinates"
         desc="Display a-h, 1-8 labels on the board"
         checked={settings.featureToggles.showCoordinates}
-        onChange={v => updateSettings({ featureToggles: { ...settings.featureToggles, showCoordinates: v } })}
+        onChange={v => { updateSettings({ featureToggles: { ...settings.featureToggles, showCoordinates: v } }); }}
       />
 
       <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
@@ -450,7 +472,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           min={6}
           max={20}
           value={settings.coordinatesSize}
-          onChange={e => updateSettings({ coordinatesSize: parseInt(e.target.value, 10) })}
+          onChange={e => { updateSettings({ coordinatesSize: parseInt(e.target.value, 10) }); }}
           className="w-28 h-1.5 bg-[var(--color-border)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
         />
       </div>
@@ -461,7 +483,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           {(['white', 'black'] as const).map(side => (
             <button
               key={side}
-              onClick={() => updateSettings({ boardOrientation: side })}
+              onClick={() => { updateSettings({ boardOrientation: side }); }}
               className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
                 settings.boardOrientation === side
                   ? 'bg-[var(--color-primary)] text-white'
@@ -490,10 +512,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <div className="text-[9px] text-[var(--color-text-muted)]">{desc}</div>
               <input
                 type="color"
-                value={settings.highlightColors[key as keyof typeof settings.highlightColors]}
-                onChange={e => updateSettings({
+                value={settings.highlightColors[key]}
+                onChange={e => { updateSettings({
                   highlightColors: { ...settings.highlightColors, [key]: e.target.value }
-                })}
+                }); }}
                 className="w-full h-8 rounded border border-[var(--color-border)] cursor-pointer [&::-webkit-color-swatch-wrapper]:p-1 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded"
               />
             </div>
@@ -503,13 +525,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     </div>
   );
 
-  const renderAudioTab = () => (
+  const renderAudioTab = (): React.ReactElement => (
     <div className="space-y-5">
       <SettingToggle
         label="Sound Effects"
         desc="Play sounds for moves and alerts"
         checked={settings.audioEnabled}
-        onChange={v => updateSettings({ audioEnabled: v })}
+        onChange={v => { updateSettings({ audioEnabled: v }); }}
       />
 
       <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
@@ -524,7 +546,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           min={0}
           max={100}
           value={Math.round(settings.audioVolume * 100)}
-          onChange={e => updateSettings({ audioVolume: parseInt(e.target.value, 10) / 100 })}
+          onChange={e => { updateSettings({ audioVolume: parseInt(e.target.value, 10) / 100 }); }}
           className="w-24 accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
         />
       </div>
@@ -538,13 +560,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           label="Analysis Notifications"
           desc="Show legendary alerts after analysis"
           checked={settings.notificationsEnabled}
-          onChange={v => updateSettings({ notificationsEnabled: v })}
+          onChange={v => { updateSettings({ notificationsEnabled: v }); }}
         />
       </div>
     </div>
   );
 
-  const renderClockTab = () => (
+  const renderClockTab = (): React.ReactElement => (
     <div className="space-y-5">
       <div className="space-y-3">
         <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
@@ -556,13 +578,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             label="Time Alert"
             desc="Warn when time is low"
             checked={settings.timeAlertEnabled}
-            onChange={v => updateSettings({ timeAlertEnabled: v })}
+            onChange={v => { updateSettings({ timeAlertEnabled: v }); }}
           />
           <SettingToggle
             label="Alert Sound"
             desc="Play warning beep"
             checked={settings.timeAlertSound}
-            onChange={v => updateSettings({ timeAlertSound: v })}
+            onChange={v => { updateSettings({ timeAlertSound: v }); }}
           />
         </div>
       </div>
@@ -578,7 +600,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           max={120}
           step={5}
           value={settings.timeAlertThreshold}
-          onChange={e => updateSettings({ timeAlertThreshold: parseInt(e.target.value, 10) })}
+          onChange={e => { updateSettings({ timeAlertThreshold: parseInt(e.target.value, 10) }); }}
           className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
           disabled={!settings.timeAlertEnabled}
         />
@@ -592,7 +614,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     </div>
   );
 
-  const renderStreakTab = () => (
+  const renderStreakTab = (): React.ReactElement => (
     <div className="space-y-5">
       {/* streak preview */}
       <div className="flex flex-col items-center py-6 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl">
@@ -612,7 +634,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           label="Play Sound"
           desc="Celebration chime when streak increases"
           checked={settings.streakSoundEnabled}
-          onChange={v => updateSettings({ streakSoundEnabled: v })}
+          onChange={v => { updateSettings({ streakSoundEnabled: v }); }}
         />
         <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
           <div>
@@ -624,7 +646,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             min={0}
             max={100}
             value={Math.round(settings.streakSoundVolume * 100)}
-            onChange={e => updateSettings({ streakSoundVolume: parseInt(e.target.value, 10) / 100 })}
+            onChange={e => { updateSettings({ streakSoundVolume: parseInt(e.target.value, 10) / 100 }); }}
             className="w-24 accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
           />
         </div>
@@ -640,7 +662,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           label="Animated Canvas"
           desc="Rich particle animation (larger badges)"
           checked={settings.streakFlameAnimated}
-          onChange={v => updateSettings({ streakFlameAnimated: v })}
+          onChange={v => { updateSettings({ streakFlameAnimated: v }); }}
         />
         <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-3">
           <div className="text-xs font-semibold text-[var(--color-text)] mb-2">Color Mode</div>
@@ -648,7 +670,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             {(['heat', 'gold', 'white'] as const).map(mode => (
               <button
                 key={mode}
-                onClick={() => updateSettings({ streakFlameColorMode: mode })}
+                onClick={() => { updateSettings({ streakFlameColorMode: mode }); }}
                 className={`flex-1 text-[11px] font-bold py-2 rounded-lg capitalize transition-all ${
                   settings.streakFlameColorMode === mode
                     ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
@@ -664,7 +686,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     </div>
   );
 
-  const renderColorsTab = () => {
+  const renderColorsTab = (): React.ReactElement => {
     const themeKeys = Object.keys(THEME_PRESETS);
 
     return (
@@ -683,7 +705,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                   key={key}
                   onClick={() => {
                     updateSettings({
-                      themePreset: key as any,
+                      themePreset: key,
                       siteColors: { ...preset.siteColors },
                       boardCustomColors: { ...preset.boardCustomColors },
                     });
@@ -712,7 +734,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             {Object.entries(settings.siteColors).map(([key, value]) => (
               <button
                 key={key}
-                onClick={() => setColorPickerTarget('site')}
+                onClick={() => { setColorPickerTarget('site'); }}
                 className="flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
               >
                 <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
@@ -724,7 +746,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             ))}
           </div>
           <button
-            onClick={() => setColorPickerTarget('site')}
+            onClick={() => { setColorPickerTarget('site'); }}
             className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
           >
             Customize Site Colors
@@ -737,7 +759,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             {Object.entries(settings.boardCustomColors).map(([key, value]) => (
               <button
                 key={key}
-                onClick={() => setColorPickerTarget('board')}
+                onClick={() => { setColorPickerTarget('board'); }}
                 className="flex-1 flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
               >
                 <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
@@ -749,7 +771,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             ))}
           </div>
           <button
-            onClick={() => setColorPickerTarget('board')}
+            onClick={() => { setColorPickerTarget('board'); }}
             className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
           >
             Customize Board Colors
@@ -759,7 +781,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     );
   };
 
-  const renderTabContent = () => {
+  const renderTabContent = (): React.ReactElement => {
     switch (activeTab) {
       case 'account': return renderAccountTab();
       case 'engine': return renderEngineTab();
@@ -771,7 +793,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     }
   };
 
-  const handleColorSave = (fields: { key: string; label: string; value: string }[]) => {
+  const handleColorSave = (fields: { key: string; label: string; value: string }[]): void => {
     if (colorPickerTarget === 'site') {
       const siteColors = { ...settings.siteColors };
       fields.forEach(f => { (siteColors as Record<string, string>)[f.key] = f.value; });
@@ -788,7 +810,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     <div className="max-w-4xl mx-auto space-y-5" id="profile-container">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">Profile</h1>
-        {user && (
+        {user != null && (
           <button
             onClick={resetSettings}
             className="text-xs font-semibold px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all"
@@ -817,7 +839,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               : Object.entries(settings.boardCustomColors).map(([key, value]) => ({ key, label: key.replace(/([A-Z])/g, ' $1').trim(), value }))
           }
           onSave={handleColorSave}
-          onClose={() => setColorPickerTarget(null)}
+          onClose={() => { setColorPickerTarget(null); }}
         />
       )}
     </div>

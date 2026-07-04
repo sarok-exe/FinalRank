@@ -1,4 +1,5 @@
-import { createClient, Client } from '@libsql/client/web';
+import type { Client } from '@libsql/client/web';
+import { createClient } from '@libsql/client/web';
 
 let client: Client | null = null;
 let _healthy = true;
@@ -7,14 +8,14 @@ const MAX_FAILURES = 2;
 
 export function getTurso(): Client | null {
   if (!_healthy) return null;
-  const url = import.meta.env.VITE_TURSO_DATABASE_URL;
-  const token = import.meta.env.VITE_TURSO_AUTH_TOKEN;
+  const url = import.meta.env.VITE_TURSO_DATABASE_URL as string;
+  const token = import.meta.env.VITE_TURSO_AUTH_TOKEN as string | undefined;
 
-  if (!client && url) {
+  if (!client && url !== '') {
     try {
       client = createClient({
         url,
-        authToken: token || undefined,
+        authToken: token ?? undefined,
       });
     } catch {
       client = null;
@@ -38,14 +39,14 @@ export function resetTurso(): void {
 }
 
 export function isTursoConfigured(): boolean {
-  return !!import.meta.env.VITE_TURSO_DATABASE_URL;
+  return import.meta.env.VITE_TURSO_DATABASE_URL as string !== '';
 }
 
 export function isTursoHealthy(): boolean {
   return _healthy;
 }
 
-export async function initTursoSchema() {
+export async function initTursoSchema(): Promise<void> {
   const db = getTurso();
   if (!db) return;
 

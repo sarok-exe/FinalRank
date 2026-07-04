@@ -1,19 +1,20 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
+const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
 
 let client: SupabaseClient | null = null;
 
 export function getSupabase(): SupabaseClient | null {
-  if (!client && supabaseUrl && supabaseAnonKey) {
+  if (!client && supabaseUrl !== '' && supabaseAnonKey !== '') {
     client = createClient(supabaseUrl, supabaseAnonKey);
   }
   return client;
 }
 
 export function isSupabaseConfigured(): boolean {
-  return !!(supabaseUrl && supabaseAnonKey);
+  return supabaseUrl !== '' && supabaseAnonKey !== '';
 }
 
 export async function syncUserProfile(userId: string, profileData: {
@@ -23,7 +24,7 @@ export async function syncUserProfile(userId: string, profileData: {
   streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
-}) {
+}): Promise<unknown> {
   const sb = getSupabase();
   if (!sb) return null;
 
@@ -34,7 +35,7 @@ export async function syncUserProfile(userId: string, profileData: {
     .single();
 
   if (existing) {
-    const { data: result, error } = await sb
+    const { data: result, error } = (await sb
       .from('profiles')
       .update({
         username: profileData.username,
@@ -47,10 +48,10 @@ export async function syncUserProfile(userId: string, profileData: {
       })
       .eq('id', userId)
       .select()
-      .single();
-    return error ? null : result;
+      .single()) as { data: unknown; error: unknown };
+    return error != null ? null : result;
   } else {
-    const { data: result, error } = await sb
+    const { data: result, error } = (await sb
       .from('profiles')
       .insert({
         id: userId,
@@ -62,12 +63,12 @@ export async function syncUserProfile(userId: string, profileData: {
         last_active_date: profileData.lastActiveDate,
       })
       .select()
-      .single();
-    return error ? null : result;
+      .single()) as { data: unknown; error: unknown };
+    return error != null ? null : result;
   }
 }
 
-export async function syncUserSettings(userId: string, settings: Record<string, unknown>) {
+export async function syncUserSettings(userId: string, settings: Record<string, unknown>): Promise<unknown> {
   const sb = getSupabase();
   if (!sb) return null;
 
@@ -78,7 +79,7 @@ export async function syncUserSettings(userId: string, settings: Record<string, 
     .single();
 
   if (existing) {
-    const { data, error } = await sb
+    const { data, error } = (await sb
       .from('user_settings')
       .update({
         settings_json: settings,
@@ -86,18 +87,18 @@ export async function syncUserSettings(userId: string, settings: Record<string, 
       })
       .eq('user_id', userId)
       .select()
-      .single();
-    return error ? null : data;
+      .single()) as { data: unknown; error: unknown };
+    return error != null ? null : data;
   } else {
-    const { data, error } = await sb
+    const { data, error } = (await sb
       .from('user_settings')
       .insert({
         user_id: userId,
         settings_json: settings,
       })
       .select()
-      .single();
-    return error ? null : data;
+      .single()) as { data: unknown; error: unknown };
+    return error != null ? null : data;
   }
 }
 
@@ -105,11 +106,11 @@ export async function fetchUserSettings(userId: string): Promise<Record<string, 
   const sb = getSupabase();
   if (!sb) return null;
 
-  const { data, error } = await sb
+  const { data, error } = (await sb
     .from('user_settings')
     .select('settings_json')
     .eq('user_id', userId)
-    .single();
+    .single()) as { data: unknown; error: unknown };
 
-  return error ? null : (data?.settings_json as Record<string, unknown> ?? null);
+  return error != null ? null : (data as { settings_json?: Record<string, unknown> }).settings_json ?? null;
 }

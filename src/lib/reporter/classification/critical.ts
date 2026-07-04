@@ -1,4 +1,4 @@
-import { ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
+import type { ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
 import { getCaptureSquare } from '../chess';
 import { getExpectedPointsLoss } from '../expectedPoints';
 import { isMoveCriticalCandidate } from '../utils/criticalMove';
@@ -7,7 +7,7 @@ import { isPieceSafe } from '../utils/pieceSafety';
 export function considerCriticalClassification(
   previous: ExtractedPreviousNode,
   current: ExtractedCurrentNode
-) {
+): boolean {
   if (!isMoveCriticalCandidate(previous, current)) return false;
 
   if (current.subjectiveEvaluation.type === 'mate' && current.subjectiveEvaluation.value > 0) return false;

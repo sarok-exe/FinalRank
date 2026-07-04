@@ -2,17 +2,17 @@ import React, { useState } from 'react';
 import { X } from 'lucide-react';
 import { THEME_PRESETS } from '../stores/settingsStore';
 
-interface ColorField {
+type ColorField = {
   key: string;
   label: string;
   value: string;
 }
 
-interface ColorPickerProps {
+type ColorPickerProps = {
   title: string;
   fields: ColorField[];
-  onSave: (fields: ColorField[]) => void;
-  onClose: () => void;
+  onSave(fields: ColorField[]): void;
+  onClose(): void;
 }
 
 const PRESET_COLORS = [
@@ -37,7 +37,7 @@ export default function ColorPicker({ title, fields, onSave, onClose }: ColorPic
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
         className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto"
-        onClick={e => e.stopPropagation()}
+        onClick={e => { e.stopPropagation(); }}
       >
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-lg font-bold text-[var(--color-text)]">{title}</h3>
@@ -60,14 +60,14 @@ export default function ColorPicker({ title, fields, onSave, onClose }: ColorPic
                 <input
                   type="text"
                   value={field.value}
-                  onChange={e => updateField(field.key, e.target.value)}
+                  onChange={e => { updateField(field.key, e.target.value); }}
                   className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm text-[var(--color-text)] font-mono outline-none focus:border-[var(--color-primary)] transition-colors"
                   placeholder="#hexcolor"
                 />
                 <input
                   type="color"
                   value={field.value}
-                  onChange={e => updateField(field.key, e.target.value)}
+                  onChange={e => { updateField(field.key, e.target.value); }}
                   className="w-10 h-10 rounded-lg border border-[var(--color-border)] cursor-pointer shrink-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded-lg"
                 />
               </div>
@@ -81,12 +81,12 @@ export default function ColorPicker({ title, fields, onSave, onClose }: ColorPic
             {Object.entries(themePreview).map(([key, preset]) => (
               <button
                 key={key}
-                onClick={() => setLocalFields(prev => prev.map(f => {
+                onClick={() => { setLocalFields(prev => prev.map(f => {
                   const colorKey = f.key as keyof typeof preset.siteColors & keyof typeof preset.boardCustomColors;
                   const val = preset.siteColors[colorKey as keyof typeof preset.siteColors]
                     ?? preset.boardCustomColors[colorKey as keyof typeof preset.boardCustomColors];
-                  return val ? { ...f, value: val as string } : f;
-                }))}
+                  return val ? { ...f, value: val } : f;
+                })); }}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--color-border)] text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)] transition-colors capitalize"
               >
                 <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: preset.siteColors.primary }} />
@@ -98,7 +98,7 @@ export default function ColorPicker({ title, fields, onSave, onClose }: ColorPic
 
         <div className="mt-5 pt-4 border-t border-[var(--color-border)] flex gap-3">
           <button
-            onClick={() => onSave(localFields)}
+            onClick={() => { onSave(localFields); }}
             className="flex-1 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 transition-all"
           >
             Apply

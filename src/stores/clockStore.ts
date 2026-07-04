@@ -4,9 +4,9 @@
  */
 
 import { create } from 'zustand';
-import { ClockPreset } from '../types';
+import type { ClockPreset } from '../types';
 
-interface ClockState {
+type ClockState = {
   presets: ClockPreset[];
   activePresetId: string;
   whiteTime: number; // in Milliseconds
@@ -18,13 +18,13 @@ interface ClockState {
   winner: 'w' | 'b' | 'draw' | null;
   reason: string | null;
   
-  selectPreset: (id: string) => void;
-  setCustomTime: (whiteTimeMs: number, blackTimeMs: number, incrementSec?: number) => void;
-  startClock: () => void;
-  pauseClock: () => void;
-  resetClock: () => void;
-  switchTurn: (color: 'w' | 'b') => void;
-  tick: (elapsedMs: number) => void;
+  selectPreset(id: string): void;
+  setCustomTime(whiteTimeMs: number, blackTimeMs: number, incrementSec?: number): void;
+  startClock(): void;
+  pauseClock(): void;
+  resetClock(): void;
+  switchTurn(color: 'w' | 'b'): void;
+  tick(elapsedMs: number): void;
 }
 
 export const CLOCK_PRESETS: ClockPreset[] = [

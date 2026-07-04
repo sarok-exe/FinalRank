@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js';
-import { EngineLine, EngineVersion, Evaluation, STARTING_FEN } from '../../types';
+import type { EngineLine, Evaluation} from '../../types';
+import { EngineVersion, STARTING_FEN } from '../../types';
 
 const uciEvaluationTypes: Record<string, string | undefined> = {
   cp: 'centipawn',
@@ -49,12 +50,12 @@ export class Engine {
   }
 
   onMessage(handler: (message: string) => void) {
-    this.worker.addEventListener('message', event => handler(String(event.data)));
+    this.worker.addEventListener('message', event => { handler(String(event.data)); });
     return this;
   }
 
   onError(handler: (error: string) => void) {
-    this.worker.addEventListener('error', event => handler(String(event.error)));
+    this.worker.addEventListener('error', event => { handler(String(event.error)); });
     return this;
   }
 
@@ -97,7 +98,7 @@ export class Engine {
     depth: number;
     goMode?: 'depth' | 'time';
     timeLimit?: number;
-    onEngineLine?: (line: EngineLine) => void;
+    onEngineLine?(line: EngineLine): void;
   }): Promise<EngineLine[]> {
     const engineLines: EngineLine[] = [];
     const goCommand = options.goMode === 'time' && options.timeLimit
@@ -110,16 +111,16 @@ export class Engine {
       log => {
         if (!log.startsWith('info depth')) return;
         if (log.includes('currmove')) return;
-        const depth = parseInt(log.match(/(?<= depth )\d+/)?.[0] || '');
+        const depth = parseInt((/(?<= depth )\d+/.exec(log))?.[0] || '');
         if (isNaN(depth)) return;
-        const index = parseInt(log.match(/(?<= multipv )\d+/)?.[0] || '') || 1;
-        const scoreMatches = log.match(/ score (cp|mate) (-?\d+)/);
+        const index = parseInt((/(?<= multipv )\d+/.exec(log))?.[0] || '') || 1;
+        const scoreMatches = / score (cp|mate) (-?\d+)/.exec(log);
         const evaluationType = uciEvaluationTypes[scoreMatches?.[1] || ''];
         if (evaluationType !== 'centipawn' && evaluationType !== 'mate') return;
         let evaluationScore = parseInt(scoreMatches?.[2] || '');
         if (isNaN(evaluationScore)) return;
         if (this.position.includes(' b ')) evaluationScore = -evaluationScore;
-        const moveUcis = log.match(/ pv (.*)/)?.at(1)?.split(' ') || [];
+        const moveUcis = (/ pv (.*)/.exec(log))?.at(1)?.split(' ') || [];
         const moveSans: string[] = [];
         const board = new Chess(this.position);
         for (const moveUci of moveUcis) {
@@ -128,7 +129,7 @@ export class Engine {
         const newEngineLine: EngineLine = {
           depth,
           index,
-          evaluation: { type: evaluationType as Evaluation['type'], value: evaluationScore },
+          evaluation: { type: evaluationType, value: evaluationScore },
           source: this.version,
           moves: moveUcis.map((uci, i) => ({ uci, san: moveSans[i] || uci })),
         };
@@ -157,9 +158,9 @@ export class Engine {
 }
 
 export function getTopEngineLine(lines: EngineLine[]) {
-  return lines.reduce((best, line) =>
+  return lines.reduce<EngineLine | undefined>((best, line) =>
     !best || line.depth - line.index > best.depth - best.index ? line : best,
-    undefined as EngineLine | undefined
+    undefined
   );
 }
 

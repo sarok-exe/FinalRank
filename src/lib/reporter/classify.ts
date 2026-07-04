@@ -1,7 +1,8 @@
 import { Chess } from 'chess.js';
-import { EngineLine, CLASSIFICATION_VALUES, MoveClassification } from '../../types';
+import type { EngineLine, MoveClassification } from '../../types';
+import { CLASSIFICATION_VALUES } from '../../types';
 import { getTopEngineLine } from '../engine';
-import { AnalysisOptions } from './types';
+import type { AnalysisOptions } from './types';
 import { extractPreviousStateTreeNode, extractCurrentStateTreeNode } from './utils/extractNode';
 import { pointLossClassify } from './classification/pointLoss';
 import { considerBrilliantClassification } from './classification/brilliant';
@@ -25,7 +26,7 @@ export function classifyMove(
 
   const opening = getOpeningName(currFen);
 
-  if (opts.includeTheory && opening) {
+  if (opts.includeTheory && opening != null) {
     return { classification: 'book', opening };
   }
 

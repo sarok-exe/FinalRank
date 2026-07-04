@@ -1,21 +1,22 @@
 import { sum, round } from 'lodash-es';
-import { ChessGame, EngineLine, STARTING_FEN } from '../../types';
+import type { ChessGame, EngineLine} from '../../types';
+import { STARTING_FEN } from '../../types';
 import { Engine } from './index';
 import { getCloudEvaluation } from './cloudEvaluate';
 import { getCloudflareEvaluation, getSupabaseEvaluation, isCloudflareEvalConfigured, isSupabaseEvalConfigured } from './remoteEvaluate';
 
-interface EvaluateMovesOptions {
+type EvaluateMovesOptions = {
   engineVersion: string;
   maxEngineCount?: number;
   engineDepth: number;
   engineTimeLimit?: number;
   engineLinesCount: number;
-  engineConfig?: (engine: Engine) => void;
-  onProgress?: (progress: number) => void;
+  engineConfig?(engine: Engine): void;
+  onProgress?(progress: number): void;
 }
 
-interface EvaluationProcess {
-  evaluate: () => Promise<ChessGame>;
+type EvaluationProcess = {
+  evaluate(): Promise<ChessGame>;
   controller: AbortController;
 }
 
@@ -94,15 +95,15 @@ export function createGameEvaluator(
       if (controller.signal.aborted) throw new Error('aborted');
       if (Date.now() - cloudStartTime > CLOUD_TIMEOUT) break;
       const fen = fens[i];
-      if (!fen || !fen.includes(' ')) {
+      if (!fen?.includes(' ')) {
         progresses[i] = 0.02;
         continue;
       }
       try {
         const cloudLines = await getCloudEvaluation(fen, options.engineLinesCount);
-        const topLine = cloudLines.reduce((best, line) =>
+        const topLine = cloudLines.reduce<EngineLine | undefined>((best, line) =>
           !best || line.depth > best.depth ? line : best,
-          undefined as EngineLine | undefined
+          undefined
         );
         if (topLine && topLine.depth >= options.engineDepth && cloudLines.length >= options.engineLinesCount) {
           gameEngineLines[i] = cloudLines;
@@ -209,7 +210,7 @@ export function createGameEvaluator(
       }
 
       controller.signal.addEventListener('abort', () => {
-        engines.forEach(e => e.terminate());
+        engines.forEach(e => { e.terminate(); });
         if (!enginesResting) reject(new Error('aborted'));
       });
     });

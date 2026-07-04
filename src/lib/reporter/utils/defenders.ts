@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import { minBy } from 'lodash-es';
-import { BoardPiece, RawMove } from '../types';
+import type { BoardPiece, RawMove } from '../types';
 import { setFenTurn } from '../chess';
 import { getAttackingMoves } from './attackers';
 

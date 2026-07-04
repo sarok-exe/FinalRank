@@ -1,25 +1,26 @@
 import { Chess } from 'chess.js';
-import { EngineLine, EngineVersion } from '../../types';
+import type { EngineLine} from '../../types';
+import { EngineVersion } from '../../types';
 
-interface CloudEvalVariation {
+type CloudEvalVariation = {
   moves: string;
   cp?: number;
   mate?: number;
 }
 
-interface CloudEvalResponse {
+type CloudEvalResponse = {
   fen: string;
   knodes: number;
   depth: number;
   pvs: CloudEvalVariation[];
 }
 
-export async function getCloudEvaluation(fen: string, multiPv: number = 2): Promise<EngineLine[]> {
-  if (!fen || !fen.includes(' ')) {
+export async function getCloudEvaluation(fen: string, multiPv = 2): Promise<EngineLine[]> {
+  if (!fen?.includes(' ')) {
     return [];
   }
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3000);
+  const timeoutId = setTimeout(() => { controller.abort(); }, 3000);
   const res = await fetch(
     `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`,
     { signal: controller.signal }
