@@ -7,7 +7,7 @@ let engineEvaluating = false;
 
 function getEngine(): Engine {
   if (!engineInstance) {
-    engineInstance = new Engine();
+    engineInstance = new Engine('stockfish-18-lite-single.js');
     engineEvaluating = false;
   }
   return engineInstance;

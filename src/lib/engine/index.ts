@@ -1,6 +1,6 @@
 import { Chess } from 'chess.js';
 import type { EngineLine, Evaluation} from '../../types';
-import { EngineVersion, STARTING_FEN } from '../../types';
+const STOCKFISH_SINGLE = 'stockfish-18-lite-single.js';
 
 const uciEvaluationTypes: Record<string, string | undefined> = {
   cp: 'centipawn',
@@ -13,7 +13,7 @@ export class Engine {
   private position = STARTING_FEN;
   private evaluating = false;
 
-  constructor(version: string = EngineVersion.STOCKFISH_18_LITE) {
+  constructor(version: string = STOCKFISH_SINGLE) {
     this.worker = new Worker('/engines/' + version);
     this.version = version;
     this.worker.postMessage('uci');

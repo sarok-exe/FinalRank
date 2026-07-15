@@ -24,10 +24,10 @@ function getOptimalEngineCount(requested?: number): number {
   return 1;
 }
 
-export function getEngineVersion(cores: number): string {
-  // ≤4 cores → single-threaded (no SharedArrayBuffer needed, works everywhere)
-  // >4 cores  → multi-threaded with ~70% threads
-  return cores <= 4 ? 'stockfish-18-lite-single.js' : 'stockfish-18-lite.js';
+export function getEngineVersion(_cores: number): string {
+  // Always use single-threaded: multi-threaded requires SharedArrayBuffer
+  // which needs Cross-Origin-Isolation headers (not available on Cloudflare Pages)
+  return 'stockfish-18-lite-single.js';
 }
 
 export function createGameEvaluator(

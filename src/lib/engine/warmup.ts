@@ -8,12 +8,8 @@ export function warmupEngine() {
   if (warming || warmEngine) return;
   warming = true;
   try {
-    const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
-    const version = getEngineVersion(cores);
+    const version = getEngineVersion(4);
     warmEngine = new Engine(version);
-    if (cores > 4) {
-      warmEngine.setThreadCount(Math.max(1, Math.round(cores * 0.7)));
-    }
     warmEngine.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
     warmEngine.evaluate({ depth: 1 }).then(() => {});
   } catch {}
