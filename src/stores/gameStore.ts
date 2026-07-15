@@ -85,6 +85,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       updatedGame.classificationCounts = cached.classificationCounts;
       updatedGame.analyzedAt = cached.analyzedAt;
       updatedGame.analysisDurationMs = cached.analysisDurationMs;
+      updatedGame.analysisDepth = cached.analysisDepth;
     }
 
     set({ selectedGame: updatedGame, currentMoveIndex: -1 });
@@ -179,7 +180,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         analysisCache: { ...state.analysisCache, [gameId]: cached },
         analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
         selectedGame: state.selectedGame?.id === gameId
-          ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs }
+          ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs, analysisDepth: cached.analysisDepth }
           : state.selectedGame,
       }));
       if (cached.shortId != null) {
@@ -212,24 +213,29 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const cached = get().analysisCache[selectedGame.id];
     if (cached?.analyzedAt != null) {
-      const isDepthSufficient = cached.moves.every(m => {
-        const topDepth = (m.engineLines ?? []).reduce((d, l) => Math.max(d, l.depth), 0);
-        return topDepth >= evalDepth;
-      });
-      if (isDepthSufficient) {
-        set({
-          selectedGame: {
-            ...selectedGame,
-            moves: mergeMoves(selectedGame.moves, cached.moves),
-            accuracy: cached.accuracy,
-            classificationCounts: cached.classificationCounts,
-            analyzedAt: cached.analyzedAt,
-            analysisDurationMs: cached.analysisDurationMs,
-          },
-          analysisProgress: 100,
+      // If cached depth differs from requested depth, force re-analysis
+      if (cached.analysisDepth === evalDepth) {
+        const isDepthSufficient = cached.moves.every(m => {
+          const topDepth = (m.engineLines ?? []).reduce((d, l) => Math.max(d, l.depth), 0);
+          return topDepth >= evalDepth;
         });
-        return;
+        if (isDepthSufficient) {
+          set({
+            selectedGame: {
+              ...selectedGame,
+              moves: mergeMoves(selectedGame.moves, cached.moves),
+              accuracy: cached.accuracy,
+              classificationCounts: cached.classificationCounts,
+              analyzedAt: cached.analyzedAt,
+              analysisDurationMs: cached.analysisDurationMs,
+              analysisDepth: cached.analysisDepth,
+            },
+            analysisProgress: 100,
+          });
+          return;
+        }
       }
+      // Different depth or insufficient — fall through to re-analyze
     }
 
     const tursoCached = await getCachedAnalysis(selectedGame.pgn, evalDepth);
@@ -245,6 +251,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           classificationCounts: tursoCached.classificationCounts,
           analyzedAt: tursoCached.analyzedAt,
           analysisDurationMs: tursoCached.analysisDurationMs,
+          analysisDepth: tursoCached.analysisDepth,
         },
         analysisProgress: 100,
       });
@@ -375,6 +382,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
         analyzedAt: r.analyzedAt as string | undefined,
         analysisDurationMs: r.analysisDurationMs as number | undefined,
+        analysisDepth: r.analysisDepth as number | undefined,
         initialPosition: r.initialPosition as string | undefined,
       };
     });
@@ -427,6 +435,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             classificationCounts: match.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
             analyzedAt: match.analyzedAt as string | undefined,
             analysisDurationMs: match.analysisDurationMs as number | undefined,
+            analysisDepth: match.analysisDepth as number | undefined,
             initialPosition: match.initialPosition as string | undefined,
           };
           set(state2 => ({
@@ -460,6 +469,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       classificationCounts: data.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
       analyzedAt: data.analyzedAt as string | undefined,
       analysisDurationMs: data.analysisDurationMs as number | undefined,
+      analysisDepth: data.analysisDepth as number | undefined,
       initialPosition: data.initialPosition as string | undefined,
     };
     set(state => ({
@@ -525,6 +535,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const durationMs = Math.round(performance.now() - startTime);
   analysedGame.analysisDurationMs = durationMs;
+  analysedGame.analysisDepth = depth;
 
   // Show toast notification
   useToastStore.getState().addToast({
@@ -538,7 +549,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     analysisCache: { ...state.analysisCache, [gameId]: analysedGame },
     analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
     selectedGame: state.selectedGame?.id === gameId
-      ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, analysedGame.moves), accuracy: analysedGame.accuracy, classificationCounts: analysedGame.classificationCounts, analyzedAt: analysedGame.analyzedAt }
+      ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, analysedGame.moves), accuracy: analysedGame.accuracy, classificationCounts: analysedGame.classificationCounts, analyzedAt: analysedGame.analyzedAt, analysisDepth: analysedGame.analysisDepth }
       : state.selectedGame,
   }));
 

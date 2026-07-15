@@ -175,6 +175,7 @@ export type ChessGame = {
   };
   analyzedAt?: string;
   analysisDurationMs?: number;
+  analysisDepth?: number;
 }
 
 export type ClockPreset = {

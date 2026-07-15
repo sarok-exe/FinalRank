@@ -153,6 +153,23 @@ function formatDuration(ms: number | undefined): string {
     }
   }, [authUser?.chessComUsername]);
 
+  // Refresh games list when tab becomes visible (user returns from other tabs)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        const u = useAuthStore.getState().user;
+        if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
+          void loadUserGames();
+        }
+        if (u?.chessComUsername) {
+          void fetchLinkedUserGames();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { document.removeEventListener('visibilitychange', onVisible); };
+  }, []);
+
   const prevMoveIndexRef = React.useRef(currentMoveIndex);
   React.useEffect(() => {
     if (!selectedGame) return;
@@ -839,7 +856,7 @@ function formatDuration(ms: number | undefined): string {
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
                   <span>Stockfish 17</span>
                 </h3>
-                <p className="text-[11px] text-[var(--color-text-muted)]">Depth {settings.engineDepth} &middot; Non-blocking analysis</p>
+                <p className="text-[11px] text-[var(--color-text-muted)]">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed at depth ${selectedGame.analysisDepth}` : ''}</p>
               </div>
               <div className="flex items-center space-x-2">
                 <select
@@ -928,7 +945,7 @@ function formatDuration(ms: number | undefined): string {
                 <span className="truncate">{selectedGame.date}</span>
                 {selectedGame.analyzedAt && (
                   <span className="text-[10px] text-green-500 font-bold ml-auto">
-                    &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
+                    &#x2713; Analyzed at depth {selectedGame.analysisDepth ?? '?'}{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
                   </span>
                 )}
               </div>
@@ -1125,14 +1142,32 @@ function formatDuration(ms: number | undefined): string {
 
       {!focusMode && (
       <>
-      <button
-        onClick={() => { setShowGameList(!showGameList); }}
-        className="flex items-center space-x-1.5 text-xs text-[var(--color-text-muted)]"
-      >
-        <BookOpen className="w-3.5 h-3.5" />
-        <span>Game library ({games.length})</span>
-        <ChevronDown className={`w-3 h-3 ${showGameList ? 'rotate-180' : ''}`} />
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => { setShowGameList(!showGameList); }}
+          className="flex items-center space-x-1.5 text-xs text-[var(--color-text-muted)]"
+        >
+          <BookOpen className="w-3.5 h-3.5" />
+          <span>Game library ({games.length})</span>
+          <ChevronDown className={`w-3 h-3 ${showGameList ? 'rotate-180' : ''}`} />
+        </button>
+        <button
+          onClick={() => {
+            const u = useAuthStore.getState().user;
+            if (u && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
+              void loadUserGames();
+            }
+            if (u?.chessComUsername) {
+              void fetchLinkedUserGames();
+            }
+            void importChessComGames('');
+          }}
+          className="text-[10px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-2 py-0.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-all"
+          title="Refresh game list"
+        >
+          Refresh
+        </button>
+      </div>
 
       {showGameList && (
         <div className="fade-in bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">

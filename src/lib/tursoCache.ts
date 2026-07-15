@@ -35,15 +35,14 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number): Promis
   try {
     const pgnHash = hashPgn(game.pgn);
     const analysisData = JSON.stringify(game);
+    // Delete old entries for same PGN hash + depth to avoid duplicates
+    await db.execute({
+      sql: `DELETE FROM analyzed_games WHERE pgn_hash = ? AND depth = ?`,
+      args: [pgnHash, depth],
+    });
     await db.execute({
       sql: `INSERT INTO analyzed_games (pgn_hash, pgn, depth, analysis_data, result, white, black, date, accuracy_white, accuracy_black, analyzed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-            ON CONFLICT(pgn_hash) DO UPDATE SET
-              depth = excluded.depth,
-              analysis_data = excluded.analysis_data,
-              accuracy_white = excluded.accuracy_white,
-              accuracy_black = excluded.accuracy_black,
-              analyzed_at = datetime('now')`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
       args: [
         pgnHash,
         game.pgn,
