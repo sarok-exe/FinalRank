@@ -94,44 +94,11 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
             </div>
           </div>
 
-          <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
-            <div className="text-xs font-bold text-[var(--color-text)] mb-3">Per-Move Accuracy</div>
-            <div className="space-y-1">
-              {classifiedMoves.slice(-40).map((m, i) => {
-                const pct = m.accuracy ?? 0;
-                let hue = 0;
-                if (pct >= 90) hue = 120;
-                else if (pct >= 75) hue = 60;
-                else if (pct >= 50) hue = 30;
-                return (
-                  <div key={i} className="flex items-center gap-2 text-[10px]">
-                    <span className="w-12 font-mono text-[var(--color-text-muted)] shrink-0">
-                      {m.san}
-                    </span>
-                    <div className="flex-1 h-3 bg-[var(--color-surface)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${pct}%`,
-                          backgroundColor: `hsl(${hue}, 60%, 45%)`,
-                        }}
-                      />
-                    </div>
-                    <span className="w-8 text-right font-mono font-bold text-white">{pct}%</span>
-                  </div>
-                );
-              })}
-              {classifiedMoves.length === 0 && (
-                <div className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
-                  No classified moves yet. Run analysis to see per-move accuracy.
-                </div>
-              )}
-            </div>
-          </div>
+
         </>
       ) : (
         <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">
-          No classified moves yet. Run analysis to see per-move accuracy.
+          No analyzed moves yet. Run analysis to see accuracy data.
         </div>
       )}
     </div>
