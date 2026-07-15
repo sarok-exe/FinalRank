@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Shell from './components/layout/Shell';
 import StreakNotification from './components/StreakNotification';
 import StreakCelebration from './components/StreakCelebration';
+import ToastContainer from './components/ToastContainer';
 
 const Analysis = lazy(() => import('./pages/Analysis'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -39,6 +40,7 @@ export default function App() {
       </Shell>
       <StreakNotification />
       <StreakCelebration />
+      <ToastContainer />
     </BrowserRouter>
   );
 }

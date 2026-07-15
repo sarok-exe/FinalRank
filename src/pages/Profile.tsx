@@ -421,6 +421,49 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </div>
         <SettingToggle label="Enable shortcuts" desc="Toggle keyboard navigation" checked={settings.shortcutsEnabled} onChange={v => { updateSettings({ shortcutsEnabled: v }); }} />
       </div>
+
+      <div className="space-y-2.5 pt-3 border-t border-[var(--color-border)]">
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Advanced</span>
+        <SettingToggle
+          label="Remote Evaluation"
+          desc="Use cloud servers to speed up analysis (recommended)"
+          checked={settings.featureToggles.remoteEvaluation}
+          onChange={v => { updateSettings({ featureToggles: { ...settings.featureToggles, remoteEvaluation: v } }); }}
+        />
+        <SettingToggle
+          label="Community Acceleration"
+          desc="Opt-in to share your device to help others analyze faster. No penalty for disabling."
+          checked={settings.featureToggles.distributedAnalysis}
+          onChange={v => { updateSettings({ featureToggles: { ...settings.featureToggles, distributedAnalysis: v } }); }}
+        />
+      </div>
+
+      {/* Cache Management */}
+      <div className="space-y-2.5 pt-3 border-t border-[var(--color-border)]">
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Cache</span>
+        <p className="text-[10px] text-[var(--color-text-muted)]">
+          Clear cached sounds, images, and engine files to free up disk space.
+        </p>
+        <button
+          onClick={async () => {
+            if (!window.confirm('Clear all cached site files (images, sounds, engines)? This will not affect your saved games or settings.')) return;
+            // Clear Service Worker caches
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+              navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });
+            }
+            // Also clear Cache Storage directly as a fallback
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map(k => caches.delete(k)));
+            }
+            alert('Cache cleared! The site will reload to apply changes.');
+            window.location.reload();
+          }}
+          className="w-full bg-[var(--color-background)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-accent)] hover:text-white transition-all"
+        >
+          Clear Cache
+        </button>
+      </div>
     </div>
   );
 

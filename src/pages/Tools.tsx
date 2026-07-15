@@ -142,7 +142,11 @@ function ToolsLanding(props: Readonly<{ onSelect(f: ActiveFeature): void }>): Re
   );
 }
 
-// ── Play vs Computer Feature ──────────────────────────────
+// Math: time → depth conversion. Lichess-like formula: depth ≈ 8 + 2.5·log₂(secs+1)
+function timeToDepth(timeMs: number): number {
+  const secs = timeMs / 1000;
+  return Math.max(2, Math.min(30, Math.round(8 + 2.5 * Math.log2(secs + 1))));
+}
 function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.ReactElement {
   const uiStore = useUIStore();
   const { focusMode, fullscreenMode } = uiStore;
@@ -210,7 +214,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
       setFen(gameInstance.fen());
       setMoveHistory(prev => [...prev, rawMove.san]);
       sound.playFromSan(rawMove.san);
-      setEngineFeedback('Engine is thinking...');
+      setEngineFeedback(`Engine is thinking (depth ${engineGoMode === 'time' ? timeToDepth(engineThinkingTime) : engineDepth})...`);
 
       if (gameInstance.isGameOver()) {
         announceGameEnd(gameInstance);
@@ -218,9 +222,10 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
       }
 
       setEngineThinking(true);
+      const effectiveDepth = engineGoMode === 'time' ? timeToDepth(engineThinkingTime) : engineDepth;
       const computedMoveResult = await analyzePositionLocally(gameInstance.fen(), {
-        goMode: engineGoMode,
-        depth: engineDepth,
+        goMode: 'depth',
+        depth: effectiveDepth,
         timeLimit: engineThinkingTime,
       });
       setLastEval(computedMoveResult);
@@ -403,17 +408,22 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
                     </div>
                   </>
                 ) : (
-                  <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
-                    <span>Time:</span>
-                    <input
-                      type="range" min={100} max={30000} step={100}
-                      value={engineThinkingTime}
-                      onChange={(e) => { setEngineThinkingTime(parseInt(e.target.value, 10)); }}
-                      className="flex-1 accent-[var(--color-primary)] h-1 bg-[var(--color-surface)] rounded-lg cursor-pointer"
-                    />
-                    <span className="font-mono font-bold text-[var(--color-primary)] w-12 text-center">
-                      {(engineThinkingTime / 1000).toFixed(1)}s
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-muted)]">
+                      <span>Time:</span>
+                      <input
+                        type="range" min={100} max={30000} step={100}
+                        value={engineThinkingTime}
+                        onChange={(e) => { setEngineThinkingTime(parseInt(e.target.value, 10)); }}
+                        className="flex-1 accent-[var(--color-primary)] h-1 bg-[var(--color-surface)] rounded-lg cursor-pointer"
+                      />
+                      <span className="font-mono font-bold text-[var(--color-primary)] w-12 text-center">
+                        {(engineThinkingTime / 1000).toFixed(1)}s
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-[var(--color-text-muted)] text-center">
+                      Effective depth: <span className="font-mono font-bold text-[var(--color-primary)]">{timeToDepth(engineThinkingTime)}</span>
+                    </div>
                   </div>
                 )}
               </div>

@@ -159,7 +159,7 @@ export const THEME_PRESETS: Record<string, {
 };
 
 const DEFAULT_SETTINGS: UserSettings = {
-  engineDepth: 10,
+  engineDepth: 16,
   engineGoMode: 'depth',
   engineTimeLimitMs: 2000,
   boardColor: 'elegant',
@@ -189,6 +189,8 @@ const DEFAULT_SETTINGS: UserSettings = {
     showArrows: true,
     showCoordinates: true,
     autoAnalyze: true,
+    remoteEvaluation: true,
+    distributedAnalysis: false,
   },
 };
 

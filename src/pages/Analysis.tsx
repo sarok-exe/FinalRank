@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
+import { useToastStore } from '../stores/toastStore';
 import { hashPgn } from '../lib/tursoCache';
 import { generateShortId } from '../lib/shortId';
 import type { ChessGame } from '../types';
@@ -116,7 +117,13 @@ function formatDuration(ms: number | undefined): string {
     if (urlGameId) {
       setUrlGameNotFound(false);
       loadGameByShortId(urlGameId).then(game => {
-        if (!game) setUrlGameNotFound(true);
+        if (!game) {
+          setUrlGameNotFound(true);
+          useToastStore.getState().addToast({
+            type: 'error',
+            message: 'Game not found. It may not have been saved yet.',
+          });
+        }
       });
     }
   }, [urlGameId]);
@@ -394,7 +401,15 @@ function formatDuration(ms: number | undefined): string {
       <div className="max-w-2xl mx-auto space-y-6" id="analysis-import-view">
 
         {urlGameNotFound && (
-          <div className="bg-red-900/30 border border-red-700/50 rounded-2xl p-6 text-center space-y-2">
+          <div className="bg-red-900/30 border border-red-700/50 rounded-2xl p-6 text-center space-y-2 relative">
+            <button
+              onClick={() => { setUrlGameNotFound(false); }}
+              className="absolute top-3 right-3 text-red-400 hover:text-white text-xl leading-none w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-700/30"
+              aria-label="Dismiss error"
+              title="Dismiss"
+            >
+              ×
+            </button>
             <AlertTriangle className="w-8 h-8 mx-auto text-red-400" />
             <h2 className="text-lg font-bold text-white">Game Not Found</h2>
             <p className="text-sm text-red-200">

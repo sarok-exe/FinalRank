@@ -64,6 +64,8 @@ export type UserSettings = {
     showArrows: boolean;
     showCoordinates: boolean;
     autoAnalyze: boolean;
+    remoteEvaluation: boolean;
+    distributedAnalysis: boolean;
   };
 }
 

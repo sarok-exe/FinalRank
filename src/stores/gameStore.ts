@@ -9,6 +9,7 @@ import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchChec
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
+import { useToastStore } from './toastStore';
 
 type GameState = {
   games: ChessGame[];
@@ -111,7 +112,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         void get().autoAnalyzeGame(loaded[0].id);
       }
     } catch (err: unknown) {
-      set({ importError: err instanceof Error ? err.message : 'Failed to fetch games.', loadingGames: false });
+      const msg = err instanceof Error ? err.message : 'Failed to fetch games.';
+      set({ importError: msg, loadingGames: false });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
     }
   },
 
@@ -146,7 +149,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       void get().autoAnalyzeGame(newGame.id);
     } catch (err: unknown) {
-      set({ importError: err instanceof Error ? err.message : 'PGN Parsing Failure' });
+      const msg = err instanceof Error ? err.message : 'PGN Parsing Failure';
+      set({ importError: msg });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
     }
   },
 
@@ -519,6 +524,13 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const durationMs = Math.round(performance.now() - startTime);
   analysedGame.analysisDurationMs = durationMs;
+
+  // Show toast notification
+  useToastStore.getState().addToast({
+    type: 'analysis',
+    message: `Analysis complete — ${game.white.username} vs ${game.black.username}`,
+    gameId: gameId,
+  });
 
   const pgnHash = hashPgn(game.pgn);
   useGameStore.setState(state => ({
