@@ -69,8 +69,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     const game = games.find((g) => g.id === gameId);
     if (!game) return;
 
-    const hydratedMoves = hydratePgnMoves(game.pgn);
+    // Use cached moves if available, otherwise hydrate from PGN (expensive)
     const cached = analysisCache[gameId];
+    const hydratedMoves = game.moves.length > 0 ? game.moves : hydratePgnMoves(game.pgn);
     const mergedMoves = hydratedMoves.map((move, i) => {
       if (cached?.moves[i] != null) {
         return { ...move, ...cached.moves[i] };

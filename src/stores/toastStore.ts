@@ -31,8 +31,8 @@ export const useToastStore = create<ToastState>((set) => ({
     set((state) => ({
       toasts: [...state.toasts, { ...toast, id, createdAt: Date.now() }],
     }));
-    // Auto-dismiss after 8 seconds (longer for analysis toasts)
-    const timeout = toast.type === 'analysis' ? 15000 : 8000;
+    // Auto-dismiss after 5 seconds
+    const timeout = toast.type === 'analysis' ? 8000 : 5000;
     setTimeout(() => {
       set((state) => ({
         toasts: state.toasts.filter((t) => t.id !== id),

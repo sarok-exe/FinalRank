@@ -224,9 +224,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
       setEngineThinking(true);
       const effectiveDepth = engineGoMode === 'time' ? timeToDepth(engineThinkingTime) : engineDepth;
       const computedMoveResult = await analyzePositionLocally(gameInstance.fen(), {
-        goMode: 'depth',
         depth: effectiveDepth,
-        timeLimit: engineThinkingTime,
       });
       setLastEval(computedMoveResult);
 

@@ -94,6 +94,22 @@ export class Engine {
     return this;
   }
 
+  /** Set position without sending ucinewgame — avoids aborting an idle engine */
+  setPositionQuiet(fen: string, uciMoves?: string[]) {
+    if (uciMoves?.length) {
+      this.worker.postMessage(`position fen ${fen} moves ${uciMoves.join(' ')}`);
+      const board = new Chess(fen);
+      for (const uciMove of uciMoves) {
+        try { board.move(uciMove); } catch { break; }
+      }
+      this.position = board.fen();
+      return this;
+    }
+    this.worker.postMessage(`position fen ${fen}`);
+    this.position = fen;
+    return this;
+  }
+
   async evaluate(options: {
     depth: number;
     goMode?: 'depth' | 'time';

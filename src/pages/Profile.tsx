@@ -360,9 +360,9 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         >
           <option value={6}>Depth 6 (Fast)</option>
           <option value={8}>Depth 8</option>
-          <option value={10}>Depth 10 (Default)</option>
+          <option value={10}>Depth 10</option>
           <option value={12}>Depth 12</option>
-          <option value={15}>Depth 15 (Deep)</option>
+          <option value={15}>Depth 15 (Default)</option>
           <option value={18}>Depth 18 (Max)</option>
         </select>
       </div>

@@ -30,7 +30,7 @@ export default function ToastContainer(): React.ReactElement | null {
           <div
             key={toast.id}
             role="alert"
-            className={`flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg text-white text-sm animate-[slideUp_0.3s_ease-out] ${colorMap[toast.type]}`}
+            className={`flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-md shadow-lg text-white text-sm animate-[slideIn_0.35s_ease-out] ${colorMap[toast.type]}`}
             style={{
               animation: 'slideUp 0.3s ease-out',
             }}
