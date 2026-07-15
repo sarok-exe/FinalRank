@@ -26,6 +26,7 @@ type GameState = {
   linkedLoading: boolean;
   linkedAnalyzing: boolean;
   linkedAnalysisProgress: string;
+  importJustCompleted: boolean;
 
   importChessComGames(username: string): Promise<void>;
   selectGame(gameId: string): void;
@@ -38,6 +39,7 @@ type GameState = {
   loadUserGames(): Promise<void>;
   loadGameByShortId(shortId: string): Promise<ChessGame | null>;
   resetGameStore(): void;
+  consumeImportFlag(): void;
 }
 
 const pendingAnalysis = new Map<string, Promise<void>>();
@@ -57,8 +59,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   linkedLoading: false,
   linkedAnalyzing: false,
   linkedAnalysisProgress: '',
+  importJustCompleted: false,
 
   setGames: (games) => { set({ games }); },
+
+  consumeImportFlag: () => { set({ importJustCompleted: false }); },
 
   selectGame: (gameId) => {
     if (!gameId) {
@@ -112,6 +117,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ analyzedPgnHashes: tursoStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
+        set({ importJustCompleted: true });
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to fetch games.';
@@ -500,6 +506,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     linkedLoading: false,
     linkedAnalyzing: false,
     linkedAnalysisProgress: '',
+    importJustCompleted: false,
   }); },
 }));
 

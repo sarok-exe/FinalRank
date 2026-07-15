@@ -2,7 +2,7 @@
 // Caches public assets: images, audio, fonts, and engine files.
 // Never caches user data, API responses, or game PGNs.
 
-const CACHE_NAME = 'finalrank-static-v1';
+const CACHE_NAME = 'finalrank-static-v2';
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (event) => {
         return cached;
       }
       return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== 'basic' && response.type !== 'cors') {
+        if (!response || response.status !== 200 || (response.type !== 'basic' && response.type !== 'cors')) {
           return response;
         }
         const clone = response.clone();
@@ -84,8 +84,8 @@ self.addEventListener('fetch', (event) => {
         });
         return response;
       }).catch(() => {
-        // Offline fallback — if offline and not cached, this will fail silently
-        return new Response('', { status: 408 });
+        // If network fails and not cached, let the browser handle the error
+        return fetch(event.request).catch(() => new Response('', { status: 408 }));
       });
     })
   );

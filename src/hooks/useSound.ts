@@ -61,12 +61,41 @@ const SOUND_FILES: Record<SoundType, string> = {
 };
 
 export function getSoundTypeFromSan(san: string): SoundType {
+  if (!san) return 'move';
   if (san.includes('#')) return 'check';
   if (san.includes('+')) return 'move-check';
-  if (san.startsWith('O-O')) return 'castle';
-  if (san.includes('=')) return 'promote';
-  if (san.includes('x')) return 'capture';
+  const trimmed = san.trim();
+  if (trimmed.startsWith('O-O') || trimmed.startsWith('0-0')) return 'castle';
+  if (trimmed.includes('=')) return 'promote';
+  if (trimmed.includes('x')) return 'capture';
   return 'move';
+}
+
+const audioCache = new Map<SoundType, HTMLAudioElement>();
+
+function getOrCreateAudio(type: SoundType, volume: number): HTMLAudioElement | null {
+  const src = SOUND_FILES[type];
+  if (!src) return null;
+  let audio = audioCache.get(type);
+  if (!audio) {
+    audio = new Audio(src);
+    audioCache.set(type, audio);
+  }
+  audio.volume = volume;
+  return audio;
+}
+
+// Preload common sounds on module init
+if (typeof window !== 'undefined') {
+  ['move', 'capture', 'move-self', 'castle', 'check', 'move-check', 'promote'].forEach((t) => {
+    const src = SOUND_FILES[t as SoundType];
+    if (src) {
+      const a = new Audio(src);
+      a.preload = 'auto';
+      a.volume = 0;  // Mute during preload
+      audioCache.set(t as SoundType, a);
+    }
+  });
 }
 
 export function useSound() {
@@ -76,15 +105,13 @@ export function useSound() {
 
   const play = useCallback((type: SoundType) => {
     if (!audioEnabled) return;
-    const src = SOUND_FILES[type];
-    if (!src) return;
+    const audio = getOrCreateAudio(type, volume);
+    if (!audio) return;
     try {
-      if (audioRef.current) {
+      if (audioRef.current && audioRef.current !== audio) {
         audioRef.current.pause();
-        audioRef.current.currentTime = 0;
       }
-      const audio = new Audio(src);
-      audio.volume = volume;
+      audio.currentTime = 0;
       audioRef.current = audio;
       audio.play().catch(() => {});
     } catch {}

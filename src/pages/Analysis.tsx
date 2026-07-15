@@ -170,6 +170,15 @@ function formatDuration(ms: number | undefined): string {
     return () => { document.removeEventListener('visibilitychange', onVisible); };
   }, []);
 
+  // Auto-show game list when import just completed
+  const importJustCompleted = useGameStore(s => s.importJustCompleted);
+  useEffect(() => {
+    if (importJustCompleted) {
+      setShowGameList(true);
+      useGameStore.getState().consumeImportFlag();
+    }
+  }, [importJustCompleted]);
+
   const prevMoveIndexRef = React.useRef(currentMoveIndex);
   React.useEffect(() => {
     if (!selectedGame) return;
@@ -526,7 +535,7 @@ function formatDuration(ms: number | undefined): string {
             <SkeletonGameGrid count={6} />
           </div>
         )}
-        {showGameList && !loadingGames && games.length > 0 && (
+        {(showGameList || games.length > 0) && !loadingGames && games.length > 0 && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
               <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />

@@ -260,7 +260,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
     <div className="space-y-4" id="play-vs-computer-feature">
       <div className="flex items-center justify-between">
         <button
-          onClick={() => { destroyEngine(); onBack(); }}
+          onClick={() => { destroyEngine(); props.onBack(); }}
           className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />

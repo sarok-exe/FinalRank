@@ -70,6 +70,8 @@ const DEFAULT_GUEST: User = {
         showArrows: true,
         showCoordinates: true,
         autoAnalyze: true,
+        remoteEvaluation: true,
+        distributedAnalysis: false,
       },
     },
 };
