@@ -177,23 +177,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const autoEnabled = settings.featureToggles.autoAnalyze;
     if (!autoEnabled) return;
 
-    if (get().analysisCache[gameId] != null) return;
-
-    const cached = await getCachedAnalysis(game.pgn, depth);
-    if (cached) {
-      const pgnHash = hashPgn(game.pgn);
-      set(state => ({
-        analysisCache: { ...state.analysisCache, [gameId]: cached },
-        analyzedPgnHashes: { ...state.analyzedPgnHashes, [pgnHash]: true },
-        selectedGame: state.selectedGame?.id === gameId
-          ? { ...state.selectedGame, moves: mergeMoves(state.selectedGame.moves, cached.moves), accuracy: cached.accuracy, classificationCounts: cached.classificationCounts, analyzedAt: cached.analyzedAt, analysisDurationMs: cached.analysisDurationMs, analysisDepth: cached.analysisDepth }
-          : state.selectedGame,
-      }));
-      if (cached.shortId != null) {
-        void saveGameToApi(cached.shortId, cached);
-      }
-      return;
-    }
+    // Always run analysis from scratch (no Turso cache lookup)
 
     set({ autoAnalyzing: true });
 
@@ -216,53 +200,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!selectedGame || analyzing || selectedGame.moves.length === 0) return;
 
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
-
-    const cached = get().analysisCache[selectedGame.id];
-    if (cached?.analyzedAt != null) {
-      // If cached depth differs from requested depth, force re-analysis
-      if (cached.analysisDepth === evalDepth) {
-        const isDepthSufficient = cached.moves.every(m => {
-          const topDepth = (m.engineLines ?? []).reduce((d, l) => Math.max(d, l.depth), 0);
-          return topDepth >= evalDepth;
-        });
-        if (isDepthSufficient) {
-          set({
-            selectedGame: {
-              ...selectedGame,
-              moves: mergeMoves(selectedGame.moves, cached.moves),
-              accuracy: cached.accuracy,
-              classificationCounts: cached.classificationCounts,
-              analyzedAt: cached.analyzedAt,
-              analysisDurationMs: cached.analysisDurationMs,
-              analysisDepth: cached.analysisDepth,
-            },
-            analysisProgress: 100,
-          });
-          return;
-        }
-      }
-      // Different depth or insufficient — fall through to re-analyze
-    }
-
-    const tursoCached = await getCachedAnalysis(selectedGame.pgn, evalDepth);
-    if (tursoCached) {
-      const pgnHash = hashPgn(selectedGame.pgn);
-      set({
-        analysisCache: { ...get().analysisCache, [selectedGame.id]: tursoCached },
-        analyzedPgnHashes: { ...get().analyzedPgnHashes, [pgnHash]: true },
-        selectedGame: {
-          ...selectedGame,
-          moves: mergeMoves(selectedGame.moves, tursoCached.moves),
-          accuracy: tursoCached.accuracy,
-          classificationCounts: tursoCached.classificationCounts,
-          analyzedAt: tursoCached.analyzedAt,
-          analysisDurationMs: tursoCached.analysisDurationMs,
-          analysisDepth: tursoCached.analysisDepth,
-        },
-        analysisProgress: 100,
-      });
-      return;
-    }
 
     const pending = pendingAnalysis.get(selectedGame.id);
     if (pending) {
