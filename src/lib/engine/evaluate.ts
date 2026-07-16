@@ -88,9 +88,9 @@ export function createGameEvaluator(
     const updatedMoves = [...game.moves];
     const gameEngineLines: EngineLine[][] = Array.from({ length: fens.length }, () => []);
 
-    // Phase 1: Cloud evaluation (lichess) - sequential with global timeout
+    // Phase 1: Cloud evaluation (lichess) - quick sequential scan, short timeout
     const cloudStartTime = Date.now();
-    const CLOUD_TIMEOUT = 15000;
+    const CLOUD_TIMEOUT = 3000;
     for (let i = 1; i < fens.length; i++) {
       if (controller.signal.aborted) throw new Error('aborted');
       if (Date.now() - cloudStartTime > CLOUD_TIMEOUT) break;

@@ -20,15 +20,15 @@ export async function getCloudEvaluation(fen: string, multiPv = 2): Promise<Engi
     return [];
   }
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => { controller.abort(); }, 3000);
+  const timeoutId = setTimeout(() => { controller.abort(); }, 800);
   const res = await fetch(
-    `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`,
-    { signal: controller.signal }
-  );
-  clearTimeout(timeoutId);
-  if (!res.ok) return [];
+      `https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=${multiPv}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (!res.ok) return [];
 
-  const data: CloudEvalResponse = await res.json();
+    const data: CloudEvalResponse = await res.json();
   const lines: EngineLine[] = [];
 
   for (const variation of data.pvs) {
