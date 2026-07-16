@@ -86,7 +86,7 @@ function FeatureCard(props: Readonly<{
   return (
     <button
       onClick={props.onClick}
-      className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] transition-colors group aspect-square justify-center"
+      className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] transition-colors group min-h-[180px] sm:aspect-square sm:justify-center w-full"
     >
       <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] transition-colors">
         <Icon className="w-6 h-6 text-white" />
@@ -172,10 +172,11 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
     window.addEventListener('resize', onResize);
     return () => { window.removeEventListener('resize', onResize); };
   }, []);
-  const pad = 32;
+  const pad = 16;
   let bW1Desired = 644;
-  if (focusMode) bW1Desired = 819;
+  if (focusMode) bW1Desired = 700;
   else if (fullscreenMode) bW1Desired = 990;
+  else if (vpW < 640) bW1Desired = 500;
   const boardWidth = Math.min(bW1Desired, vpW - pad);
 
   const announceGameEnd = useCallback((game: Chess) => {
@@ -258,7 +259,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
 
   return (
     <div className="space-y-4" id="play-vs-computer-feature">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={() => { destroyEngine(); props.onBack(); }}
           className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
@@ -499,7 +500,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
   let boardWidthTarget = 385;
   if (focusMode) boardWidthTarget = 490;
   else if (fullscreenMode) boardWidthTarget = 593;
-  const boardWidth = Math.min(boardWidthTarget, vpW2 - 32);
+  else if (vpW2 < 640) boardWidthTarget = 360;
+  const boardWidth = Math.min(boardWidthTarget, vpW2 - 16);
 
   // Spacebar for clock turn switching (like Chess Clock feature)
   useEffect(() => {
@@ -606,7 +608,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
 
   return (
     <div className="space-y-4" id="player-vs-player-feature">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
@@ -614,7 +616,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
           <ChevronLeft className="w-4 h-4" />
           <span>Back to Tools</span>
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <button
             onClick={() => { setAutoFlip(!autoFlip); }}
             className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
@@ -1032,7 +1034,7 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
 
   return (
     <div className="space-y-4" id="chess-clock-feature">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={onBack}
           className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
@@ -1054,9 +1056,9 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
         </div>
       </div>
 
-      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
-      <div className="flex flex-col items-center overflow-visible">
-        <div className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5 ${focusMode ? '' : 'max-w-md w-full'} ${fullscreenMode ? 'scale-[1.7] transform-gpu origin-center' : ''}`}>
+      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh] overflow-hidden' : ''}>
+      <div className="flex flex-col items-center overflow-visible w-full">
+        <div className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 w-full ${focusMode ? '' : 'max-w-md'} ${fullscreenMode ? 'scale-[1.1] sm:scale-[1.4] md:scale-[1.7] transform-gpu origin-center' : ''}`}>
           <div className="grid grid-rows-2 gap-3" id="clock-sides">
             <button
               onClick={() => { clockStore.switchTurn('w'); sound.play('clock-tick'); }}

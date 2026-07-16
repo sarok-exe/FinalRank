@@ -118,7 +118,7 @@ export default function Profile(): React.ReactElement {
   );
 
   const renderTabNav = (): React.ReactElement => (
-    <div className="flex flex-col space-y-1">
+    <div className="flex md:flex-col flex-row gap-1.5 md:space-y-1 md:gap-0 overflow-x-auto md:overflow-x-visible -mx-1 px-1 md:mx-0 md:px-0 scrollbar-thin">
       {TABS.map(tab => {
         const Icon = tab.icon;
         const active = activeTab === tab.id;
@@ -126,15 +126,15 @@ export default function Profile(): React.ReactElement {
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); }}
-            className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-all text-left ${
+            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 md:w-full ${
               active
                 ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
-                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
+                : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border border-transparent'
             }`}
           >
             <Icon className="w-4 h-4 shrink-0" />
             <span>{tab.label}</span>
-            {active && <ChevronRight className="w-3.5 h-3.5 ml-auto" />}
+            {active && <ChevronRight className="w-3.5 h-3.5 ml-auto hidden md:block" />}
           </button>
         );
       })}
@@ -315,13 +315,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             Link Chess.com
           </span>
           <p className="text-[10px] text-[var(--color-text-muted)]">Auto-fetch your last 3 games on the Analysis page.</p>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               type="text"
               defaultValue={user.chessComUsername ?? ''}
               placeholder="Chess.com username"
               id="chesscom-link-input"
-              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 outline-none focus:border-[var(--color-primary)]"
+              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
             />
             <button
               onClick={(e) => {
@@ -864,11 +864,11 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-        <div className="md:col-span-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
+        <div className="md:col-span-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-2.5 md:p-4 min-w-0">
           {renderTabNav()}
         </div>
 
-        <div className="md:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 min-h-[400px]">
+        <div className="md:col-span-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 md:p-6 min-h-[400px] min-w-0">
           {renderTabContent()}
         </div>
       </div>

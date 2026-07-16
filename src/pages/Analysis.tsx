@@ -457,10 +457,10 @@ function formatDuration(ms: number | undefined): string {
         </div>
 
         <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6" id="analysis-settings-card">
-          <div className="flex border-b border-[var(--color-border)] mb-4">
+          <div className="flex border-b border-[var(--color-border)] mb-4 overflow-x-auto">
             <button
               onClick={() => { setImportMode('chesscom'); }}
-              className={`pb-3 px-4 text-sm font-semibold border-b-2 ${
+              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
                 importMode === 'chesscom'
                   ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                   : 'border-transparent text-[var(--color-text-muted)]'
@@ -471,7 +471,7 @@ function formatDuration(ms: number | undefined): string {
             </button>
             <button
               onClick={() => { setImportMode('pgn'); }}
-              className={`pb-3 px-4 text-sm font-semibold border-b-2 ${
+              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
                 importMode === 'pgn'
                   ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
                   : 'border-transparent text-[var(--color-text-muted)]'
@@ -483,19 +483,19 @@ function formatDuration(ms: number | undefined): string {
           </div>
 
           {importMode === 'chesscom' ? (
-            <form onSubmit={handleChessComSubmit} className="flex gap-2">
+            <form onSubmit={handleChessComSubmit} className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={usernameInput}
                 onChange={(e) => { setUsernameInput(e.target.value); }}
                 placeholder="e.g. Hikaru"
-                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[var(--color-text-muted)] flex-1"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0"
                 id="chesscom-user-input"
               />
               <button
                 type="submit"
                 disabled={loadingGames}
-                className="bg-[var(--color-primary)] text-white text-sm px-5 py-2.5 rounded-lg font-bold disabled:opacity-50"
+                className="bg-[var(--color-primary)] text-white text-sm px-5 py-2.5 rounded-lg font-bold disabled:opacity-50 flex-shrink-0"
                 id="api-fetch-submit"
               >
                 {loadingGames ? 'Searching...' : 'Fetch Games'}
@@ -636,8 +636,9 @@ function formatDuration(ms: number | undefined): string {
     );
   }
 
-  const pad = 32;
-  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : 550;
+  const pad = 16;
+  // Use a smaller desired width on phones so the board doesn't dominate the screen
+  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : vpW < 640 ? 420 : 550;
   const boardWidth = Math.min(desiredW, vpW - pad);
 
   return (
@@ -748,7 +749,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
-            <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
               <div className="flex items-center space-x-1">
                 <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
                   <ChevronsLeft className="w-5 h-5" />
@@ -775,11 +776,11 @@ function formatDuration(ms: number | undefined): string {
               <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
                 {currentMoveIndex + 1}/{selectedGame.moves.length}
               </span>
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
                   <button
                     onClick={handleSaveGame}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                    className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
                       savedGameIds.has(selectedGame.id)
                         ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
                         : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
@@ -787,7 +788,7 @@ function formatDuration(ms: number | undefined): string {
                     title={savedGameIds.has(selectedGame.id) ? 'Remove save' : 'Save game'}
                   >
                     <Save className="w-3.5 h-3.5" />
-                    <span>{savedGameIds.has(selectedGame.id) ? 'Saved' : 'Save'}</span>
+                    <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Saved' : 'Save'}</span>
                   </button>
                 )}
                 <button
@@ -800,45 +801,45 @@ function formatDuration(ms: number | undefined): string {
                     a.click();
                     URL.revokeObjectURL(url);
                   }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
                   title="Download PGN"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>PGN</span>
+                  <span className="hidden xs:inline">PGN</span>
                 </button>
                 <button
                   onClick={() => { setShowShare(true); }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
                   title="Share game"
                 >
                   <Share2 className="w-3.5 h-3.5" />
-                  <span>Share</span>
+                  <span className="hidden xs:inline">Share</span>
                 </button>
               </div>
             </div>
           </div>
 
-          <div className="w-full flex items-center gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
+          <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
             <button
               onClick={toggleOrientation}
-              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
+              className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
               title="Flip board (F)"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Flip</span>
+              <span className="hidden xs:inline">Flip</span>
             </button>
             <div className="flex-1" />
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('open-shortcuts'))}
-              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
+              className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
               title="Keyboard shortcuts (?)"
             >
               <Keyboard className="w-3.5 h-3.5" />
-              <span>Shortcuts</span>
+              <span className="hidden sm:inline">Shortcuts</span>
             </button>
             <button
               onClick={toggleFocusMode}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold border ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border ${
                 focusMode
                   ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
                   : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
@@ -846,7 +847,7 @@ function formatDuration(ms: number | undefined): string {
               title="Toggle focus mode (Z)"
             >
               <Focus className="w-3.5 h-3.5" />
-              <span>Focus</span>
+              <span className="hidden xs:inline">Focus</span>
             </button>
             <button
               onClick={toggleFullscreen}
@@ -858,16 +859,16 @@ function formatDuration(ms: number | undefined): string {
           </div>
 
       {!(focusMode && fullscreenMode) && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
-            <div className="flex items-center justify-between">
-              <div>
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
                   <span>Stockfish 17</span>
                 </h3>
-                <p className="text-[11px] text-[var(--color-text-muted)]">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed at depth ${selectedGame.analysisDepth}` : ''}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed at depth ${selectedGame.analysisDepth}` : ''}</p>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center gap-1.5 sm:space-x-2">
                 <select
                   value={settings.engineDepth}
                   onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
@@ -884,7 +885,7 @@ function formatDuration(ms: number | undefined): string {
                 <button
                   onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
                   disabled={analyzing}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
+                  className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
                     analyzing
                       ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
                       : 'bg-[var(--color-primary)]'
@@ -944,17 +945,19 @@ function formatDuration(ms: number | undefined): string {
           )}
 
           {!focusMode && selectedGame && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3.5 flex items-start justify-between" id="game-info-card">
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 flex items-start justify-between gap-2" id="game-info-card">
             <div className="space-y-1.5 flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] font-semibold">
-                <TrendingUp className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                <span>Result: </span>
-                <span className="text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
-                <span className="mx-1">&bull;</span>
-                <span className="truncate">{selectedGame.date}</span>
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--color-text-muted)] font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-[var(--color-primary)]" />
+                  <span>Result:</span>
+                  <span className="text-white bg-[var(--color-background)] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
+                </span>
+                <span className="text-[var(--color-border)]">&bull;</span>
+                <span className="truncate max-w-[120px]">{selectedGame.date}</span>
                 {selectedGame.analyzedAt && (
-                  <span className="text-[10px] text-green-500 font-bold ml-auto">
-                    &#x2713; Analyzed at depth {selectedGame.analysisDepth ?? '?'}{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
+                  <span className="text-[10px] text-green-500 font-bold">
+                    &#x2713; Depth {selectedGame.analysisDepth ?? '?'}{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
                   </span>
                 )}
               </div>

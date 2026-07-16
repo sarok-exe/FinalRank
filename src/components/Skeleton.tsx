@@ -26,11 +26,11 @@ export function SkeletonGameGrid({ count = 6 }: { count?: number }) {
 export function SkeletonBoard() {
   return (
     <div className="space-y-4 flex flex-col items-center w-full">
-      <div className="flex w-full gap-3" style={{ maxWidth: 550 }}>
-        <div className="w-8 bg-[var(--color-surface)] rounded animate-pulse" style={{ minHeight: 400 }} />
+      <div className="flex w-full gap-3" style={{ maxWidth: 'min(550px, calc(100vw - 2rem))' }}>
+        <div className="w-6 sm:w-8 bg-[var(--color-surface)] rounded animate-pulse" style={{ minHeight: 300 }} />
         <div className="flex-1 aspect-square bg-[var(--color-surface)] rounded animate-pulse" />
       </div>
-      <div className="w-full h-10 bg-[var(--color-surface)] rounded-lg animate-pulse" style={{ maxWidth: 550 }} />
+      <div className="w-full h-10 bg-[var(--color-surface)] rounded-lg animate-pulse" style={{ maxWidth: 'min(550px, calc(100vw - 2rem))' }} />
     </div>
   );
 }
