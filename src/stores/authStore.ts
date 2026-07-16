@@ -14,6 +14,7 @@ type AuthState = {
   logout(): void;
   incrementAnalyzedGames(): Promise<void>;
   updateStreakOnAnalysis(): Promise<{ streakIncremented: boolean; newStreak: number; prevStreak: number }>;
+  checkStreakOnLogin(): void;
   setChessComUsername(username: string): Promise<void>;
   clearStreakToast(): void;
 }
@@ -93,6 +94,21 @@ function removeUser() {
   localStorage.removeItem('finalrank_user');
 }
 
+/** Format a Date as YYYY-MM-DD in the user's local timezone. */
+function formatLocalDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Number of whole days between two YYYY-MM-DD strings (b - a), interpreted as local dates. */
+function daysBetweenLocal(a: string, b: string): number {
+  const [ay, am, ad] = a.split('-').map(Number);
+  const [by, bm, bd] = b.split('-').map(Number);
+  const aDate = new Date(ay, (am ?? 1) - 1, ad ?? 1);
+  const bDate = new Date(by, (bm ?? 1) - 1, bd ?? 1);
+  const ms = bDate.getTime() - aDate.getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24));
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadUser(),
   loading: false,
@@ -114,13 +130,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
     loginAsGuest: (username = 'ChessPro_Guest') => {
+    const existing = loadUser();
     const user: User = {
       ...DEFAULT_GUEST,
+      id: existing?.id ?? `guest_user_${Date.now()}`,
       username,
-      avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
+      avatar: existing?.avatar ?? `https://api.dicebear.com/7.x/bottts/svg?seed=${username}`,
+      streak: existing?.streak ?? 0,
+      analyzedCount: existing?.analyzedCount ?? 0,
+      lastActiveDate: existing?.lastActiveDate ?? null,
+      chessComUsername: existing?.chessComUsername,
+      settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
     };
     set({ user, error: null });
     saveUser(user);
+    get().checkStreakOnLogin();
   },
 
   logout: () => {
@@ -149,23 +173,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const { user } = get();
     if (!user) return { streakIncremented: false, newStreak: 0, prevStreak: 0 };
     const now = new Date();
-    const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayLocal = formatLocalDate(now);
     const lastActive = user.lastActiveDate;
     const prevStreak = user.streak;
     let newStreak = prevStreak;
     let streakIncremented = false;
 
-    if (lastActive == null) {
+    if (lastActive == null || lastActive === '') {
+      // First time analyzing
       newStreak = 1;
       streakIncremented = true;
+    } else if (lastActive === todayLocal) {
+      // Already analyzed today, no change
+      return { streakIncremented: false, newStreak: prevStreak, prevStreak };
     } else {
-      const diffDays = Math.ceil(Math.abs(new Date(todayLocal).getTime() - new Date(lastActive).getTime()) / (1000 * 60 * 60 * 24));
+      // Check if consecutive day or missed days
+      const diffDays = daysBetweenLocal(lastActive, todayLocal);
+
       if (diffDays === 1) {
+        // Consecutive day - increment streak
         newStreak = prevStreak + 1;
         streakIncremented = true;
       } else if (diffDays > 1) {
+        // Missed one or more days - reset to 1 (started a new streak today)
         newStreak = 1;
-        streakIncremented = true;
+        streakIncremented = prevStreak > 0; // Only show notification if they had a streak before
       }
     }
 
@@ -179,6 +211,39 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
     return { streakIncremented, newStreak, prevStreak };
+  },
+
+  checkStreakOnLogin: () => {
+    const { user } = get();
+    if (!user || !user.lastActiveDate || user.lastActiveDate === '') return;
+    
+    const now = new Date();
+    const todayLocal = formatLocalDate(now);
+    
+    if (user.lastActiveDate === todayLocal) {
+      // Already active today, no change needed
+      return;
+    }
+    
+    // Check if yesterday
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayLocal = formatLocalDate(yesterday);
+    
+    if (user.lastActiveDate === yesterdayLocal) {
+      // Active yesterday, streak is still valid
+      return;
+    }
+    
+    // Missed a day - reset streak to 0
+    const updated = { ...user, streak: 0 };
+    set({ user: updated });
+    saveUser(updated);
+    if (user.authProvider === 'google') {
+      void updateUserProfile(updated.id, {
+        streak: 0,
+      });
+    }
   },
 
   clearStreakToast: () => { set({ streakToast: null }); },
@@ -246,6 +311,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     };
     saveUser(user);
     useAuthStore.setState({ user, loading: false });
+    useAuthStore.getState().checkStreakOnLogin();
     return;
   }
 
@@ -270,6 +336,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     };
     saveUser(user);
     useAuthStore.setState({ user, loading: false });
+    useAuthStore.getState().checkStreakOnLogin();
     return;
   }
 
@@ -282,12 +349,14 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     };
     saveUser(refreshed);
     useAuthStore.setState({ user: refreshed, loading: false });
+    useAuthStore.getState().checkStreakOnLogin();
     return;
   }
 
   const user = buildGoogleUser(fbUser);
   saveUser(user);
   useAuthStore.setState({ user, loading: false });
+  useAuthStore.getState().checkStreakOnLogin();
 
   await saveUserProfile(user.id, {
     username: user.username,

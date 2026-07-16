@@ -3,15 +3,12 @@ import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { getStreakMessage, markCelebrated, wouldSkipCelebration, shouldCelebrateStreak } from '../lib/streakMilestones';
 import { playVictorySound } from '../lib/victorySound';
-import { ParticleSystem } from '../lib/chronolayers';
 
 export default function StreakCelebration() {
   const user = useAuthStore(s => s.user);
   const settings = useSettingsStore(s => s.settings);
   const days = user?.streak ?? 0;
   const prevRef = useRef(days);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
-  const animRef = useRef(0);
   const [show, setShow] = useState<{ prev: number; current: number; message: string } | null>(null);
   const [phase, setPhase] = useState<'old' | 'flip' | 'new' | null>(null);
 
@@ -41,54 +38,6 @@ export default function StreakCelebration() {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [days, settings.streakSoundEnabled, settings.streakSoundVolume]);
 
-  useEffect(() => {
-    if (!show) return;
-    const canvas = overlayRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const W = window.innerWidth, H = window.innerHeight;
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.scale(dpr, dpr);
-
-    const ps1 = new ParticleSystem();
-    ps1.init(W, H, '#ffaa44');
-    const ps2 = new ParticleSystem();
-    ps2.init(W, H, '#ff4400');
-
-    let running = true;
-
-    function render(t: number) {
-      if (!running || !ctx) return;
-      ctx.clearRect(0, 0, W, H);
-      const time = t / 1000;
-
-      ctx.globalCompositeOperation = 'lighter';
-      drawParticles(ctx, ps1, W, H, '#ffaa44', 0.03, 0.005, 0.97, 1.5, time);
-      drawParticles(ctx, ps2, W, H, '#ff4400', -0.02, 0.003, 0.96, 1.0, time);
-
-      ctx.globalCompositeOperation = 'source-over';
-      const fade = 1 - Math.min(time / 3, 1);
-      ctx.globalAlpha = 0.12 * fade;
-      const glow = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.min(W, H) * 0.4);
-      glow.addColorStop(0, '#ffaa44');
-      glow.addColorStop(1, 'transparent');
-      ctx.fillStyle = glow;
-      ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = 1;
-
-      animRef.current = requestAnimationFrame(render);
-    }
-
-    animRef.current = requestAnimationFrame(render);
-    return () => { running = false; cancelAnimationFrame(animRef.current); };
-  }, [show]);
-
   if (!show) return null;
 
   return (
@@ -98,14 +47,38 @@ export default function StreakCelebration() {
         position: 'fixed', inset: 0, zIndex: 9999,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         cursor: 'pointer',
+        background: 'radial-gradient(circle at center, rgba(255,170,68,0.08) 0%, rgba(0,0,0,0.6) 60%)',
+        animation: 'celebration-fade-in 0.4s ease-out',
       }}
     >
+      {/* Decorative glow rings (CSS only, no canvas) */}
       <div style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(0,0,0,0.55)',
-        animation: 'fade-in 0.3s ease-out',
+        position: 'absolute', left: '50%', top: '50%',
+        width: 'min(90vw, 600px)', height: 'min(90vw, 600px)',
+        transform: 'translate(-50%, -50%)',
+        borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(255,170,68,0.15) 0%, transparent 70%)',
+        animation: 'celebration-pulse 2s ease-in-out infinite',
+        pointerEvents: 'none',
       }} />
-      <canvas ref={overlayRef} style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }} />
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        width: 'min(70vw, 450px)', height: 'min(70vw, 450px)',
+        transform: 'translate(-50%, -50%)',
+        borderRadius: '50%',
+        border: '1px solid rgba(255,170,68,0.2)',
+        animation: 'celebration-ring 3s ease-in-out infinite',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        width: 'min(50vw, 300px)', height: 'min(50vw, 300px)',
+        transform: 'translate(-50%, -50%)',
+        borderRadius: '50%',
+        border: '1px solid rgba(255,170,68,0.3)',
+        animation: 'celebration-ring 3s ease-in-out infinite 0.5s',
+        pointerEvents: 'none',
+      }} />
 
       <div style={{
         position: 'relative', zIndex: 1, textAlign: 'center',
@@ -190,6 +163,16 @@ export default function StreakCelebration() {
 
       <style>{`
         @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes celebration-fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes celebration-pulse {
+          0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+          50%      { transform: translate(-50%, -50%) scale(1.05); opacity: 1; }
+        }
+        @keyframes celebration-ring {
+          0%   { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+          50%  { transform: translate(-50%, -50%) scale(1.0); opacity: 0.6; }
+          100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0; }
+        }
         @keyframes flip-down {
           0%   { transform: rotateX(0deg); opacity: 1; }
           100% { transform: rotateX(-90deg); opacity: 0; }
@@ -206,20 +189,4 @@ export default function StreakCelebration() {
       `}</style>
     </div>
   );
-}
-
-function drawParticles(
-  ctx: CanvasRenderingContext2D, ps: ParticleSystem,
-  w: number, h: number, color: string,
-  wx: number, wy: number, drag: number, sz: number, t: number
-) {
-  const windX = wx + Math.sin(t * 0.5) * 0.02;
-  const windY = wy + Math.cos(t * 0.7) * 0.01;
-  ps.particles.forEach(p => {
-    const tx = w / 2 + Math.cos(t * 0.3 + p.x * 0.03) * (w * 0.4);
-    const ty = h / 2 + Math.sin(t * 0.4 + p.y * 0.03) * (h * 0.3);
-    p.vx += (tx - p.x) * 0.001;
-    p.vy += (ty - p.y) * 0.001;
-  });
-  ps.updateAndDraw(ctx, w, h, windX, windY, drag, color, sz);
 }
