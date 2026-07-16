@@ -86,9 +86,9 @@ function FeatureCard(props: Readonly<{
   return (
     <button
       onClick={props.onClick}
-      className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] transition-colors group min-h-[180px] sm:aspect-square sm:justify-center w-full"
+      className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] group min-h-[180px] sm:aspect-square sm:justify-center w-full hover-lift will-anim"
     >
-      <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] transition-colors">
+      <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] group-hover:scale-110">
         <Icon className="w-6 h-6 text-white" />
       </div>
       <h3 className="text-lg font-extrabold text-white mb-2">{title}</h3>

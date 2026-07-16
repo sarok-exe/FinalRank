@@ -897,20 +897,6 @@ function formatDuration(ms: number | undefined): string {
                 </button>
               </div>
             </div>
-            {analyzing && (
-              <div className="space-y-1" id="analysis-progressbar-group">
-                <div className="flex items-center justify-between text-[11px] font-medium">
-                  <span className="text-[var(--color-primary)]">Analyzing positions...</span>
-                  <span className="text-[var(--color-primary)] font-bold">{analysisProgress}%</span>
-                </div>
-                <div className="w-full h-2 bg-[var(--color-surface)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-primary)] rounded-full"
-                    style={{ width: `${analysisProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
           </div>
           )}
 

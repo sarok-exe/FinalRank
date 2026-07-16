@@ -4,11 +4,13 @@
  */
 
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import Shell from './components/layout/Shell';
 import StreakNotification from './components/StreakNotification';
 import StreakCelebration from './components/StreakCelebration';
 import ToastContainer from './components/ToastContainer';
+import AnalysisOverlay from './components/AnalysisOverlay';
 
 const Analysis = lazy(() => import('./pages/Analysis'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -23,12 +25,42 @@ function PageLoading() {
   );
 }
 
-export default function App() {
+// Page variants for smooth route transitions
+const pageVariants = {
+  initial: { opacity: 0, y: 6 },
+  enter: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -4 },
+};
+
+const pageTransition = {
+  duration: 0.22,
+  ease: [0.4, 0, 0.2, 1] as [number, number, number, number],
+};
+
+function getPageKey(pathname: string): string {
+  // Strip dynamic segments so that /game/:gameId doesn't re-trigger transitions
+  // when the user switches between games on the Analysis page.
+  if (pathname.startsWith('/game')) return '/game';
+  if (pathname === '/' || pathname === '') return '/';
+  return pathname;
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+  const pageKey = getPageKey(location.pathname);
   return (
-    <BrowserRouter>
-      <Shell>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={pageKey}
+        variants={pageVariants}
+        initial="initial"
+        animate="enter"
+        exit="exit"
+        transition={pageTransition}
+        style={{ willChange: 'transform, opacity' }}
+      >
         <Suspense fallback={<PageLoading />}>
-          <Routes>
+          <Routes location={location}>
             <Route path="/" element={<Analysis />} />
             <Route path="/game/:gameId" element={<Analysis />} />
             <Route path="/tools" element={<Tools />} />
@@ -37,9 +69,20 @@ export default function App() {
             <Route path="*" element={<Analysis />} />
           </Routes>
         </Suspense>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Shell>
+        <AnimatedRoutes />
       </Shell>
       <StreakNotification />
       <StreakCelebration />
+      <AnalysisOverlay />
       <ToastContainer />
     </BrowserRouter>
   );

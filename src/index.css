@@ -66,6 +66,132 @@ body {
   word-break: break-word;
 }
 
+/* ============== SMOOTH GLOBAL TRANSITIONS ============== */
+
+/* Only animate properties that change on interactive elements */
+button, a, input, select, textarea, label, [role="button"], summary {
+  transition-property: background-color, border-color, color, opacity, transform, box-shadow, filter;
+  transition-duration: 180ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Disable transitions on large media, headings, and content text to avoid jank */
+img, video, canvas, svg, h1, h2, h3, h4, h5, h6, p, span, li, td, th {
+  transition: none;
+}
+
+/* Use GPU-friendly hint for elements that animate */
+.will-anim {
+  will-change: transform, opacity;
+}
+
+/* Page enter/leave */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes page-leave {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+
+.page-enter {
+  animation: page-enter 260ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.page-leave {
+  animation: page-leave 180ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* Modal backdrop blur */
+@keyframes backdrop-in {
+  from { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+  to   { opacity: 1; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+}
+
+@keyframes backdrop-out {
+  from { opacity: 1; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  to   { opacity: 0; backdrop-filter: blur(0px); -webkit-backdrop-filter: blur(0px); }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.92) translateY(20px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes modal-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to   { opacity: 0; transform: scale(0.95) translateY(8px); }
+}
+
+@keyframes success-burst {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes success-ring {
+  0%   { transform: scale(0.4); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(96, 108, 56, 0.45); }
+  50%      { box-shadow: 0 0 0 16px rgba(96, 108, 56, 0); }
+}
+
+/* Smooth button press */
+button:not(:disabled):active,
+a:active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Focus ring */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Subtle hover lift for cards */
+.hover-lift {
+  transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 200ms cubic-bezier(0.4, 0, 0.2, 1), border-color 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -8px rgba(0, 0, 0, 0.4);
+}
+
+.hover-lift:active {
+  transform: translateY(0);
+}
+
+/* Content reveal on focus mode toggle */
+.content-fade-in {
+  animation: page-enter 320ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
 @keyframes slideIn {
   from {
     opacity: 0;
@@ -75,28 +201,6 @@ body {
     opacity: 1;
     transform: translateX(0);
   }
-}
-
-* {
-  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
-}
-
-input, textarea, select {
-  transition-property: background-color, border-color, color, opacity, box-shadow;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
-}
-
-button, a, label {
-  transition-property: background-color, border-color, color, opacity, transform, box-shadow;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
-}
-
-img {
-  transition: opacity 200ms ease;
 }
 
 #app-shell:fullscreen {
