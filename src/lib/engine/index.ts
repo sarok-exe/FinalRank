@@ -1,5 +1,6 @@
 import { Chess } from 'chess.js';
 import type { EngineLine, Evaluation} from '../../types';
+import { STARTING_FEN } from '../../types';
 const STOCKFISH_SINGLE = 'stockfish-18-lite-single.js';
 
 const uciEvaluationTypes: Record<string, string | undefined> = {
