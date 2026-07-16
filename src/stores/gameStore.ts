@@ -296,14 +296,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
 
+      // runEvaluationPipeline already updated the cache and merged moves into selectedGame.
+      // Pull the final analysed game from the cache (or fall back to the updated selectedGame).
       const result = get().analysisCache[selectedGame.id];
-      if (result != null) {
-        set({
-          selectedGame: result,
-          analysisProgress: 100,
-          analyzing: false,
-        });
-      }
+      const finalGame = result ?? get().selectedGame ?? selectedGame;
+
+      set({
+        selectedGame: finalGame,
+        analysisProgress: 100,
+        analyzing: false,
+      });
 
       const authStore = useAuthStore.getState();
       if (authStore.user) {
