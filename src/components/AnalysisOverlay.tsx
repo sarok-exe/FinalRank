@@ -103,6 +103,10 @@ export default function AnalysisOverlay(): React.JSX.Element | null {
     }
   }, [phase]);
 
+  // Get the current user streak for the completion view (must be before early return!)
+  const user = useAuthStore(s => s.user);
+  const streakIncremented = useAuthStore.getState().streakToast?.show ?? false;
+
   if (phase === 'hidden') return null;
 
   const isComplete = phase === 'complete' || phase === 'hiding';
@@ -114,9 +118,6 @@ export default function AnalysisOverlay(): React.JSX.Element | null {
   const rate = elapsedSec > 0 ? smoothProgress / elapsedSec : 0;
   const remainingSec = rate > 0 && smoothProgress < 100 ? Math.max(0, (100 - smoothProgress) / rate) : 0;
 
-  // Get the current user streak for the completion view
-  const user = useAuthStore(s => s.user);
-  const streakIncremented = useAuthStore.getState().streakToast?.show ?? false;
   const showStreak = isComplete && streakIncremented && user != null;
 
   return (
