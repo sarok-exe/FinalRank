@@ -423,19 +423,36 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       </div>
 
       <div className="space-y-2.5 pt-3 border-t border-[var(--color-border)]">
-        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Advanced</span>
+        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Performance</span>
         <SettingToggle
-          label="Remote Evaluation"
-          desc="Use cloud servers to speed up analysis (recommended)"
-          checked={settings.featureToggles.remoteEvaluation}
-          onChange={v => { updateSettings({ featureToggles: { ...settings.featureToggles, remoteEvaluation: v } }); }}
+          label="Auto Depth"
+          desc="Reduce engine depth on low-end devices for faster analysis"
+          checked={settings.autoDepth}
+          onChange={v => { updateSettings({ autoDepth: v }); }}
         />
-        <SettingToggle
-          label="Community Acceleration"
-          desc="Opt-in to share your device to help others analyze faster. No penalty for disabling."
-          checked={settings.featureToggles.distributedAnalysis}
-          onChange={v => { updateSettings({ featureToggles: { ...settings.featureToggles, distributedAnalysis: v } }); }}
-        />
+        <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-2.5">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <div className="text-xs font-semibold text-[var(--color-text)]">Parallel Workers</div>
+              <div className="text-[10px] text-[var(--color-text-muted)]">Analyze multiple positions simultaneously</div>
+            </div>
+            <span className="text-[10px] font-mono font-bold text-[var(--color-accent)] bg-[var(--color-surface)] px-2 py-0.5 rounded">{settings.parallelWorkers}x</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={8}
+            step={1}
+            value={settings.parallelWorkers}
+            onChange={e => { updateSettings({ parallelWorkers: parseInt(e.target.value, 10) }); }}
+            className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
+          />
+          <div className="flex justify-between text-[9px] text-[var(--color-text-muted)] font-mono mt-0.5">
+            <span>1</span>
+            <span>4</span>
+            <span>8</span>
+          </div>
+        </div>
       </div>
 
       {/* Cache Management */}
@@ -446,7 +463,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </p>
         <button
           onClick={async () => {
-            if (!window.confirm('Clear all cached site files (images, sounds, engines)? This will not affect your saved games or settings.')) return;
+            if (!window.confirm('Clear all cached site files (images, sounds, engines) and in-memory position cache? This will not affect your saved games or settings.')) return;
+            // Clear in-memory FEN cache
+            try {
+              const { clearFenCache } = await import('../lib/engine/evaluate');
+              clearFenCache();
+            } catch {}
             // Clear Service Worker caches
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
               navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });

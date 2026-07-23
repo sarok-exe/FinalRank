@@ -2,6 +2,7 @@ import { sum, round } from 'lodash-es';
 import type { ChessGame, EngineLine} from '../../types';
 import { STARTING_FEN } from '../../types';
 import { Engine } from './index';
+import { getOpeningName } from '../reporter/utils/opening';
 
 type EvaluateMovesOptions = {
   engineVersion: string;
@@ -18,14 +19,22 @@ type EvaluationProcess = {
   controller: AbortController;
 }
 
-function getOptimalEngineCount(_requested?: number): number {
-  return 1;
+const fenCache = new Map<string, { lines: EngineLine[]; depth: number }>();
+
+export function getOptimalEngineCount(requested?: number): number {
+  return Math.max(1, Math.min(requested ?? 1, 8));
 }
 
 export function getEngineVersion(_cores: number): string {
-  // Always use single-threaded: multi-threaded requires SharedArrayBuffer
-  // which needs Cross-Origin-Isolation headers (not available on Cloudflare Pages)
   return 'stockfish-18-lite-single.js';
+}
+
+export function clearFenCache(): void {
+  fenCache.clear();
+}
+
+function getCacheKey(fen: string, uciMoves: string[], depth: number): string {
+  return `${fen}|${uciMoves.join(',')}|d${depth}`;
 }
 
 export function createGameEvaluator(
@@ -47,7 +56,36 @@ export function createGameEvaluator(
     const updatedMoves = [...game.moves];
     const gameEngineLines: EngineLine[][] = Array.from({ length: fens.length }, () => []);
 
-    // Local Stockfish engine — analyze every position from scratch
+    // Opening book: positions matching ECO book get a cheap 0-eval and skip engine work.
+    // This saves up to 10-15 full engine calls for typical games.
+    for (let i = 1; i < fens.length; i++) {
+      if (getOpeningName(fens[i])) {
+        gameEngineLines[i] = [{
+          evaluation: { type: 'centipawn', value: 0 },
+          source: options.engineVersion as unknown as EngineLine['source'],
+          depth: 1,
+          index: 1,
+          moves: [],
+        }];
+        progresses[i] = 1;
+      }
+    }
+
+    // Check FEN cache for remaining positions
+    for (let i = 1; i < fens.length; i++) {
+      if (progresses[i] >= 1) continue;
+      const uciMoves = updatedMoves
+        .slice(0, Math.min(i, updatedMoves.length))
+        .filter(m => m.from && m.to)
+        .map(m => m.from + m.to);
+      const key = getCacheKey(startingFen, uciMoves, options.engineDepth);
+      const cached = fenCache.get(key);
+      if (cached && cached.depth >= options.engineDepth) {
+        gameEngineLines[i] = cached.lines;
+        progresses[i] = 1;
+      }
+    }
+
     await new Promise<void>((resolve, reject) => {
       let enginesResting = 0;
       let nextFenIndex = 1;
@@ -94,11 +132,15 @@ export function createGameEvaluator(
         }).then(lines => {
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = lines;
+          const key = getCacheKey(startingFen, uciMoves, options.engineDepth);
+          fenCache.set(key, { lines, depth: options.engineDepth });
+          if (fenCache.size > 5000) {
+            const first = fenCache.keys().next().value;
+            if (first) fenCache.delete(first);
+          }
           options.onProgress?.(getProgress());
           evaluateNextPosition(engine, engineIndex);
         }).catch(() => {
-          // Engine error — still mark position as resolved with empty lines
-          // so the pipeline doesn't hang. Use at least one synthetic line.
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = [{
             evaluation: { type: 'centipawn', value: 0 },

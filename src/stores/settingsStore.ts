@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { UserSettings } from '../types';
 import { updateUserProfile } from '../lib/firebase';
 import { useAuthStore } from './authStore';
+import { detectDeviceTier, recommendedWorkers } from '../lib/deviceTier';
 
 type SettingsState = {
   settings: UserSettings;
@@ -185,12 +186,12 @@ const DEFAULT_SETTINGS: UserSettings = {
   streakSoundVolume: 0.4,
   streakFlameAnimated: true,
   streakFlameColorMode: 'heat',
+  parallelWorkers: recommendedWorkers(detectDeviceTier()),
+  autoDepth: true,
   featureToggles: {
     showArrows: true,
     showCoordinates: true,
     autoAnalyze: true,
-    remoteEvaluation: true,
-    distributedAnalysis: false,
   },
 };
 

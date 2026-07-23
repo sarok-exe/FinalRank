@@ -6,6 +6,8 @@ import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
+import { getOptimalEngineCount } from '../lib/engine/evaluate';
+import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
@@ -454,16 +456,20 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
   const engineVersion = getEngineVersion(cores);
+  const settings = useSettingsStore.getState().settings;
+  const tier = detectDeviceTier();
+  const effectiveDepth = settings.autoDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
+  const maxEngineCount = getOptimalEngineCount(
+    settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier)
+  );
 
   const evaluator = createGameEvaluator(game, {
     engineVersion,
-    engineDepth: depth,
+    maxEngineCount,
+    engineDepth: effectiveDepth,
     engineLinesCount: 2,
     engineConfig: (engine) => {
       engine.setLineCount(2);
-      if (cores > 4) {
-        engine.setThreadCount(Math.max(1, Math.round(cores * 0.7)));
-      }
     },
     onProgress: (progress) => {
       useGameStore.setState({ analysisProgress: Math.round(progress * 90) });
@@ -481,7 +487,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const durationMs = Math.round(performance.now() - startTime);
   analysedGame.analysisDurationMs = durationMs;
-  analysedGame.analysisDepth = depth;
+  analysedGame.analysisDepth = effectiveDepth;
 
   // Show toast notification
   useToastStore.getState().addToast({

@@ -67,12 +67,12 @@ const DEFAULT_GUEST: User = {
       streakSoundVolume: 0.4,
       streakFlameAnimated: true,
       streakFlameColorMode: 'heat',
+      parallelWorkers: 4,
+      autoDepth: true,
       featureToggles: {
         showArrows: true,
         showCoordinates: true,
         autoAnalyze: true,
-        remoteEvaluation: true,
-        distributedAnalysis: false,
       },
     },
 };

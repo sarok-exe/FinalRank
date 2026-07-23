@@ -60,12 +60,12 @@ export type UserSettings = {
   streakSoundVolume: number;
   streakFlameAnimated: boolean;
   streakFlameColorMode: 'heat' | 'gold' | 'white';
+  parallelWorkers: number;
+  autoDepth: boolean;
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;
     autoAnalyze: boolean;
-    remoteEvaluation: boolean;
-    distributedAnalysis: boolean;
   };
 }
 
