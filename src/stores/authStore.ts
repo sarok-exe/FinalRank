@@ -87,12 +87,18 @@ function loadUser(): User | null {
 }
 
 function saveUser(user: User) {
-  localStorage.setItem('finalrank_user', JSON.stringify(user));
+  try {
+    localStorage.setItem('finalrank_user', JSON.stringify(user));
+  } catch (e) {
+    console.warn('[Auth] Failed to persist user to localStorage:', e);
+  }
 }
 
 function removeUser() {
   localStorage.removeItem('finalrank_user');
 }
+
+let streakMutationLock = Promise.resolve();
 
 /** Format a Date as YYYY-MM-DD in the user's local timezone. */
 function formatLocalDate(d: Date): string {
@@ -170,47 +176,50 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   updateStreakOnAnalysis: async () => {
-    const { user } = get();
-    if (!user) return { streakIncremented: false, newStreak: 0, prevStreak: 0 };
-    const now = new Date();
-    const todayLocal = formatLocalDate(now);
-    const lastActive = user.lastActiveDate;
-    const prevStreak = user.streak;
-    let newStreak = prevStreak;
-    let streakIncremented = false;
+    // Serialize streak mutations to prevent races from rapid analysis completions
+    return streakMutationLock = streakMutationLock.then(async () => {
+      const { user } = get();
+      if (!user) return { streakIncremented: false, newStreak: 0, prevStreak: 0 };
+      const now = new Date();
+      const todayLocal = formatLocalDate(now);
+      const lastActive = user.lastActiveDate;
+      const prevStreak = user.streak;
+      let newStreak = prevStreak;
+      let streakIncremented = false;
 
-    if (lastActive == null || lastActive === '') {
-      // First time analyzing
-      newStreak = 1;
-      streakIncremented = true;
-    } else if (lastActive === todayLocal) {
-      // Already analyzed today, no change
-      return { streakIncremented: false, newStreak: prevStreak, prevStreak };
-    } else {
-      // Check if consecutive day or missed days
-      const diffDays = daysBetweenLocal(lastActive, todayLocal);
-
-      if (diffDays === 1) {
-        // Consecutive day - increment streak
-        newStreak = prevStreak + 1;
-        streakIncremented = true;
-      } else if (diffDays > 1) {
-        // Missed one or more days - reset to 1 (started a new streak today)
+      if (lastActive == null || lastActive === '') {
+        // First time analyzing
         newStreak = 1;
-        streakIncremented = prevStreak > 0; // Only show notification if they had a streak before
-      }
-    }
+        streakIncremented = true;
+      } else if (lastActive === todayLocal) {
+        // Already analyzed today, no change
+        return { streakIncremented: false, newStreak: prevStreak, prevStreak };
+      } else {
+        // Check if consecutive day or missed days
+        const diffDays = daysBetweenLocal(lastActive, todayLocal);
 
-    const updated = { ...user, streak: newStreak, lastActiveDate: todayLocal };
-    set({ user: updated });
-    saveUser(updated);
-    if (user.authProvider === 'google') {
-      void updateUserProfile(updated.id, {
-        streak: updated.streak,
-        lastActiveDate: updated.lastActiveDate,
-      });
-    }
-    return { streakIncremented, newStreak, prevStreak };
+        if (diffDays === 1) {
+          // Consecutive day - increment streak
+          newStreak = prevStreak + 1;
+          streakIncremented = true;
+        } else if (diffDays > 1) {
+          // Missed one or more days - reset to 1 (started a new streak today)
+          newStreak = 1;
+          streakIncremented = prevStreak > 0; // Only show notification if they had a streak before
+        }
+      }
+
+      const updated = { ...user, streak: newStreak, lastActiveDate: todayLocal };
+      set({ user: updated });
+      saveUser(updated);
+      if (user.authProvider === 'google') {
+        void updateUserProfile(updated.id, {
+          streak: updated.streak,
+          lastActiveDate: updated.lastActiveDate,
+        });
+      }
+      return { streakIncremented, newStreak, prevStreak };
+    });
   },
 
   checkStreakOnLogin: () => {
@@ -235,8 +244,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return;
     }
     
-    // Missed a day - reset streak to 0
-    const updated = { ...user, streak: 0 };
+    // Missed a day - reset streak to 1 (consistent with updateStreakOnAnalysis)
+    const updated = { ...user, streak: 1 };
     set({ user: updated });
     saveUser(updated);
     if (user.authProvider === 'google') {

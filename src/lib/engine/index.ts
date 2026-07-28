@@ -176,8 +176,9 @@ export class Engine {
 }
 
 export function getTopEngineLine(lines: EngineLine[]) {
+  // Prefer: highest depth → lowest MultiPV index (line 1 = best line)
   return lines.reduce<EngineLine | undefined>((best, line) =>
-    !best || line.depth - line.index > best.depth - best.index ? line : best,
+    !best || line.depth > best.depth || (line.depth === best.depth && line.index < best.index) ? line : best,
     undefined
   );
 }

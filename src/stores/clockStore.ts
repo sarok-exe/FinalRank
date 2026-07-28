@@ -17,6 +17,7 @@ type ClockState = {
   isRunning: boolean;
   winner: 'w' | 'b' | 'draw' | null;
   reason: string | null;
+  customIncrementSec: number;
   
   selectPreset(id: string): void;
   setCustomTime(whiteTimeMs: number, blackTimeMs: number, incrementSec?: number): void;
@@ -55,6 +56,7 @@ export const useClockStore = create<ClockState>((set, get) => ({
   isRunning: false,
   winner: null,
   reason: null,
+  customIncrementSec: 0,
 
   selectPreset: (id) => {
     const preset = CLOCK_PRESETS.find((p) => p.id === id);
@@ -80,6 +82,7 @@ export const useClockStore = create<ClockState>((set, get) => ({
       blackTime: blackTimeMs,
       initialWhiteTime: whiteTimeMs,
       initialBlackTime: blackTimeMs,
+      customIncrementSec: incrementSec,
       activeColor: null,
       isRunning: false,
       winner: null,
@@ -101,9 +104,16 @@ export const useClockStore = create<ClockState>((set, get) => ({
   },
 
   resetClock: () => {
-    const { activePresetId, presets } = get();
+    const { activePresetId, presets, initialWhiteTime, initialBlackTime } = get();
     if (activePresetId === 'custom') {
-      set({ activeColor: null, isRunning: false, winner: null, reason: null });
+      set({
+        whiteTime: initialWhiteTime,
+        blackTime: initialBlackTime,
+        activeColor: null,
+        isRunning: false,
+        winner: null,
+        reason: null
+      });
       return;
     }
     const preset = presets.find((p) => p.id === activePresetId) || CLOCK_PRESETS[1];
@@ -120,11 +130,11 @@ export const useClockStore = create<ClockState>((set, get) => ({
   },
 
   switchTurn: (color) => {
-    const { isRunning, activeColor, activePresetId, presets } = get();
+    const { isRunning, activeColor, activePresetId, presets, customIncrementSec } = get();
     if (!isRunning || activeColor !== color) return;
 
     const preset = presets.find((p) => p.id === activePresetId);
-    const incMs = preset ? preset.increment * 1000 : 0;
+    const incMs = preset ? preset.increment * 1000 : customIncrementSec * 1000;
 
     if (color === 'w') {
       set({

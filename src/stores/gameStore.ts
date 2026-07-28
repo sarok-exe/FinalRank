@@ -74,7 +74,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     const { games, analysisCache } = get();
     const game = games.find((g) => g.id === gameId);
-    if (!game) return;
+    if (!game) {
+      console.warn('[GameStore] selectGame: game not found:', gameId);
+      return;
+    }
 
     // Use cached moves if available, otherwise hydrate from PGN (expensive)
     const cached = analysisCache[gameId];
