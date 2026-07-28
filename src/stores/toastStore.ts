@@ -29,7 +29,7 @@ export const useToastStore = create<ToastState>((set) => ({
   addToast: (toast) => {
     const id = generateToastId();
     set((state) => ({
-      toasts: [...state.toasts, { ...toast, id, createdAt: Date.now() }],
+      toasts: [...state.toasts, { ...toast, id, createdAt: Date.now() }].slice(-3),
     }));
     // Auto-dismiss after 5 seconds
     const timeout = toast.type === 'analysis' ? 8000 : 5000;

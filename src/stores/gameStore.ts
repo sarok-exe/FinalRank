@@ -261,8 +261,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       }
     } catch (err: unknown) {
-      if (err instanceof Error && (err.message === 'aborted' || err.message === 'abort')) return;
-      set({ analyzing: false, analysisProgress: 0 });
+      if (err instanceof Error && (err.message === 'aborted' || err.message === 'abort')) {
+        set({ analyzing: false, analysisProgress: 0, autoAnalyzing: false });
+        return;
+      }
+      set({ analyzing: false, analysisProgress: 0, autoAnalyzing: false });
     }
   },
 
