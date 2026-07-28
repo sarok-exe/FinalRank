@@ -3,6 +3,7 @@ import { getEngineVersion } from './evaluate';
 
 let warmEngine: Engine | null = null;
 let warming = false;
+let warmupPromise: Promise<void> | null = null;
 
 export function warmupEngine() {
   if (warming || warmEngine) return;
@@ -11,11 +12,14 @@ export function warmupEngine() {
     const version = getEngineVersion(4);
     warmEngine = new Engine(version);
     warmEngine.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-    warmEngine.evaluate({ depth: 1 }).then(() => {});
+    warmupPromise = warmEngine.evaluate({ depth: 1 }).then(() => {});
   } catch {}
 }
 
-export function getWarmEngine(): Engine | null {
+export async function getWarmEngine(): Promise<Engine | null> {
+  if (warmupPromise) await warmupPromise;
+  warming = false;
+  warmupPromise = null;
   const e = warmEngine;
   warmEngine = null;
   return e;
@@ -27,4 +31,5 @@ export function resetWarmEngine() {
     warmEngine = null;
   }
   warming = false;
+  warmupPromise = null;
 }

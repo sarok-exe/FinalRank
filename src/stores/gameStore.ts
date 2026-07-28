@@ -45,6 +45,7 @@ type GameState = {
 }
 
 const pendingAnalysis = new Map<string, Promise<void>>();
+let activeAbortController: AbortController | null = null;
 
 export const useGameStore = create<GameState>((set, get) => ({
   games: [] as ChessGame[],
@@ -437,6 +438,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   resetGameStore: () => {
+    if (activeAbortController) { activeAbortController.abort(); activeAbortController = null; }
     pendingAnalysis.clear();
     set({
     games: [],
@@ -481,7 +483,14 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     },
   });
 
+  // Store abort controller so resetGameStore can abort on navigation
+  if (activeAbortController) activeAbortController.abort();
+  activeAbortController = evaluator.controller;
+  // Clear reference once evaluation completes so it can't be double-aborted
+  const cleanupController = () => { if (activeAbortController === evaluator.controller) activeAbortController = null; };
+
   const evaluatedGame = await evaluator.evaluate();
+  cleanupController();
   useGameStore.setState({ analysisProgress: 95 });
 
   const analysedGame = getGameAnalysis(evaluatedGame, {
