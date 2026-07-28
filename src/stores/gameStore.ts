@@ -436,7 +436,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     return game;
   },
 
-  resetGameStore: () => { set({
+  resetGameStore: () => {
+    pendingAnalysis.clear();
+    set({
     games: [],
     selectedGame: null,
     currentMoveIndex: -1,
@@ -508,11 +510,11 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
       : state.selectedGame,
   }));
 
-  void saveCachedAnalysis(analysedGame, depth);
+  void saveCachedAnalysis(analysedGame, depth).catch(e => console.warn('[Cache] save failed:', e));
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
-  void saveSharedGameToTurso(shortId, analysedGame);
-  void saveGameToApi(shortId, analysedGame);
+  void saveSharedGameToTurso(shortId, analysedGame).catch(e => console.warn('[Turso] save shared failed:', e));
+  void saveGameToApi(shortId, analysedGame).catch(e => console.warn('[API] save failed:', e));
 
   const gameForFirestore = {
     ...analysedGame,
@@ -522,12 +524,12 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const u = useAuthStore.getState().user;
   if (u != null && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
-    void saveUserGame(u.id, gameId, gameForFirestore);
+    void saveUserGame(u.id, gameId, gameForFirestore).catch(e => console.warn('[Firestore] save game failed:', e));
   } else {
     const unsub = useAuthStore.subscribe((state, prev) => {
       if ((state.user?.authProvider === 'google' || state.user?.authProvider === 'anonymous') && !prev.user) {
         unsub();
-        void saveUserGame(state.user.id, gameId, gameForFirestore);
+        void saveUserGame(state.user.id, gameId, gameForFirestore).catch(e => console.warn('[Firestore] save game failed:', e));
       }
     });
     setTimeout(() => { unsub(); }, 15000);

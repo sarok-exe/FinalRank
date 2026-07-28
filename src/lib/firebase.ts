@@ -143,12 +143,12 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   if (!db) return;
   try {
     await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
-  } catch { /* empty */ }
+  } catch (e) { console.warn('[Firestore] saveUserGame failed:', e); }
   const shortId = (data.shortId as string | undefined) ?? gameId;
   if (shortId !== '') {
     try {
       await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
-    } catch { /* empty */ }
+    } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
   }
   // Mirror to Turso for resilience when Firestore is unreachable
   const turso = getTurso();
@@ -163,7 +163,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
                 updated_at = datetime('now')`,
         args: [shortId, JSON.stringify({ uid, ...data }), uid],
       });
-    } catch { /* empty */ }
+    } catch (e) { console.warn('[Turso] saveSharedGame mirror failed:', e); }
   }
 }
 
@@ -187,7 +187,7 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
       if (snap.exists()) {
         return { id: snap.id, ...snap.data() };
       }
-    } catch { /* empty */ }
+    } catch (e) { console.warn('[Firestore] fetchPublishedGame Firestore failed:', e); }
   }
   // Fallback to Turso when Firestore is unreachable
   const turso = getTurso();
@@ -202,7 +202,7 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
         const parsed = JSON.parse(row.game_data as string) as Record<string, unknown>;
         return { id: shortId, ...parsed };
       }
-    } catch { /* empty */ }
+    } catch (e) { console.warn('[Turso] fetchPublishedGame fallback failed:', e); }
   }
   return null;
 }
@@ -214,5 +214,5 @@ export async function deleteUserGame(uid: string, gameId: string) {
     const shortId = gameId;
     await deleteDoc(doc(db, 'users', uid, 'games', shortId));
     await deleteDoc(doc(db, 'games', shortId));
-  } catch { /* empty */ }
+  } catch (e) { console.warn('[Firestore] deleteUserGame failed:', e); }
 }
