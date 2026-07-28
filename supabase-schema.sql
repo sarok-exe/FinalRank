@@ -16,7 +16,7 @@ ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own profile"
   ON profiles FOR SELECT
-  USING (id = current_user OR id = auth.uid()::text);
+  USING (id = auth.uid()::text);
 
 CREATE POLICY "Users can insert own profile"
   ON profiles FOR INSERT

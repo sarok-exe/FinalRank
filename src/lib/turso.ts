@@ -1,6 +1,14 @@
 import type { Client } from '@libsql/client/web';
 import { createClient } from '@libsql/client/web';
 
+// SECURITY WARNING: VITE_TURSO_AUTH_TOKEN is inlined into the client bundle at build time.
+// Anyone viewing the built JS can extract it. In production this token grants direct
+// read/write access to the Turso database. For a production deploy:
+//   1. Restrict the Turso token to read-only
+//   2. Use the Cloudflare Functions (/functions/api/) as a proxy for writes
+//   3. Remove direct client-side Turso access entirely
+// See: functions/api/game/save.ts and functions/api/game/[id].ts
+
 let client: Client | null = null;
 let _healthy = true;
 let _failCount = 0;

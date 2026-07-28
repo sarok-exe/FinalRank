@@ -7,13 +7,33 @@ function toHttpUrl(url: string): string {
   return url.replace(/^libsql:\/\//, 'https://');
 }
 
-export async function onRequest(context: { request: Request; env: Env }): Promise<Response> {
-  const headers = {
+const ALLOWED_ORIGINS = [
+  'https://finalrank.web.app',
+  'https://finalrank.firebaseapp.com',
+  'https://sarok-archive.web.app',
+  'https://sarok-archive.firebaseapp.com',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
+
+function getCorsOrigin(request: Request): string {
+  const origin = request.headers.get('Origin') || '';
+  return ALLOWED_ORIGINS.includes(origin) ? origin : 'https://finalrank.web.app';
+}
+
+function corsHeaders(request: Request): Record<string, string> {
+  const origin = getCorsOrigin(request);
+  return {
     'Content-Type': 'application/json',
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin',
   };
+}
+
+export async function onRequest(context: { request: Request; env: Env }): Promise<Response> {
+  const headers = corsHeaders(context.request);
 
   if (context.request.method === 'OPTIONS') {
     return new Response(null, { headers });
