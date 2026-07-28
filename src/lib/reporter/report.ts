@@ -4,6 +4,7 @@ import { getTopEngineLine } from '../engine';
 import type { AnalysisOptions } from './types';
 import { getMoveAccuracy } from './accuracy';
 import { classifyMove } from './classify';
+import { getWinPercent, getGameAccuracy } from './expectedPoints';
 
 function extractEvaluation(line: EngineLine): EvaluationResult {
   let score: number;
@@ -60,11 +61,37 @@ export function getGameAnalysis(
   const whiteMoves = updatedMoves.filter(m => m.color === 'w' && m.accuracy !== undefined);
   const blackMoves = updatedMoves.filter(m => m.color === 'b' && m.accuracy !== undefined);
 
-  const whiteAccuracy = whiteMoves.length > 0
-    ? Math.round(whiteMoves.reduce((s, m) => s + (m.accuracy ?? 0), 0) / whiteMoves.length * 10) / 10
+  // Collect accuracies + winPercents for Lichess-style game accuracy.
+  // winPercents used for volatility must be from the player's perspective consistently.
+  // Engine eval is always from white's perspective:
+  //   after white's move → eval is white's position → getWinPercent(eval, 'w')
+  //   after black's move → eval is white's position → getWinPercent(eval, 'b') inverts for black
+  const whiteAcc: number[] = [];
+  const blackAcc: number[] = [];
+  const whiteWp: number[] = [];
+  const blackWp: number[] = [];
+
+  for (let i = 0; i < updatedMoves.length; i++) {
+    const move = updatedMoves[i];
+    if (move.accuracy === undefined) continue;
+
+    const currTopLine = getTopEngineLine(move.engineLines ?? []);
+    if (!currTopLine) continue;
+
+    if (move.color === 'w') {
+      whiteAcc.push(move.accuracy);
+      whiteWp.push(getWinPercent(currTopLine.evaluation, 'w')); // white's perspective
+    } else {
+      blackAcc.push(move.accuracy);
+      blackWp.push(getWinPercent(currTopLine.evaluation, 'b')); // inverted for black's perspective
+    }
+  }
+
+  const whiteAccuracy = whiteAcc.length > 0
+    ? Math.round(getGameAccuracy(whiteAcc, whiteWp) * 10) / 10
     : 0;
-  const blackAccuracy = blackMoves.length > 0
-    ? Math.round(blackMoves.reduce((s, m) => s + (m.accuracy ?? 0), 0) / blackMoves.length * 10) / 10
+  const blackAccuracy = blackAcc.length > 0
+    ? Math.round(getGameAccuracy(blackAcc, blackWp) * 10) / 10
     : 0;
 
   const whiteCounts: Record<string, number> = {};
