@@ -5,15 +5,17 @@ const ACC_A = 103.1668100711649;
 const ACC_K = 0.04354415386753951;
 const ACC_B = -3.166924740191411;
 
-// Convert engine evaluation to Win% (0-100) from the perspective of the side to move.
-// Mate for side-to-move → very large positive cp; mate against → very large negative.
+// Convert engine evaluation to centipawns from the sideToMove's perspective.
+// Engine eval is always from white's perspective (+ = good for white).
 function evalToCentiPawns(evaluation: Evaluation, sideToMove: 'w' | 'b'): number {
-  if (evaluation.type === 'centipawn') return evaluation.value;
+  if (evaluation.type === 'centipawn') {
+    return sideToMove === 'w' ? evaluation.value : -evaluation.value;
+  }
   // Mate: Stockfish reports mate-in-N for side to move, negative = being mated
-  // Convert to cp: mate in N ≈ ±(100000 - 1000*N)
   const sign = evaluation.value > 0 ? 1 : -1;
   const mateIn = Math.abs(evaluation.value);
-  return sign * Math.max(1000, 100000 - 1000 * mateIn);
+  const cp = sign * Math.max(1000, 100000 - 1000 * mateIn);
+  return sideToMove === 'w' ? cp : -cp;
 }
 
 // Lichess-style Win% from centipawns: 0-100 scale
