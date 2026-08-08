@@ -637,9 +637,44 @@ function formatDuration(ms: number | undefined): string {
   }
 
   const pad = 16;
-  // Use a smaller desired width on phones so the board doesn't dominate the screen
-  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : vpW < 640 ? 420 : 550;
+  // On phones give the board the full available width; the eval bar moves below it.
+  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : vpW < 640 ? vpW - pad : 550;
   const boardWidth = Math.min(desiredW, vpW - pad);
+
+  const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
+  let winnerSide: 'w' | 'b' | undefined;
+  let checkmateSide: 'w' | 'b' | undefined;
+  if (selectedGame && isLastMove) {
+    if (selectedGame.result === '1-0') { winnerSide = 'w'; checkmateSide = 'b'; }
+    else if (selectedGame.result === '0-1') { winnerSide = 'b'; checkmateSide = 'w'; }
+  }
+  const isCheckmate = checkmateSide ? (() => {
+    try { return new Chess(getCurrentFen()).isCheckmate(); } catch { return false; }
+  })() : false;
+
+  const boardEl = (
+    <Chessboard
+      fen={getCurrentFen()}
+      playable={false}
+      orientation={settings.boardOrientation}
+      highlightSquares={getMoveHighlight()}
+      bestMoveArrow={getBestMoveArrow()}
+      rightClickedSquares={rightClickedSquares}
+      onSquareRightClick={(sq) => {
+        setRightClickedSquares(prev =>
+          prev.includes(sq) ? [] : [...prev, sq]
+        );
+      }}
+      onLeftClick={() => { setRightClickedSquares([]); }}
+      winnerOverlay={isCheckmate && !!winnerSide}
+      winnerSide={winnerSide}
+      checkmateOverlay={isCheckmate && !!checkmateSide}
+      checkmateSide={checkmateSide}
+    />
+  );
+
+  const evalScore = currentMove?.evaluation?.score ?? null;
+  const evalMate = currentMove?.evaluation?.mateIn ?? null;
 
   return (
     <div className="space-y-5" id="analysis-viewport">
@@ -704,48 +739,23 @@ function formatDuration(ms: number | undefined): string {
         </div>
         )}
         <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
-          <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
+          {/* Phones: full-width board + horizontal eval bar below */}
+          <div className="w-full lg:hidden space-y-2" id="board-mobile-layout">
+            <div className="w-full">{boardEl}</div>
+            <div className="w-full h-[30px]">
+              <EvalBar score={evalScore} mate={evalMate} flipped={false} horizontal />
+            </div>
+          </div>
+          {/* Desktop: vertical eval bar beside the board */}
+          <div className="hidden lg:flex w-full gap-3" style={{ maxWidth: boardWidth }}>
             <div className="self-stretch min-h-[300px]">
                 <EvalBar
-                  score={currentMove?.evaluation?.score ?? null}
-                  mate={currentMove?.evaluation?.mateIn ?? null}
+                  score={evalScore}
+                  mate={evalMate}
                   flipped={false}
                 />
             </div>
-            <div className="flex-1">
-              {(() => {
-                const isLastMove = selectedGame && currentMoveIndex >= selectedGame.moves.length - 1;
-                let winnerSide: 'w' | 'b' | undefined;
-                let checkmateSide: 'w' | 'b' | undefined;
-                if (selectedGame && isLastMove) {
-                  if (selectedGame.result === '1-0') { winnerSide = 'w'; checkmateSide = 'b'; }
-                  else if (selectedGame.result === '0-1') { winnerSide = 'b'; checkmateSide = 'w'; }
-                }
-                const isCheckmate = checkmateSide && (() => {
-                  try { return new Chess(getCurrentFen()).isCheckmate(); } catch { return false; }
-                })();
-                return (
-                  <Chessboard
-                    fen={getCurrentFen()}
-                    playable={false}
-                    orientation={settings.boardOrientation}
-                    highlightSquares={getMoveHighlight()}
-                    bestMoveArrow={getBestMoveArrow()}
-                    rightClickedSquares={rightClickedSquares}
-                    onSquareRightClick={(sq) => {
-                      setRightClickedSquares(prev =>
-                        prev.includes(sq) ? [] : [...prev, sq]
-                      );
-                    }}
-                    onLeftClick={() => { setRightClickedSquares([]); }}
-                    winnerOverlay={isCheckmate && !!winnerSide}
-                    winnerSide={winnerSide}
-                    checkmateOverlay={isCheckmate && !!checkmateSide}
-                    checkmateSide={checkmateSide}
-                  />
-                );
-              })()}
-            </div>
+            <div className="flex-1">{boardEl}</div>
           </div>
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>

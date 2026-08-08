@@ -4,9 +4,10 @@ type EvalBarProps = {
   score: number | null;
   mate?: number | null;
   flipped?: boolean;
+  horizontal?: boolean;
 }
 
-const EvalBar = memo(function EvalBar({ score, mate, flipped = false }: EvalBarProps) {
+const EvalBar = memo(function EvalBar({ score, mate, flipped = false, horizontal = false }: EvalBarProps) {
   const displayText = useMemo(() => {
     if (mate !== null && mate !== undefined) {
       return mate > 0 ? `M${Math.abs(mate)}` : `-M${Math.abs(mate)}`;
@@ -32,6 +33,25 @@ const EvalBar = memo(function EvalBar({ score, mate, flipped = false }: EvalBarP
   const whiteHeight = flipped ? 100 - whitePercent : whitePercent;
   const blackHeight = flipped ? whitePercent : 100 - whitePercent;
   const whiteAdvantage = whitePercent > 50;
+
+  if (horizontal) {
+    const whiteWidth = flipped ? 100 - whitePercent : whitePercent;
+    return (
+      <div className="relative w-full h-full rounded overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">
+        <div
+          className="h-full transition-all duration-300 ease-out"
+          style={{ width: `${whiteWidth}%`, backgroundColor: '#ffffff' }}
+        />
+        {displayText && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <span className="text-[10px] font-black font-mono text-[#2a2a2a] bg-white/75 rounded px-1.5 py-0.5 select-none leading-none">
+              {displayText}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="relative w-[30px] h-full rounded overflow-hidden border border-[var(--color-border)] bg-[var(--color-surface)] flex-shrink-0">
