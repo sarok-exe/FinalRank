@@ -3,4 +3,4 @@
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://api.chess.com https://*.supabase.co https://*.turso.tech wss://*.turso.tech; worker-src 'self' blob:; img-src 'self' data: https:; font-src 'self' data:; frame-src 'self' https://*.firebaseapp.com;
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://*.firestore.googleapis.com https://*.googleapis.com https://api.chess.com https://*.supabase.co https://*.turso.tech wss://*.turso.tech; worker-src 'self' blob:; img-src 'self' data: https:; font-src 'self' data:; frame-src 'self' https://*.firebaseapp.com;

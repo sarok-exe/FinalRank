@@ -2,13 +2,22 @@ import { useEffect, useCallback } from 'react';
 import { useUIStore } from '../stores/uiStore';
 
 export function useFullscreen() {
-  const { fullscreenMode, setFullscreenMode } = useUIStore();
+  const { fullscreenMode, setFullscreenMode, toggleFullscreenMode } = useUIStore();
 
   const toggleFullscreen = useCallback(async () => {
+    const apiSupported =
+      typeof document.fullscreenElement !== 'undefined' &&
+      typeof document.documentElement.requestFullscreen === 'function';
+    if (!apiSupported) {
+      // iOS Safari (iPhone) has no Fullscreen API — fall back to CSS scale mode.
+      toggleFullscreenMode();
+      return;
+    }
     if (!document.fullscreenElement) {
       try {
         await document.documentElement.requestFullscreen();
       } catch {
+        toggleFullscreenMode();
       }
     } else {
       try {
@@ -16,7 +25,7 @@ export function useFullscreen() {
       } catch {
       }
     }
-  }, []);
+  }, [toggleFullscreenMode]);
 
   useEffect(() => {
     const handleChange = () => {

@@ -51,6 +51,23 @@ export function getFirestoreDb() {
   return db;
 }
 
+/** Firestore rejects writes containing `undefined`. Deep-strip them so saves
+ *  (e.g. a game with no avatar) don't throw. */
+function sanitizeFirestoreData<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(v => sanitizeFirestoreData(v)) as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = sanitizeFirestoreData(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 export async function fetchUserProfile(uid: string): Promise<Record<string, unknown> | null> {
   initFirestore();
   if (!db) return null;
@@ -68,10 +85,11 @@ export async function saveUserProfile(uid: string, data: Record<string, unknown>
   try {
     const ref = doc(db, 'users', uid);
     const snap = await getDoc(ref);
+    const clean = sanitizeFirestoreData(data);
     if (snap.exists()) {
-      await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });
+      await updateDoc(ref, { ...clean, updatedAt: serverTimestamp() });
     } else {
-      await setDoc(ref, { ...data, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      await setDoc(ref, { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
     return true;
   } catch {
@@ -83,7 +101,7 @@ export async function updateUserProfile(uid: string, data: Record<string, unknow
   initFirestore();
   if (!db) return null;
   try {
-    await updateDoc(doc(db, 'users', uid), { ...data, updatedAt: serverTimestamp() });
+    await updateDoc(doc(db, 'users', uid), { ...sanitizeFirestoreData(data), updatedAt: serverTimestamp() });
     return true;
   } catch {
     return null;
@@ -141,13 +159,14 @@ export function isFirebaseConfigured(): boolean {
 export async function saveUserGame(uid: string, gameId: string, data: Record<string, unknown>) {
   initFirestore();
   if (!db) return;
+  const clean = sanitizeFirestoreData(data);
   try {
-    await setDoc(doc(db, 'users', uid, 'games', gameId), { ...data, updatedAt: serverTimestamp() });
+    await setDoc(doc(db, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() });
   } catch (e) { console.warn('[Firestore] saveUserGame failed:', e); }
   const shortId = (data.shortId as string | undefined) ?? gameId;
   if (shortId !== '') {
     try {
-      await setDoc(doc(db, 'games', shortId), { uid, ...data, updatedAt: serverTimestamp() });
+      await setDoc(doc(db, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() });
     } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
   }
   // Mirror to Turso for resilience when Firestore is unreachable

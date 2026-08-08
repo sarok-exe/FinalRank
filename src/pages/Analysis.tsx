@@ -760,7 +760,7 @@ function formatDuration(ms: number | undefined): string {
                 <button
                   onClick={() => { setAutoplay(!autoplay); }}
                   disabled={currentMoveIndex === selectedGame.moves.length - 1}
-                  className={`p-0 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
+                  className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                   aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
                 >
@@ -981,12 +981,12 @@ function formatDuration(ms: number | undefined): string {
           </div>
           )}
 
-          <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[420px] min-h-[220px]">
+          <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Move Log</span>
             </h3>
-            <div className="flex-1 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-track-[#2a2a2a] scrollbar-thumb-[#4a4a4a]" id="moves-log-container">
+            <div className="flex-1 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-track-[#2a2a2a] scrollbar-thumb-[#4a4a4a] overscroll-contain" id="moves-log-container" style={{ WebkitOverflowScrolling: 'touch' }}>
               {selectedGame.moves?.length === 0 ? (
                 <div className="h-full flex items-center justify-center text-xs text-[var(--color-text-muted)] italic p-6">
                   Click 'Analyze' to evaluate positions.
@@ -1002,31 +1002,31 @@ function formatDuration(ms: number | undefined): string {
                         <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-bold">{turnNum}.</div>
                         <button
                           onClick={() => { setCurrentMoveIndex(whiteMove.index); }}
-                          className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
+                          className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
                             currentMoveIndex === whiteMove.index
                               ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                               : 'text-[var(--color-text)]'
                           }`}
                           id={`move-${whiteMove.index}`}
                         >
-                          <span>{whiteMove.san}</span>
+                          <span className="truncate min-w-0">{whiteMove.san}</span>
                           {whiteMove.classification && classificationImages[whiteMove.classification] && (
-                            <img src={classificationImages[whiteMove.classification]} alt={whiteMove.classification} width={22} height={22} className="inline-block ml-1.5 opacity-85" />
+                            <img src={classificationImages[whiteMove.classification]} alt={whiteMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85" />
                           )}
                         </button>
                         {blackMove ? (
                           <button
                             onClick={() => { setCurrentMoveIndex(blackMove.index); }}
-                            className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center justify-between ${
+                            className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
                               currentMoveIndex === blackMove.index
                                 ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                                 : 'text-[var(--color-text)]'
                             }`}
                             id={`move-${blackMove.index}`}
                           >
-                            <span>{blackMove.san}</span>
+                            <span className="truncate min-w-0">{blackMove.san}</span>
                             {blackMove.classification && classificationImages[blackMove.classification] && (
-                              <img src={classificationImages[blackMove.classification]} alt={blackMove.classification} width={22} height={22} className="inline-block ml-1.5 opacity-85" />
+                              <img src={classificationImages[blackMove.classification]} alt={blackMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85" />
                             )}
                           </button>
                         ) : (

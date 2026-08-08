@@ -723,12 +723,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           <Flame className="w-4 h-4 text-[var(--color-accent)]" />
           Flame Appearance
         </span>
-        <SettingToggle
-          label="Animated Canvas"
-          desc="Rich particle animation (larger badges)"
-          checked={settings.streakFlameAnimated}
-          onChange={v => { updateSettings({ streakFlameAnimated: v }); }}
-        />
         <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-3">
           <div className="text-xs font-semibold text-[var(--color-text)] mb-2">Color Mode</div>
           <div className="flex gap-2">
