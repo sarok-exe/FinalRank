@@ -739,23 +739,18 @@ function formatDuration(ms: number | undefined): string {
         </div>
         )}
         <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
-          {/* Phones: full-width board + horizontal eval bar below */}
-          <div className="w-full lg:hidden space-y-2" id="board-mobile-layout">
-            <div className="w-full">{boardEl}</div>
-            <div className="w-full h-[30px]">
+          {/* Single board, reordered with CSS grid: phones get a horizontal eval
+              bar below, desktop gets a vertical bar on the left. Rendering the
+              board twice (hidden via display:none) made react-chessboard's piece
+              animation read a 0-width square and throw 'Square width not found'. */}
+          <div className="w-full grid grid-cols-1 lg:grid-cols-[min-content_1fr] lg:items-stretch" style={{ maxWidth: boardWidth }} id="board-single-layout">
+            <div className="hidden lg:flex lg:self-stretch lg:min-h-[300px]">
+              <EvalBar score={evalScore} mate={evalMate} flipped={false} />
+            </div>
+            <div className="w-full min-w-0">{boardEl}</div>
+            <div className="lg:hidden w-full h-[30px]">
               <EvalBar score={evalScore} mate={evalMate} flipped={false} horizontal />
             </div>
-          </div>
-          {/* Desktop: vertical eval bar beside the board */}
-          <div className="hidden lg:flex w-full gap-3" style={{ maxWidth: boardWidth }}>
-            <div className="self-stretch min-h-[300px]">
-                <EvalBar
-                  score={evalScore}
-                  mate={evalMate}
-                  flipped={false}
-                />
-            </div>
-            <div className="flex-1">{boardEl}</div>
           </div>
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
