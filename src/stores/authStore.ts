@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { User } from '../types';
-import { signInWithGoogle, signInAnonymously, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile } from '../lib/firebase';
+import { signInWithGoogle, signInAnonymously, onAuthChanged, signOut as fbSignOut, isFirebaseConfigured, fetchUserProfile, saveUserProfile, updateUserProfile, probeFirestore } from '../lib/firebase';
 
 export type StreakToast = { show: boolean; newStreak: number; prevStreak: number };
 
@@ -301,6 +301,10 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     useAuthStore.setState({ loading: false });
     return;
   }
+
+  // Probe Firestore now that we have a token, so a healthy DB enables the SDK
+  // (a broken one stays disabled — no reconnect storm, no frozen tab).
+  void probeFirestore();
 
   if (fbUser.isAnonymous === true) {
     receivedUser = true;

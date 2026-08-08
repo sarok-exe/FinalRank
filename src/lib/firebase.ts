@@ -32,7 +32,7 @@ let db: Firestore | null = null;
 let firestoreDisabled = false;
 let firestoreProbe: Promise<boolean> | null = null;
 let firestoreFailStreak = 0;
-const FIRESTORE_FAIL_LIMIT = 2;
+const FIRESTORE_FAIL_LIMIT = 1;
 
 export function initFirebase() {
   if (!app && firebaseConfig.apiKey !== '') {
@@ -40,34 +40,54 @@ export function initFirebase() {
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    void probeFirestore();
   }
   return { app, auth, provider };
 }
 
-/** If Firestore isn't provisioned in this project, the SDK retries the WebChannel
- *  Listen stream forever — a setTimeout storm that freezes the tab. Probe once;
- *  on 404 disable the SDK entirely so the app falls back to Turso / the CF API. */
-function probeFirestore(): Promise<boolean> {
+/** If Firestore isn't reachable in this project, the SDK retries the WebChannel
+ *  Listen stream forever — a setTimeout storm that freezes the tab. So we gate
+ *  the SDK behind a probe: only create the Firestore instance once the REST
+ *  endpoint answers 200. Any non-200 (403/404/400) with a valid token disables
+ *  Firestore for the session; the app falls back to Turso / the CF API.
+ *  A probe without a token (auth not resolved yet) defers so we can retry once
+ *  the user is signed in. */
+export function probeFirestore(): Promise<boolean> {
   if (firestoreProbe) return firestoreProbe;
   firestoreProbe = (async () => {
     const projectId = firebaseConfig.projectId;
     if (!projectId) return false;
     try {
+      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const current = auth?.currentUser;
+      if (current) {
+        try { headers['Authorization'] = `Bearer ${await current.getIdToken()}`; } catch { /* token unavailable */ }
+      }
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:listCollectionIds`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+        { method: 'POST', headers, body: '{}' }
       );
-      if (res.status === 404) {
-        console.warn('[Firestore] database not provisioned — disabling Firestore for this session');
-        return false;
-      }
-      return true;
-    } catch {
-      // Network blip — let the SDK try; the circuit breaker catches real failures.
-      return true;
+      if (res.ok) return true;
+      console.warn(
+        `[Firestore] probe ${res.status}`,
+        current ? '— disabling Firestore for this session' : '— deferring until signed in'
+      );
+      return false;
+    } catch (err) {
+      console.warn('[Firestore] probe network error — Firestore disabled for this session', err);
+      return false;
     }
   })();
+  firestoreProbe = firestoreProbe.catch(() => false);
+  firestoreProbe.then(ok => {
+    if (ok) {
+      // Probe passed — materialize the SDK instance for the next caller.
+      if (app) db = getFirestore(app);
+    } else {
+      const hadToken = !!auth?.currentUser;
+      if (hadToken) firestoreDisabled = true;
+      firestoreProbe = null; // allow re-probe once auth is available
+    }
+  });
   return firestoreProbe;
 }
 
@@ -95,10 +115,7 @@ function noteFirestoreSuccess(): void {
 export function initFirestore() {
   if (firestoreDisabled) return null;
   if (!db && app) {
-    void probeFirestore().then(ok => {
-      if (!ok) disableFirestore('database not provisioned');
-    });
-    db = getFirestore(app);
+    void probeFirestore();
   }
   return db;
 }
