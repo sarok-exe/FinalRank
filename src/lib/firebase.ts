@@ -9,7 +9,7 @@ import {
 import type { Firestore} from 'firebase/firestore';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
-  collection, getDocs, query, orderBy, limit, deleteDoc,
+  collection, getDocs, query, orderBy, limit, deleteDoc, terminate,
 } from 'firebase/firestore';
 
 import { getTurso } from './turso';
@@ -29,6 +29,10 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let provider: GoogleAuthProvider | null = null;
 let db: Firestore | null = null;
+let firestoreDisabled = false;
+let firestoreProbe: Promise<boolean> | null = null;
+let firestoreFailStreak = 0;
+const FIRESTORE_FAIL_LIMIT = 2;
 
 export function initFirebase() {
   if (!app && firebaseConfig.apiKey !== '') {
@@ -36,12 +40,64 @@ export function initFirebase() {
     auth = getAuth(app);
     provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
+    void probeFirestore();
   }
   return { app, auth, provider };
 }
 
+/** If Firestore isn't provisioned in this project, the SDK retries the WebChannel
+ *  Listen stream forever — a setTimeout storm that freezes the tab. Probe once;
+ *  on 404 disable the SDK entirely so the app falls back to Turso / the CF API. */
+function probeFirestore(): Promise<boolean> {
+  if (firestoreProbe) return firestoreProbe;
+  firestoreProbe = (async () => {
+    const projectId = firebaseConfig.projectId;
+    if (!projectId) return false;
+    try {
+      const res = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:listCollectionIds`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }
+      );
+      if (res.status === 404) {
+        console.warn('[Firestore] database not provisioned — disabling Firestore for this session');
+        return false;
+      }
+      return true;
+    } catch {
+      // Network blip — let the SDK try; the circuit breaker catches real failures.
+      return true;
+    }
+  })();
+  return firestoreProbe;
+}
+
+function disableFirestore(reason: string): void {
+  if (firestoreDisabled) return;
+  firestoreDisabled = true;
+  console.warn(`[Firestore] disabled: ${reason}`);
+  if (db) {
+    void terminate(db).catch(() => {});
+    db = null;
+  }
+}
+
+function noteFirestoreFailure(): void {
+  firestoreFailStreak++;
+  if (firestoreFailStreak >= FIRESTORE_FAIL_LIMIT) {
+    disableFirestore('repeated request failures');
+  }
+}
+
+function noteFirestoreSuccess(): void {
+  firestoreFailStreak = 0;
+}
+
 export function initFirestore() {
+  if (firestoreDisabled) return null;
   if (!db && app) {
+    void probeFirestore().then(ok => {
+      if (!ok) disableFirestore('database not provisioned');
+    });
     db = getFirestore(app);
   }
   return db;
@@ -73,8 +129,10 @@ export async function fetchUserProfile(uid: string): Promise<Record<string, unkn
   if (!db) return null;
   try {
     const snap = await getDoc(doc(db, 'users', uid));
+    noteFirestoreSuccess();
     return snap.exists() ? snap.data() : null;
   } catch {
+    noteFirestoreFailure();
     return null;
   }
 }
@@ -91,8 +149,10 @@ export async function saveUserProfile(uid: string, data: Record<string, unknown>
     } else {
       await setDoc(ref, { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
     }
+    noteFirestoreSuccess();
     return true;
   } catch {
+    noteFirestoreFailure();
     return null;
   }
 }
@@ -102,8 +162,10 @@ export async function updateUserProfile(uid: string, data: Record<string, unknow
   if (!db) return null;
   try {
     await updateDoc(doc(db, 'users', uid), { ...sanitizeFirestoreData(data), updatedAt: serverTimestamp() });
+    noteFirestoreSuccess();
     return true;
   } catch {
+    noteFirestoreFailure();
     return null;
   }
 }
@@ -162,7 +224,11 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   const clean = sanitizeFirestoreData(data);
   try {
     await setDoc(doc(db, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() });
-  } catch (e) { console.warn('[Firestore] saveUserGame failed:', e); }
+    noteFirestoreSuccess();
+  } catch (e) {
+    noteFirestoreFailure();
+    console.warn('[Firestore] saveUserGame failed:', e);
+  }
   const shortId = (data.shortId as string | undefined) ?? gameId;
   if (shortId !== '') {
     try {
@@ -192,8 +258,10 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
   try {
     const q = query(collection(db, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
     const snap = await getDocs(q);
+    noteFirestoreSuccess();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch {
+    noteFirestoreFailure();
     return [];
   }
 }
@@ -203,10 +271,14 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
   if (db) {
     try {
       const snap = await getDoc(doc(db, 'games', shortId));
+      noteFirestoreSuccess();
       if (snap.exists()) {
         return { id: snap.id, ...snap.data() };
       }
-    } catch (e) { console.warn('[Firestore] fetchPublishedGame Firestore failed:', e); }
+    } catch (e) {
+      noteFirestoreFailure();
+      console.warn('[Firestore] fetchPublishedGame Firestore failed:', e);
+    }
   }
   // Fallback to Turso when Firestore is unreachable
   const turso = getTurso();
@@ -233,5 +305,9 @@ export async function deleteUserGame(uid: string, gameId: string) {
     const shortId = gameId;
     await deleteDoc(doc(db, 'users', uid, 'games', shortId));
     await deleteDoc(doc(db, 'games', shortId));
-  } catch (e) { console.warn('[Firestore] deleteUserGame failed:', e); }
+    noteFirestoreSuccess();
+  } catch (e) {
+    noteFirestoreFailure();
+    console.warn('[Firestore] deleteUserGame failed:', e);
+  }
 }

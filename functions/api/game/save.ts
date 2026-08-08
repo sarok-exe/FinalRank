@@ -8,6 +8,7 @@ function toHttpUrl(url: string): string {
 }
 
 const ALLOWED_ORIGINS = [
+  'https://finalrank.pages.dev',
   'https://finalrank.web.app',
   'https://finalrank.firebaseapp.com',
   'https://sarok-archive.web.app',
