@@ -642,6 +642,29 @@ function formatDuration(ms: number | undefined): string {
   const boardWidth = Math.min(desiredW, vpW - pad);
 
   const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
+
+  // Face the account holder / analyst: when they're one of the two players, their
+  // side is shown at the bottom. When their name isn't linked to the game, keep
+  // the user's boardOrientation setting (no automatic change).
+  const boardOrientation = (() => {
+    const holders = [authUser?.chessComUsername, authUser?.username].filter(Boolean);
+    if (!holders.length || !selectedGame) return settings.boardOrientation;
+    const norm = (s: string) => (s || '').trim().toLowerCase();
+    const base = (s: string) => norm(s).split(/[_-]/)[0];
+    const matches = (name: string) => {
+      const n = norm(name);
+      if (n.length < 3) return false;
+      const b = base(name);
+      return holders.some(h => {
+        const hn = norm(h);
+        if (hn.length < 3) return false;
+        return hn === n || hn === b || base(h) === n || base(h) === b;
+      });
+    };
+    if (matches(selectedGame.white?.username ?? '')) return 'white';
+    if (matches(selectedGame.black?.username ?? '')) return 'black';
+    return settings.boardOrientation;
+  })();
   let winnerSide: 'w' | 'b' | undefined;
   let checkmateSide: 'w' | 'b' | undefined;
   if (selectedGame && isLastMove) {
@@ -656,7 +679,7 @@ function formatDuration(ms: number | undefined): string {
     <Chessboard
       fen={getCurrentFen()}
       playable={false}
-      orientation={settings.boardOrientation}
+      orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
       bestMoveArrow={getBestMoveArrow()}
       rightClickedSquares={rightClickedSquares}
