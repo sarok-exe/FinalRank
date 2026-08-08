@@ -91,7 +91,7 @@ export function createGameEvaluator(
       let nextFenIndex = 1;
       const engines: Engine[] = [];
       let totalRespawns = 0;
-      const MAX_ENGINE_RESPAWNS = 5;
+      const MAX_ENGINE_SPAWNS = 40;
       const zeroLine: EngineLine = {
         evaluation: { type: 'centipawn', value: 0 },
         source: options.engineVersion as unknown as EngineLine['source'],
@@ -167,18 +167,21 @@ export function createGameEvaluator(
             if (++enginesResting === engines.length) resolve();
             return;
           }
-          if (++totalRespawns > MAX_ENGINE_RESPAWNS) {
-            // Engine keeps failing (e.g. WASM blocked by CSP). Don't loop forever —
-            // fill the rest with zero lines so analysis completes instead of hanging.
-            progresses[currentFenIndex] = 1;
-            gameEngineLines[currentFenIndex] = [zeroLine];
+          // One bad position must not strand the rest of the game. Mark only this
+          // position as zero and keep evaluating the tail with a fresh worker —
+          // low-memory worker crashes late in a long game otherwise zero-fill the
+          // whole remaining tail (the "only first N moves analyzed" bug).
+          progresses[currentFenIndex] = 1;
+          gameEngineLines[currentFenIndex] = [zeroLine];
+          if (++totalRespawns > MAX_ENGINE_SPAWNS) {
+            // Catastrophic: engine can't run at all (e.g. WASM blocked). Don't
+            // spawn workers forever — fill the rest with zero lines so the
+            // analysis still completes instead of hanging.
             fillRemainingWithZeros(nextFenIndex);
             engine.terminate();
             if (++enginesResting === engines.length) resolve();
             return;
           }
-          progresses[currentFenIndex] = 1;
-          gameEngineLines[currentFenIndex] = [zeroLine];
           options.onProgress?.(getProgress());
           const newEngine = new Engine(options.engineVersion);
           options.engineConfig?.(newEngine);

@@ -52,6 +52,7 @@ type ChessboardProps = {
   winnerSide?: 'w' | 'b';
   checkmateOverlay?: boolean;
   checkmateSide?: 'w' | 'b';
+  animationDurationInMs?: number;
 }
 
 const THEME_COLORS: Record<string, { light: string; dark: string }> = {
@@ -146,6 +147,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     winnerSide,
     checkmateOverlay = false,
     checkmateSide,
+    animationDurationInMs = 300,
   } = props;
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -324,7 +326,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           clearArrowsOnClick: true,
           clearArrowsOnPositionChange: false,
           showAnimations: true,
-          animationDurationInMs: 300,
+          animationDurationInMs,
           showNotation: settings.featureToggles.showCoordinates,
           alphaNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },
           numericNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },

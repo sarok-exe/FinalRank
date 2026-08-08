@@ -670,6 +670,7 @@ function formatDuration(ms: number | undefined): string {
       winnerSide={winnerSide}
       checkmateOverlay={isCheckmate && !!checkmateSide}
       checkmateSide={checkmateSide}
+      animationDurationInMs={vpW < 640 ? 450 : 300}
     />
   );
 
