@@ -1,0 +1,46 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "worker": {
+      "description": "Coordinates sub-agents. Never does direct work — only delegates and reviews.",
+      "model": "deepseek-v4-flash-free",
+      "prompt": "You are the orchestrator. Analyze the request, break it into sub-tasks, delegate to appropriate sub-agents, and review their output. Do not write code yourself.",
+      "subAgentConfig": {
+        "allowSelfSelection": true,
+        "allowedTools": ["task", "grep", "glob", "read", "write", "edit", "bash"]
+      },
+      "agents": {
+        "ui": {
+          "description": "React components, Tailwind styling, Motion animations, layout",
+          "prompt": "Expert in React 19 + TSX + Tailwind 4. Build/fix UI components, ensure responsiveness, follow existing patterns in src/components/.",
+          "model": "deepseek-v4-flash-free"
+        },
+        "engine": {
+          "description": "Stockfish WASM, chess evaluation pipeline, engine worker",
+          "prompt": "Expert in Stockfish WASM + chess.js. Handle engine init, evaluation pipeline, multi-position analysis in src/lib/engine/.",
+          "model": "deepseek-v4-flash-free"
+        },
+        "reporter": {
+          "description": "Analysis reports, move classification, accuracy scoring",
+          "prompt": "Expert in chess analysis reporting. Handle report generation, classification (brilliant/blunder/etc), accuracy in src/lib/reporter/.",
+          "model": "deepseek-v4-flash-free"
+        },
+        "api": {
+          "description": "Firebase Auth, Supabase, Turso, external API integrations",
+          "prompt": "Handle auth flows, DB queries, API calls. Expert in Firebase 12, Supabase JS, Turso/libSQL. Files in src/lib/.",
+          "model": "deepseek-v4-flash-free"
+        },
+        "store": {
+          "description": "Zustand state management, stores, data flow",
+          "prompt": "Expert in Zustand 5. Manage stores in src/stores/, ensure reactive data flow, sync with backend.",
+          "model": "deepseek-v4-flash-free"
+        },
+        "build": {
+          "description": "Vite config, TypeScript, ESLint, dependencies",
+          "prompt": "Handle build config, TS strictness, lint rules, dependency management. Files: vite.config.ts, tsconfig.json, eslint.config.js, package.json.",
+          "model": "deepseek-v4-flash-free"
+        }
+      }
+    }
+  }
+}
