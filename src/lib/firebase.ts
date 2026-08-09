@@ -118,6 +118,20 @@ function noteFirestoreSuccess(): void {
   firestoreFailStreak = 0;
 }
 
+/** Firestore WebChannel can hang (e.g. ad-blockers block the channel) instead of
+ *  rejecting. Race every SDK call against a timeout so callers can fall back. */
+const FIRESTORE_TIMEOUT_MS = 4000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number = FIRESTORE_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Firestore timed out')), ms);
+    promise.then(
+      v => { clearTimeout(timer); resolve(v); },
+      e => { clearTimeout(timer); reject(e); }
+    );
+  });
+}
+
 export async function initFirestore(): Promise<Firestore | null> {
   if (firestoreDisabled) return null;
   if (!db) {
@@ -250,7 +264,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   const fs = await initFirestore();
   if (fs) {
     try {
-      await setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() });
+      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }));
       noteFirestoreSuccess();
     } catch (e) {
       noteFirestoreFailure();
@@ -258,7 +272,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
     }
     if (shortId !== '') {
       try {
-        await setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() });
+        await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }));
       } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
     }
   }
@@ -291,7 +305,7 @@ export async function fetchUserFavorites(uid: string): Promise<Record<string, un
   if (fs) {
     try {
       const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
-      const snap = await getDocs(q);
+      const snap = await withTimeout(getDocs(q));
       noteFirestoreSuccess();
       const favs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((g: Record<string, unknown>) => g.userSaved === true);
       if (favs.length > 0) return favs;
@@ -311,7 +325,7 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
   if (!fs) return [];
   try {
     const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
-    const snap = await getDocs(q);
+    const snap = await withTimeout(getDocs(q));
     noteFirestoreSuccess();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch {
@@ -357,8 +371,8 @@ export async function deleteUserGame(uid: string, gameId: string) {
   if (fs) {
     try {
       const shortId = gameId;
-      await deleteDoc(doc(fs, 'users', uid, 'games', shortId));
-      await deleteDoc(doc(fs, 'games', shortId));
+      await withTimeout(deleteDoc(doc(fs, 'users', uid, 'games', shortId)));
+      await withTimeout(deleteDoc(doc(fs, 'games', shortId)));
       noteFirestoreSuccess();
     } catch (e) {
       noteFirestoreFailure();
