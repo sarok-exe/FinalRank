@@ -16,6 +16,7 @@ const Analysis = lazy(() => import('./pages/Analysis'));
 const Tools = lazy(() => import('./pages/Tools'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Report = lazy(() => import('./pages/Report'));
+const Training = lazy(() => import('./pages/Training'));
 
 function PageLoading() {
   return (
@@ -64,6 +65,7 @@ function AnimatedRoutes() {
             <Route path="/" element={<Analysis />} />
             <Route path="/game/:gameId" element={<Analysis />} />
             <Route path="/tools" element={<Tools />} />
+            <Route path="/training" element={<Training />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/report" element={<Report />} />
             <Route path="*" element={<Analysis />} />
