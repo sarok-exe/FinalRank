@@ -9,6 +9,20 @@ export function hashPgn(pgn: string): string {
   return Math.abs(hash).toString(36);
 }
 
+export type AnalysisRunMeta = {
+  depth: number;
+  engine: string;
+  analyzedAt: string;
+};
+
+export function engineLabel(engine: string): string {
+  if (!engine) return 'Stockfish 18 Lite';
+  if (engine.includes('stockfish-18-lite') || engine.includes('stockfish-18')) return 'Stockfish 18 Lite';
+  if (engine.includes('lichess')) return 'Lichess Cloud';
+  if (engine.includes('official')) return 'Stockfish Official';
+  return engine;
+}
+
 export async function getCachedAnalysis(pgn: string, minDepth: number): Promise<ChessGame | null> {
   if (!isTursoConfigured()) return null;
   const db = getTurso();
@@ -28,25 +42,31 @@ export async function getCachedAnalysis(pgn: string, minDepth: number): Promise<
   }
 }
 
-export async function saveCachedAnalysis(game: ChessGame, depth: number): Promise<void> {
+export async function saveCachedAnalysis(game: ChessGame, depth: number, engine: string = ''): Promise<void> {
   if (!isTursoConfigured()) return;
   const db = getTurso();
   if (!db) return;
   try {
     const pgnHash = hashPgn(game.pgn);
     const analysisData = JSON.stringify(game);
-    // Delete old entries for same PGN hash + depth to avoid duplicates
     await db.execute({
-      sql: `DELETE FROM analyzed_games WHERE pgn_hash = ? AND depth = ?`,
-      args: [pgnHash, depth],
-    });
-    await db.execute({
-      sql: `INSERT INTO analyzed_games (pgn_hash, pgn, depth, analysis_data, result, white, black, date, accuracy_white, accuracy_black, analyzed_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      sql: `INSERT INTO analyzed_games (pgn_hash, pgn, depth, engine, analysis_data, result, white, black, date, accuracy_white, accuracy_black, analyzed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(pgn_hash, depth, engine) DO UPDATE SET
+              pgn = excluded.pgn,
+              analysis_data = excluded.analysis_data,
+              result = excluded.result,
+              white = excluded.white,
+              black = excluded.black,
+              date = excluded.date,
+              accuracy_white = excluded.accuracy_white,
+              accuracy_black = excluded.accuracy_black,
+              analyzed_at = datetime('now')`,
       args: [
         pgnHash,
         game.pgn,
         depth,
+        engine,
         analysisData,
         game.result || '',
         game.white.username || '',
@@ -58,6 +78,43 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number): Promis
     });
   } catch {
     markTursoUnhealthy();
+  }
+}
+
+export async function getPriorAnalyses(pgn: string): Promise<AnalysisRunMeta[]> {
+  if (!isTursoConfigured()) return [];
+  const db = getTurso();
+  if (!db) return [];
+  try {
+    const rs = await db.execute({
+      sql: 'SELECT depth, engine, analyzed_at FROM analyzed_games WHERE pgn_hash = ? ORDER BY depth DESC, analyzed_at DESC',
+      args: [hashPgn(pgn)],
+    });
+    return rs.rows.map((r) => ({
+      depth: (r.depth as number) ?? 0,
+      engine: (r.engine as string) ?? '',
+      analyzedAt: (r.analyzed_at as string) ?? '',
+    }));
+  } catch {
+    markTursoUnhealthy();
+    return [];
+  }
+}
+
+export async function getCachedAnalysisByKey(pgn: string, depth: number, engine: string = ''): Promise<ChessGame | null> {
+  if (!isTursoConfigured()) return null;
+  const db = getTurso();
+  if (!db) return null;
+  try {
+    const rs = await db.execute({
+      sql: 'SELECT analysis_data FROM analyzed_games WHERE pgn_hash = ? AND depth = ? AND engine = ? LIMIT 1',
+      args: [hashPgn(pgn), depth, engine],
+    });
+    if (rs.rows.length === 0) return null;
+    return JSON.parse(rs.rows[0].analysis_data as string) as ChessGame;
+  } catch {
+    markTursoUnhealthy();
+    return null;
   }
 }
 

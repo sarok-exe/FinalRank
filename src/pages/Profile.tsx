@@ -5,7 +5,7 @@ import {
   User as UserIcon, Flame, Trophy, Volume2,
   Bell, Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
-  BookOpen,
+  Heart,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
@@ -223,7 +223,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       : providerLabel;
     const savedGamesContent = savedGames.length === 0
       ? (
-        <p className="text-[10px] text-[var(--color-text-muted)]">No saved games yet. Analyze a game on the Analysis page to save it.</p>
+        <p className="text-[10px] text-[var(--color-text-muted)]">No favorite games yet. Tap the heart on a game to favorite it.</p>
       )
       : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[220px] overflow-y-auto scrollbar-thin">
@@ -289,8 +289,8 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         {user.authProvider === 'google' && (
           <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
             <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
-              <BookOpen className="w-3 h-3" />
-              Saved Games
+              <Heart className="w-3 h-3" />
+              Favorite Games
             </span>
             {loadingSaved ? (
               <div className="space-y-2">

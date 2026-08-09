@@ -23,13 +23,14 @@ import {
   Keyboard,
   Maximize,
   Focus,
-  Save,
+  Heart,
   Share2,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
-import { hashPgn } from '../lib/tursoCache';
+import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/tursoCache';
+import type { AnalysisRunMeta } from '../lib/tursoCache';
 import { generateShortId } from '../lib/shortId';
 import type { ChessGame } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -37,6 +38,7 @@ import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
+import PlayerAvatar from '../components/PlayerAvatar';
 import { classificationImages, classificationColours, classificationNames } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
@@ -64,6 +66,7 @@ export default function Analysis() {
     setCurrentMoveIndex,
     importPgnDirectly,
     triggerEvaluationPipeline,
+    loadPriorAnalysis,
     setGames,
     fetchLinkedUserGames,
     loadUserGames,
@@ -90,6 +93,8 @@ export default function Analysis() {
   const [autoplay, setAutoplay] = useState(false);
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
   const [showShare, setShowShare] = useState(false);
+  const [priorAnalyses, setPriorAnalyses] = useState<AnalysisRunMeta[]>([]);
+  const [showPriorAnalyses, setShowPriorAnalyses] = useState(false);
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
@@ -256,6 +261,18 @@ function formatDuration(ms: number | undefined): string {
       });
     });
   }, [authUser?.id, authUser?.authProvider]);
+
+  React.useEffect(() => {
+    if (!selectedGame || !selectedGame.pgn) {
+      setPriorAnalyses([]);
+      return;
+    }
+    let cancelled = false;
+    getPriorAnalyses(selectedGame.pgn)
+      .then(list => { if (!cancelled) setPriorAnalyses(list); })
+      .catch(() => { if (!cancelled) setPriorAnalyses([]); });
+    return () => { cancelled = true; };
+  }, [selectedGame?.id]);
 
   React.useEffect(() => {
     const cb = () => { setShowShortcuts(true); };
@@ -552,7 +569,7 @@ function formatDuration(ms: number | undefined): string {
                     <button
                       key={g.id}
                       onClick={() => { handleSelectGame(g.id); }}
-                      className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
+                      className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
                       id={`game-selector-${g.id}`}
                     >
                       <div>
@@ -560,16 +577,28 @@ function formatDuration(ms: number | undefined): string {
                           <span>{g.date}</span>
                           <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                         </div>
-                        <div className="text-xs font-bold text-white truncate">
-                          {g.white.username} vs {g.black.username}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
+                            <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
+                            <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
+                          </div>
                         </div>
-                        <div className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                        <div className="text-[10px] text-[var(--color-text-muted)] mt-1.5">
                           {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
                         </div>
                       </div>
-                      {isAnalyzed && (
-                        <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
-                      )}
+                      <div className="flex items-center gap-2 self-start mt-2">
+                        {isAnalyzed && (
+                          <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
+                        )}
+                        {savedGameIds.has(g.id) && (
+                          <Heart className="w-3 h-3 text-[var(--color-accent)] fill-current ml-auto" />
+                        )}
+                      </div>
                     </button>
                   );
                })}
@@ -610,7 +639,7 @@ function formatDuration(ms: number | undefined): string {
                   <button
                     key={g.id}
                     onClick={() => { handleSelectGame(g.id); }}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${
                       isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
                     }`}
                   >
@@ -619,13 +648,25 @@ function formatDuration(ms: number | undefined): string {
                         <span>{g.date}</span>
                         <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                       </div>
-                      <div className="text-xs font-bold text-white truncate">
-                        {g.white.username} vs {g.black.username}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
+                          <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
+                          <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
+                        </div>
                       </div>
                     </div>
-                    {isAnalyzed && (
-                      <span className="text-[10px] font-bold text-green-500 self-start mt-2">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
-                    )}
+                    <div className="flex items-center gap-2 self-start mt-2">
+                      {isAnalyzed && (
+                        <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
+                      )}
+                      {savedGameIds.has(g.id) && (
+                        <Heart className="w-3 h-3 text-[var(--color-accent)] fill-current ml-auto" />
+                      )}
+                    </div>
                   </button>
                 );
               })}
@@ -814,10 +855,10 @@ function formatDuration(ms: number | undefined): string {
                         ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
                         : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
                     }`}
-                    title={savedGameIds.has(selectedGame.id) ? 'Remove save' : 'Save game'}
+                    title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
                   >
-                    <Save className="w-3.5 h-3.5" />
-                    <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Saved' : 'Save'}</span>
+                    <Heart className={`w-3.5 h-3.5 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
+                    <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Favorited' : 'Favorite'}</span>
                   </button>
                 )}
                 <button
@@ -924,6 +965,17 @@ function formatDuration(ms: number | undefined): string {
                   <Activity className="w-3.5 h-3.5" />
                   <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
                 </button>
+                {priorAnalyses.length > 0 && !analyzing && (
+                  <button
+                    onClick={() => { setShowPriorAnalyses(true); }}
+                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center space-x-1.5"
+                    id="pre-analyzed-button"
+                    title="This match was analyzed before. Load a saved analysis instead of re-analyzing."
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>Pre-analyzed</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -1209,15 +1261,22 @@ function formatDuration(ms: number | undefined): string {
               <button
                 key={g.id}
                 onClick={() => { handleSelectGame(g.id); }}
-                className={`text-left p-4 rounded-xl border flex flex-col justify-between h-32 bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
+                className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
               >
                 <div>
                   <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
                     <span>{g.date}</span>
                     <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
                   </div>
-                  <div className="text-xs font-bold text-white truncate">
-                    {g.white?.username ?? 'White'} vs {g.black?.username ?? 'Black'}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <PlayerAvatar name={g.white?.username} avatar={g.white?.avatar} size={22} />
+                      <span className="text-xs font-bold text-white truncate">{g.white?.username ?? 'White'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <PlayerAvatar name={g.black?.username} avatar={g.black?.avatar} size={22} />
+                      <span className="text-xs font-bold text-white truncate">{g.black?.username ?? 'Black'}</span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-start mt-2">
@@ -1228,6 +1287,9 @@ function formatDuration(ms: number | undefined): string {
                   )}
                   {isAnalyzed && (
                     <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
+                  )}
+                  {savedGameIds.has(g.id) && (
+                    <Heart className="w-3 h-3 text-[var(--color-accent)] fill-current ml-auto" />
                   )}
                 </div>
               </button>
@@ -1292,6 +1354,49 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
             <p className="text-xs text-[var(--color-text-muted)] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>
+          </div>
+        </div>
+      )}
+
+      {showPriorAnalyses && selectedGame && priorAnalyses.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowPriorAnalyses(false); }} role="dialog" aria-modal="true" aria-label="Pre-analyzed games">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => { e.stopPropagation(); }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <History className="w-5 h-5 text-[var(--color-primary)]" />
+                Pre-analyzed
+              </h2>
+              <button onClick={() => { setShowPriorAnalyses(false); }} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
+            </div>
+            <p className="text-[11px] text-[var(--color-text-muted)] mb-3 leading-snug">
+              This match was analyzed before. Pick a saved analysis to enter it directly — no need to re-analyze.
+            </p>
+            <div className="space-y-2">
+              {priorAnalyses.map((run, i) => (
+                <button
+                  key={`${run.engine}-${run.depth}-${i}`}
+                  onClick={async () => {
+                    const ok = await loadPriorAnalysis(run.depth, run.engine);
+                    if (ok) {
+                      setShowPriorAnalyses(false);
+                      useToastStore.getState().addToast({
+                        type: 'success',
+                        message: `Loaded pre-analyzed game (${engineLabel(run.engine)} · depth ${run.depth})`,
+                      });
+                    }
+                  }}
+                  className="w-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)] transition-all text-left"
+                >
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Activity className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
+                    <span className="text-xs font-bold text-white truncate">{engineLabel(run.engine)}</span>
+                  </span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
+                    Depth {run.depth}{run.analyzedAt ? ` · ${run.analyzedAt.slice(0, 10)}` : ''}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}

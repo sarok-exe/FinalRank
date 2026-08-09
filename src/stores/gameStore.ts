@@ -5,7 +5,7 @@ import { createGameEvaluator, getEngineVersion } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { getCachedAnalysis, saveCachedAnalysis, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
+import { getCachedAnalysis, saveCachedAnalysis, getCachedAnalysisByKey, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
@@ -36,6 +36,7 @@ type GameState = {
   importPgnDirectly(pgn: string): void;
   triggerEvaluationPipeline(depth?: number): Promise<void>;
   autoAnalyzeGame(gameId: string): Promise<void>;
+  loadPriorAnalysis(depth: number, engine: string): Promise<boolean>;
   setGames(games: ChessGame[]): void;
   fetchLinkedUserGames(): Promise<void>;
   loadUserGames(): Promise<void>;
@@ -199,6 +200,27 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ autoAnalyzing: false });
       }
     }
+  },
+
+  loadPriorAnalysis: async (depth, engine) => {
+    const { selectedGame, analyzing } = get();
+    if (!selectedGame || analyzing || selectedGame.moves.length === 0) return false;
+    const cached = await getCachedAnalysisByKey(selectedGame.pgn, depth, engine);
+    if (!cached) return false;
+    set({
+      analysisCache: { ...get().analysisCache, [selectedGame.id]: cached },
+      analyzedPgnHashes: { ...get().analyzedPgnHashes, [hashPgn(selectedGame.pgn)]: true },
+      selectedGame: {
+        ...selectedGame,
+        moves: mergeMoves(selectedGame.moves, cached.moves),
+        accuracy: cached.accuracy,
+        classificationCounts: cached.classificationCounts,
+        analyzedAt: cached.analyzedAt,
+        analysisDurationMs: cached.analysisDurationMs,
+        analysisDepth: cached.analysisDepth,
+      },
+    });
+    return true;
   },
 
   triggerEvaluationPipeline: async (depth?: number) => {
@@ -522,7 +544,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
       : state.selectedGame,
   }));
 
-  void saveCachedAnalysis(analysedGame, depth).catch(e => console.warn('[Cache] save failed:', e));
+  void saveCachedAnalysis(analysedGame, depth, engineVersion).catch(e => console.warn('[Cache] save failed:', e));
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
   void saveSharedGameToTurso(shortId, analysedGame).catch(e => console.warn('[Turso] save shared failed:', e));

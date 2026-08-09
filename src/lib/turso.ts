@@ -75,9 +75,10 @@ export async function initTursoSchema(): Promise<void> {
 
     await db.execute(`
       CREATE TABLE IF NOT EXISTS analyzed_games (
-        pgn_hash TEXT PRIMARY KEY,
-        pgn TEXT NOT NULL,
+        pgn_hash TEXT NOT NULL,
         depth INTEGER NOT NULL DEFAULT 10,
+        engine TEXT NOT NULL DEFAULT '',
+        pgn TEXT NOT NULL,
         analysis_data TEXT NOT NULL DEFAULT '{}',
         result TEXT,
         white TEXT,
@@ -85,9 +86,45 @@ export async function initTursoSchema(): Promise<void> {
         date TEXT,
         accuracy_white REAL,
         accuracy_black REAL,
-        analyzed_at TEXT DEFAULT (datetime('now'))
+        analyzed_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (pgn_hash, depth, engine)
       )
     `);
+
+    // Migration: older DBs had pgn_hash as the only PK and no engine column.
+    // Rebuild so multiple analyses (depth + engine) can coexist per game.
+    try {
+      const tableInfo = await db.execute('PRAGMA table_info(analyzed_games)');
+      const hasEngine = tableInfo.rows.some((r) => (r as { name?: string }).name === 'engine');
+      if (!hasEngine) {
+        await db.execute('ALTER TABLE analyzed_games RENAME TO analyzed_games_old');
+        await db.execute(`
+          CREATE TABLE analyzed_games (
+            pgn_hash TEXT NOT NULL,
+            depth INTEGER NOT NULL DEFAULT 10,
+            engine TEXT NOT NULL DEFAULT '',
+            pgn TEXT NOT NULL,
+            analysis_data TEXT NOT NULL DEFAULT '{}',
+            result TEXT,
+            white TEXT,
+            black TEXT,
+            date TEXT,
+            accuracy_white REAL,
+            accuracy_black REAL,
+            analyzed_at TEXT DEFAULT (datetime('now')),
+            PRIMARY KEY (pgn_hash, depth, engine)
+          )
+        `);
+        await db.execute(`
+          INSERT INTO analyzed_games (pgn_hash, depth, engine, pgn, analysis_data, result, white, black, date, accuracy_white, accuracy_black, analyzed_at)
+          SELECT pgn_hash, depth, '', pgn, analysis_data, result, white, black, date, accuracy_white, accuracy_black, analyzed_at
+          FROM analyzed_games_old
+        `);
+        await db.execute('DROP TABLE analyzed_games_old');
+      }
+    } catch {
+      markTursoUnhealthy();
+    }
     await db.execute(`
       CREATE TABLE IF NOT EXISTS shared_games (
         short_id TEXT PRIMARY KEY,
