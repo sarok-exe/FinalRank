@@ -709,7 +709,7 @@ function formatDuration(ms: number | undefined): string {
           id="back-to-import-btn"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to import</span>
+          <span>Back to Import</span>
         </button>
       )}
 
@@ -895,7 +895,7 @@ function formatDuration(ms: number | undefined): string {
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
                   <span>Stockfish 17</span>
                 </h3>
-                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed at depth ${selectedGame.analysisDepth}` : ''}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}</p>
               </div>
               <div className="flex items-center gap-1.5 sm:space-x-2">
                 <select
