@@ -60,12 +60,17 @@ export function probeFirestore(): Promise<boolean> {
     try {
       let headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const current = auth?.currentUser;
-      if (current) {
-        try { headers['Authorization'] = `Bearer ${await current.getIdToken()}`; } catch { /* token unavailable */ }
-      }
+      if (!current) return false; // defer until signed in — unauthenticated probe is useless
+      try { headers['Authorization'] = `Bearer ${await current.getIdToken()}`; } catch { /* token unavailable */ }
+      // Use a rules-allowable call. documents:listCollectionIds returns 403 even
+      // with a valid token, so probe via a scoped runQuery on the user's own
+      // games subcollection (200 even when empty once rules let the user read it).
+      const body = JSON.stringify({
+        structuredQuery: { from: [{ collectionId: 'games' }], limit: 1 },
+      });
       const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:listCollectionIds`,
-        { method: 'POST', headers, body: '{}' }
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${current.uid}:runQuery`,
+        { method: 'POST', headers, body }
       );
       if (res.ok) return true;
       console.warn(

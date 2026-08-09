@@ -476,7 +476,7 @@ function formatDuration(ms: number | undefined): string {
             Analyze a Chess Game
           </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Import from Chess.com or paste a PGN to start analyzing with Stockfish 17.
+            Import from Chess.com or paste a PGN to start analyzing with Stockfish 18.
           </p>
         </div>
 
@@ -941,7 +941,7 @@ function formatDuration(ms: number | undefined): string {
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span>Stockfish 17</span>
+                  <span>Stockfish 18</span>
                 </h3>
                 <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}</p>
               </div>

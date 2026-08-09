@@ -21,8 +21,11 @@ export function getTurso(): Client | null {
 
   if (!client && url !== '') {
     try {
+      // @libsql/client/web rejects "sql:" URLs (URL_SCHEME_NOT_SUPPORTED);
+      // only libsql:/wss:/ws:/https:/http:/file: are allowed. Normalize.
+      const normalized = url.replace(/^sql:/, 'https:');
       client = createClient({
-        url,
+        url: normalized,
         authToken: token ?? undefined,
       });
     } catch {
