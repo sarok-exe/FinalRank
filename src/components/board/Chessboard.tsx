@@ -30,7 +30,7 @@ function findKingSquare(fen: string, side: 'w' | 'b'): string | null {
 
 type ChessboardProps = {
   fen: string;
-  onMove?(from: string, to: string): void;
+  onMove?(from: string, to: string): boolean | void;
   playable?: boolean;
   orientation?: 'white' | 'black';
   className?: string;
@@ -194,8 +194,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
       if (!playable || targetSquare == null) return false;
-      props.onMove?.(sourceSquare, targetSquare);
-      return true;
+      // Allow the caller to veto the move (e.g. wrong puzzle move): when onMove
+      // returns false the piece snaps back instead of staying on the square.
+      const accepted = props.onMove?.(sourceSquare, targetSquare);
+      return accepted !== false;
     },
     [playable, props],
   );
