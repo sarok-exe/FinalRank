@@ -167,11 +167,13 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   const min = parseInt(params.get('min') || '400', 10) || 400;
   const max = parseInt(params.get('max') || '2000', 10) || 2000;
 
+  let rows: unknown[] = [];
+
   try {
     const httpUrl = toHttpUrl(url);
     await ensureSchema(httpUrl, token);
 
-    const fetchRandom = async (n: number): Promise<{ row: Cell[] }[]> => {
+    const fetchRandom = async (n: number): Promise<unknown[]> => {
       const results = await pipeline(httpUrl, token, [
         {
           type: 'execute',
@@ -183,10 +185,10 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
           },
         },
       ]);
-      return (results[0] as { response?: { result?: { rows?: { row: Cell[] }[] } } })?.response?.result?.rows ?? [];
+      return (results[0] as { response?: { result?: { rows?: unknown[] } } })?.response?.result?.rows ?? [];
     };
 
-    let rows = await fetchRandom(count);
+    rows = await fetchRandom(count);
 
     // Pool ran dry for this range — top it up straight from lichess, then retry.
     if (rows.length < count && context.env.LICHESS_API_TOKEN) {
@@ -200,8 +202,11 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     }
 
     const puzzles = rows.map(r => {
+      // Turso v2 pipeline rows come back as arrays of cells ([[{type,value},...]]),
+      // the same shape the game API expects. Tolerate {row:[...]} defensively.
+      const row = (Array.isArray(r) ? r : (r as { row?: Cell[] }).row) ?? [];
       const cell = (i: number): string => {
-        const c = r.row[i];
+        const c = row[i];
         return c != null ? String(c.value ?? '') : '';
       };
       return {
@@ -209,10 +214,10 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
         fen: cell(1),
         moves: cell(2),
         rating: Number(cell(3)),
-        popularity: Number(cell(5)),
-        plays: Number(cell(6)),
-        themes: cell(7).split('|').filter(Boolean),
-        opening: cell(8),
+        popularity: Number(cell(4)),
+        plays: Number(cell(5)),
+        themes: cell(6).split('|').filter(Boolean),
+        opening: cell(7),
       };
     });
 
@@ -228,6 +233,7 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
 
     return new Response(JSON.stringify({ puzzles, count: puzzles.length }), { headers });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Puzzle query failed' }), { status: 500, headers });
+    console.error('puzzles fn error:', err instanceof Error ? err.stack : err);
+    return new Response(JSON.stringify({ error: 'Puzzle query failed', detail: String(err) }), { status: 500, headers });
   }
 }
