@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 
 import { getTurso } from './turso';
+import { saveFavoriteTurso, fetchFavoritesTurso, deleteFavoriteTurso } from './tursoCache';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
 
@@ -112,10 +113,13 @@ function noteFirestoreSuccess(): void {
   firestoreFailStreak = 0;
 }
 
-export function initFirestore() {
+export async function initFirestore(): Promise<Firestore | null> {
   if (firestoreDisabled) return null;
-  if (!db && app) {
-    void probeFirestore();
+  if (!db) {
+    const ok = await probeFirestore();
+    if (ok && app && !db) {
+      db = getFirestore(app);
+    }
   }
   return db;
 }
@@ -142,10 +146,10 @@ function sanitizeFirestoreData<T>(value: T): T {
 }
 
 export async function fetchUserProfile(uid: string): Promise<Record<string, unknown> | null> {
-  initFirestore();
-  if (!db) return null;
+  const fs = await initFirestore();
+  if (!fs) return null;
   try {
-    const snap = await getDoc(doc(db, 'users', uid));
+    const snap = await getDoc(doc(fs, 'users', uid));
     noteFirestoreSuccess();
     return snap.exists() ? snap.data() : null;
   } catch {
@@ -155,10 +159,10 @@ export async function fetchUserProfile(uid: string): Promise<Record<string, unkn
 }
 
 export async function saveUserProfile(uid: string, data: Record<string, unknown>) {
-  initFirestore();
-  if (!db) return null;
+  const fs = await initFirestore();
+  if (!fs) return null;
   try {
-    const ref = doc(db, 'users', uid);
+    const ref = doc(fs, 'users', uid);
     const snap = await getDoc(ref);
     const clean = sanitizeFirestoreData(data);
     if (snap.exists()) {
@@ -175,10 +179,10 @@ export async function saveUserProfile(uid: string, data: Record<string, unknown>
 }
 
 export async function updateUserProfile(uid: string, data: Record<string, unknown>) {
-  initFirestore();
-  if (!db) return null;
+  const fs = await initFirestore();
+  if (!fs) return null;
   try {
-    await updateDoc(doc(db, 'users', uid), { ...sanitizeFirestoreData(data), updatedAt: serverTimestamp() });
+    await updateDoc(doc(fs, 'users', uid), { ...sanitizeFirestoreData(data), updatedAt: serverTimestamp() });
     noteFirestoreSuccess();
     return true;
   } catch {
@@ -236,21 +240,28 @@ export function isFirebaseConfigured(): boolean {
 }
 
 export async function saveUserGame(uid: string, gameId: string, data: Record<string, unknown>) {
-  initFirestore();
-  if (!db) return;
   const clean = sanitizeFirestoreData(data);
-  try {
-    await setDoc(doc(db, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() });
-    noteFirestoreSuccess();
-  } catch (e) {
-    noteFirestoreFailure();
-    console.warn('[Firestore] saveUserGame failed:', e);
-  }
   const shortId = (data.shortId as string | undefined) ?? gameId;
-  if (shortId !== '') {
+  const fs = await initFirestore();
+  if (fs) {
     try {
-      await setDoc(doc(db, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() });
-    } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
+      await setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() });
+      noteFirestoreSuccess();
+    } catch (e) {
+      noteFirestoreFailure();
+      console.warn('[Firestore] saveUserGame failed:', e);
+    }
+    if (shortId !== '') {
+      try {
+        await setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() });
+      } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
+    }
+  }
+  // Mirror favorites to Turso so they survive Firestore being unavailable
+  if (clean.userSaved === true) {
+    try {
+      await saveFavoriteTurso(uid, gameId, JSON.stringify(clean));
+    } catch (e) { console.warn('[Turso] saveFavoriteTurso failed:', e); }
   }
   // Mirror to Turso for resilience when Firestore is unreachable
   const turso = getTurso();
@@ -269,11 +280,32 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   }
 }
 
-export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
-  initFirestore();
-  if (!db) return [];
+/** Favorite games: Firestore first, Turso fallback (mirrored on save). */
+export async function fetchUserFavorites(uid: string): Promise<Record<string, unknown>[]> {
+  const fs = await initFirestore();
+  if (fs) {
+    try {
+      const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+      const snap = await getDocs(q);
+      noteFirestoreSuccess();
+      const favs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((g: Record<string, unknown>) => g.userSaved === true);
+      if (favs.length > 0) return favs;
+    } catch {
+      noteFirestoreFailure();
+    }
+  }
   try {
-    const q = query(collection(db, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+    return await fetchFavoritesTurso(uid);
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
+  const fs = await initFirestore();
+  if (!fs) return [];
+  try {
+    const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
     const snap = await getDocs(q);
     noteFirestoreSuccess();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -284,10 +316,10 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
 }
 
 export async function fetchPublishedGame(shortId: string): Promise<Record<string, unknown> | null> {
-  initFirestore();
-  if (db) {
+  const fs = await initFirestore();
+  if (fs) {
     try {
-      const snap = await getDoc(doc(db, 'games', shortId));
+      const snap = await getDoc(doc(fs, 'games', shortId));
       noteFirestoreSuccess();
       if (snap.exists()) {
         return { id: snap.id, ...snap.data() };
@@ -316,15 +348,19 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
 }
 
 export async function deleteUserGame(uid: string, gameId: string) {
-  initFirestore();
-  if (!db) return;
-  try {
-    const shortId = gameId;
-    await deleteDoc(doc(db, 'users', uid, 'games', shortId));
-    await deleteDoc(doc(db, 'games', shortId));
-    noteFirestoreSuccess();
-  } catch (e) {
-    noteFirestoreFailure();
-    console.warn('[Firestore] deleteUserGame failed:', e);
+  const fs = await initFirestore();
+  if (fs) {
+    try {
+      const shortId = gameId;
+      await deleteDoc(doc(fs, 'users', uid, 'games', shortId));
+      await deleteDoc(doc(fs, 'games', shortId));
+      noteFirestoreSuccess();
+    } catch (e) {
+      noteFirestoreFailure();
+      console.warn('[Firestore] deleteUserGame failed:', e);
+    }
   }
+  try {
+    await deleteFavoriteTurso(uid, gameId);
+  } catch (e) { console.warn('[Turso] deleteFavoriteTurso failed:', e); }
 }

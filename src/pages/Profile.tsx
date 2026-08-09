@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
-import { fetchUserGames } from '../lib/firebase';
+import { fetchUserFavorites } from '../lib/firebase';
 import ColorPicker from '../components/ColorPicker';
 import StreakFlame, { getStreakTier } from '../components/StreakFlame';
 import { Search } from 'lucide-react';
@@ -82,7 +82,7 @@ export default function Profile(): React.ReactElement {
   useEffect(() => {
     if (user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
       setLoadingSaved(true);
-      fetchUserGames(user.id).then(games => {
+      fetchUserFavorites(user.id).then(games => {
         setSavedGames((games as SavedGame[]).filter(g => g.userSaved === true));
         setLoadingSaved(false);
       }).catch(() => { setLoadingSaved(false); });
@@ -286,7 +286,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           </div>
         </div>
 
-        {user.authProvider === 'google' && (
+        {(user.authProvider === 'google' || user.authProvider === 'anonymous') && (
           <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
             <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
               <Heart className="w-3 h-3" />

@@ -142,6 +142,61 @@ export async function saveSharedGameToTurso(shortId: string, game: ChessGame): P
   }
 }
 
+export async function saveFavoriteTurso(uid: string, gameId: string, gameData: string): Promise<void> {
+  if (!isTursoConfigured()) return;
+  const db = getTurso();
+  if (!db || !gameId) return;
+  try {
+    await db.execute({
+      sql: `INSERT INTO favorites (uid, game_id, game_data, favorited_at)
+            VALUES (?, ?, ?, datetime('now'))
+            ON CONFLICT(uid, game_id) DO UPDATE SET
+              game_data = excluded.game_data,
+              favorited_at = datetime('now')`,
+      args: [uid, gameId, gameData],
+    });
+  } catch {
+    markTursoUnhealthy();
+  }
+}
+
+export async function fetchFavoritesTurso(uid: string): Promise<Record<string, unknown>[]> {
+  if (!isTursoConfigured()) return [];
+  const db = getTurso();
+  if (!db) return [];
+  try {
+    const rs = await db.execute({
+      sql: 'SELECT game_id, game_data FROM favorites WHERE uid = ? ORDER BY favorited_at DESC',
+      args: [uid],
+    });
+    return rs.rows.map((r) => {
+      const gameId = r.game_id as string;
+      let parsed: Record<string, unknown> = {};
+      try {
+        parsed = JSON.parse(r.game_data as string) as Record<string, unknown>;
+      } catch { /* keep empty */ }
+      return { id: gameId, ...parsed };
+    });
+  } catch {
+    markTursoUnhealthy();
+    return [];
+  }
+}
+
+export async function deleteFavoriteTurso(uid: string, gameId: string): Promise<void> {
+  if (!isTursoConfigured()) return;
+  const db = getTurso();
+  if (!db) return;
+  try {
+    await db.execute({
+      sql: 'DELETE FROM favorites WHERE uid = ? AND game_id = ?',
+      args: [uid, gameId],
+    });
+  } catch {
+    markTursoUnhealthy();
+  }
+}
+
 export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): Promise<Record<string, boolean>> {
   if (!isTursoConfigured() || games.length === 0) return {};
   const db = getTurso();

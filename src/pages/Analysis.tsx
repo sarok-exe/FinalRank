@@ -235,16 +235,20 @@ function formatDuration(ms: number | undefined): string {
     const isSaved = savedGameIds.has(selectedGame.id);
     import('../lib/firebase').then(({ saveUserGame, deleteUserGame }) => {
       if (isSaved) {
-        deleteUserGame(authUser.id, selectedGame.id);
-        setSavedGameIds(prev => { const next = new Set(prev); next.delete(selectedGame.id); return next; });
+        void deleteUserGame(authUser.id, selectedGame.id).then(() => {
+          setSavedGameIds(prev => { const next = new Set(prev); next.delete(selectedGame.id); return next; });
+        });
+        useToastStore.getState().addToast({ type: 'success', message: 'Removed from favorites' });
       } else {
         const gameForFirestore = {
           ...selectedGame,
           moves: JSON.parse(JSON.stringify(selectedGame.moves)),
           userSaved: true,
         };
-        saveUserGame(authUser.id, selectedGame.id, gameForFirestore);
-        setSavedGameIds(prev => { const next = new Set(prev); next.add(selectedGame.id); return next; });
+        void saveUserGame(authUser.id, selectedGame.id, gameForFirestore).then(() => {
+          setSavedGameIds(prev => { const next = new Set(prev); next.add(selectedGame.id); return next; });
+        });
+        useToastStore.getState().addToast({ type: 'success', message: 'Added to favorites' });
       }
     });
   }, [selectedGame, authUser, savedGameIds]);
@@ -254,12 +258,15 @@ function formatDuration(ms: number | undefined): string {
       setSavedGameIds(new Set());
       return;
     }
-    import('../lib/firebase').then(({ fetchUserGames }) => {
-      fetchUserGames(authUser.id).then(games => {
+    let cancelled = false;
+    import('../lib/firebase').then(({ fetchUserFavorites }) => {
+      fetchUserFavorites(authUser.id).then(games => {
+        if (cancelled) return;
         const ids = new Set(games.filter((g: any) => g.userSaved).map((g: any) => g.id));
         setSavedGameIds(ids);
       });
     });
+    return () => { cancelled = true; };
   }, [authUser?.id, authUser?.authProvider]);
 
   React.useEffect(() => {

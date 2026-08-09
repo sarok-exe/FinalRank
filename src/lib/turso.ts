@@ -134,6 +134,15 @@ export async function initTursoSchema(): Promise<void> {
         updated_at TEXT DEFAULT (datetime('now'))
       )
     `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS favorites (
+        uid TEXT NOT NULL,
+        game_id TEXT NOT NULL,
+        game_data TEXT NOT NULL,
+        favorited_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (uid, game_id)
+      )
+    `);
   } catch {
     markTursoUnhealthy();
   }
