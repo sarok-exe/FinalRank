@@ -160,7 +160,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const { moveTrail: mtColor, selectedSquare: ssColor, rightClick: rcColor } = settings.highlightColors;
 
   const squareStyles = useMemo(() => {
-    const styles: Record<string, React.CSSProperties | undefined> = {};
+    const styles: Record<string, React.CSSProperties> = {};
     const setBg = (sq: string, bg: string): void => {
       styles[sq] = { ...styles[sq], background: bg };
     };
@@ -263,7 +263,8 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const squareRenderer = useCallback(
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
       const isDot = validMoves.includes(square);
-      const isBadge = highlightSquares?.to === square && highlightSquares.classification != null;
+      const badgeClassification = highlightSquares?.to === square ? highlightSquares?.classification : undefined;
+      const isBadge = badgeClassification != null;
       const isHint = hintSquare === square;
       if (!isDot && !isBadge && !isHint) return <>{children}</>;
 
@@ -271,7 +272,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       return (
         <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
           {children}
-          {isBadge && renderClassificationBadge(highlightSquares.classification)}
+          {isBadge && badgeClassification != null && renderClassificationBadge(badgeClassification)}
           {isHint && (
             <div
               className="animate-pulse"

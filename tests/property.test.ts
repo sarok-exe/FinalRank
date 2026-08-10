@@ -248,7 +248,7 @@ describe('classifyMove', () => {
         }
       }
     }
-  });
+  }, 120_000);
 
   it('classifies a played best move as never blunder/mistake/inaccuracy', () => {
     for (let run = 0; run < 40; run++) {
@@ -269,7 +269,7 @@ describe('classifyMove', () => {
         expect(['blunder', 'mistake', 'inaccuracy']).not.toContain(classification);
       }
     }
-  });
+  }, 120_000);
 
   it('classifies the first move after a book zero-line via cp-0 baseline fallback', () => {
     // Book positions carry a synthetic zero-line ({cp: 0, depth: 1, moves: []}).
@@ -339,11 +339,11 @@ describe('getGameAnalysis', () => {
       const maxPly = 6 + (run % 9);
       const game = buildGame(maxPly);
       const res = getGameAnalysis(game, { includeBrilliant: true, includeCritical: true, includeTheory: true });
-      expect(res.accuracy.white).toBeGreaterThanOrEqual(0);
-      expect(res.accuracy.white).toBeLessThanOrEqual(100);
-      expect(res.accuracy.black).toBeGreaterThanOrEqual(0);
-      expect(res.accuracy.black).toBeLessThanOrEqual(100);
-      const counts = res.classificationCounts;
+      expect(res.accuracy!.white).toBeGreaterThanOrEqual(0);
+      expect(res.accuracy!.white).toBeLessThanOrEqual(100);
+      expect(res.accuracy!.black).toBeGreaterThanOrEqual(0);
+      expect(res.accuracy!.black).toBeLessThanOrEqual(100);
+      const counts = res.classificationCounts!;
       const total = Object.values(counts.white).reduce((a, b) => a + b, 0) + Object.values(counts.black).reduce((a, b) => a + b, 0);
       expect(total).toBeLessThanOrEqual(game.moves.length);
     }

@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'colors', label: 'Colors', icon: Paintbrush },
 ];
 
-const AVAILABLE_THEMES = [
+const AVAILABLE_THEMES: { id: UserSettings['boardColor']; name: string; light: string; dark: string }[] = [
   { id: 'green', name: 'Forest Green', light: '#769656', dark: '#4b6d32' },
   { id: 'blue', name: 'Royal Blue', light: '#4b73be', dark: '#2b4f8a' },
   { id: 'brown', name: 'Classic Wood', light: '#f0d9b5', dark: '#b58863' },
@@ -91,7 +91,7 @@ export default function Profile(): React.ReactElement {
     }
   }, [user?.id, user?.authProvider]);
 
-  const handleGuestLogin = (e: SubmitEvent): void => {
+  const handleGuestLogin = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (typedName.trim()) {
       loginAsGuest(typedName.trim());
@@ -100,7 +100,7 @@ export default function Profile(): React.ReactElement {
   };
 
   const SettingToggle = ({ label, desc, checked, onChange, id }: {
-    label: string; desc: string; checked: boolean; onChange(this: undefined, v: boolean): void; id?: string;
+    label: string; desc: string; checked: boolean; onChange(v: boolean): void; id?: string;
   }): React.ReactElement => (
     <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer">
       <div>
@@ -682,7 +682,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
   );
 
   const renderColorsTab = (): React.ReactElement => {
-    const themeKeys = Object.keys(THEME_PRESETS);
+    const themeKeys = Object.keys(THEME_PRESETS) as UserSettings['themePreset'][];
 
     return (
       <div className="space-y-5">
