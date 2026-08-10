@@ -62,6 +62,10 @@ const INITIAL_BATCH = 10;
 const REFILL_EVERY = 5;
 const REFILL_COUNT = 5;
 
+// Auto-advance to the next puzzle after a puzzle is completed. The failed delay
+// is longer so the player gets a moment to read the correct solution.
+const AUTO_ADVANCE_DELAY_MS = { solved: 1500, failed: 3000 } as const;
+
 /* -------------------------------------------------------------------------- */
 /*  Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -338,6 +342,23 @@ export default function Training() {
   }, [active, play]);
 
   /* -------------------------------------------------------------------------- */
+  /*  Auto-advance after completing a puzzle                                     */
+  /* -------------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!active) return;
+    if (active.status === 'solved') {
+      const t = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS.solved);
+      return () => clearTimeout(t);
+    }
+    if (active.status === 'failed') {
+      // Failing should break the streak, same as pressing "Skip".
+      const t = setTimeout(() => skip(), AUTO_ADVANCE_DELAY_MS.failed);
+      return () => clearTimeout(t);
+    }
+  }, [active, advance, skip]);
+
+  /* -------------------------------------------------------------------------- */
   /*  Derived values                                                             */
   /* -------------------------------------------------------------------------- */
 
@@ -427,7 +448,7 @@ export default function Training() {
               playable={active.status === 'playing'}
               orientation={active.playerColor === 'w' ? 'white' : 'black'}
               highlightSquares={active.lastMove}
-              bestMoveArrow={hint ?? undefined}
+              hintSquare={hint?.from}
               animationDurationInMs={300}
             />
           </div>

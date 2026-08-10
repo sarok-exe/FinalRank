@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import type { ChessGame, AnalyzedMove } from '../types';
-import { createGameEvaluator, getEngineVersion } from '../lib/engine/evaluate';
+import type { ChessGame, AnalyzedMove, HypothesisMove, EngineLine } from '../types';
+import { STARTING_FEN } from '../types';
+import { createGameEvaluator, getEngineVersion, createPositionEvaluator, getEvaluationResultFromLines } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
@@ -29,6 +30,12 @@ type GameState = {
   linkedAnalyzing: boolean;
   linkedAnalysisProgress: string;
   importJustCompleted: boolean;
+  hypothesisActive: boolean;
+  hypothesisMoves: HypothesisMove[];
+  hypothesisBaseIndex: number;
+  hypothesisSearching: boolean;
+  hypothesisLines: EngineLine[] | null;
+  hypothesisDepth: number;
 
   importChessComGames(username: string): Promise<void>;
   selectGame(gameId: string): void;
@@ -43,10 +50,16 @@ type GameState = {
   loadGameByShortId(shortId: string): Promise<ChessGame | null>;
   resetGameStore(): void;
   consumeImportFlag(): void;
+  enterHypothesisMode(depth?: number): boolean;
+  exitHypothesisMode(): void;
+  playHypothesisMove(from: string, to: string): boolean;
+  undoHypothesisMove(): void;
+  clearHypothesisMoves(): void;
 }
 
 const pendingAnalysis = new Map<string, Promise<void>>();
 let activeAbortController: AbortController | null = null;
+let hypothesisAbortController: AbortController | null = null;
 
 export const useGameStore = create<GameState>((set, get) => ({
   games: [] as ChessGame[],
@@ -64,14 +77,98 @@ export const useGameStore = create<GameState>((set, get) => ({
   linkedAnalyzing: false,
   linkedAnalysisProgress: '',
   importJustCompleted: false,
+  hypothesisActive: false,
+  hypothesisMoves: [],
+  hypothesisBaseIndex: 0,
+  hypothesisSearching: false,
+  hypothesisLines: null,
+  hypothesisDepth: 0,
 
   setGames: (games) => { set({ games }); },
 
   consumeImportFlag: () => { set({ importJustCompleted: false }); },
 
+  enterHypothesisMode: (depth) => {
+    const { selectedGame, analyzing, hypothesisActive, currentMoveIndex } = get();
+    if (!selectedGame || analyzing || hypothesisActive) return false;
+    set({
+      hypothesisActive: true,
+      hypothesisMoves: [],
+      hypothesisBaseIndex: currentMoveIndex,
+      hypothesisDepth: depth ?? useSettingsStore.getState().settings.engineDepth,
+      hypothesisLines: null,
+      hypothesisSearching: false,
+    });
+    return true;
+  },
+
+  exitHypothesisMode: () => {
+    hypothesisAbortController?.abort();
+    hypothesisAbortController = null;
+    set({ hypothesisActive: false, hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false });
+  },
+
+  playHypothesisMove: (from, to) => {
+    const { hypothesisActive, hypothesisMoves, selectedGame, hypothesisBaseIndex } = get();
+    if (!hypothesisActive) return false;
+    const tipFen = hypothesisMoves.length
+      ? hypothesisMoves[hypothesisMoves.length - 1].fen
+      : (selectedGame?.moves[hypothesisBaseIndex]?.fen ?? STARTING_FEN);
+    let board: Chess;
+    let moveResult;
+    try {
+      board = new Chess(tipFen);
+      moveResult = board.move({ from, to, promotion: 'q' });
+    } catch {
+      return false;
+    }
+    const newMove: HypothesisMove = {
+      index: hypothesisMoves.length,
+      san: moveResult.san,
+      from: moveResult.from,
+      to: moveResult.to,
+      fen: board.fen(),
+      color: moveResult.color,
+    };
+    set(state => ({ hypothesisMoves: [...state.hypothesisMoves, newMove] }));
+    void runHypothesisSearch(newMove);
+    return true;
+  },
+
+  undoHypothesisMove: () => {
+    const { hypothesisActive, hypothesisMoves } = get();
+    if (!hypothesisActive || hypothesisMoves.length === 0) return;
+    hypothesisAbortController?.abort();
+    hypothesisAbortController = null;
+    const newMoves = hypothesisMoves.slice(0, -1);
+    const newTip = newMoves[newMoves.length - 1];
+    set({
+      hypothesisMoves: newMoves,
+      hypothesisLines: newTip?.engineLines ?? null,
+      hypothesisSearching: false,
+    });
+  },
+
+  clearHypothesisMoves: () => {
+    hypothesisAbortController?.abort();
+    hypothesisAbortController = null;
+    set({ hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false });
+  },
+
   selectGame: (gameId) => {
+    hypothesisAbortController?.abort();
+    hypothesisAbortController = null;
     if (!gameId) {
-      set({ selectedGame: null, currentMoveIndex: -1 });
+      set({
+        selectedGame: null,
+        currentMoveIndex: -1,
+        hypothesisActive: false,
+        hypothesisMoves: [],
+        hypothesisBaseIndex: 0,
+        hypothesisSearching: false,
+        hypothesisLines: null,
+        hypothesisDepth: 0,
+      });
       return;
     }
     const { games, analysisCache } = get();
@@ -100,7 +197,16 @@ export const useGameStore = create<GameState>((set, get) => ({
       updatedGame.analysisDepth = cached.analysisDepth;
     }
 
-    set({ selectedGame: updatedGame, currentMoveIndex: -1 });
+    set({
+      selectedGame: updatedGame,
+      currentMoveIndex: -1,
+      hypothesisActive: false,
+      hypothesisMoves: [],
+      hypothesisBaseIndex: 0,
+      hypothesisSearching: false,
+      hypothesisLines: null,
+      hypothesisDepth: 0,
+    });
   },
 
   setCurrentMoveIndex: (index) => {
@@ -464,6 +570,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   resetGameStore: () => {
     if (activeAbortController) { activeAbortController.abort(); activeAbortController = null; }
+    hypothesisAbortController?.abort();
+    hypothesisAbortController = null;
     pendingAnalysis.clear();
     set({
     games: [],
@@ -480,8 +588,53 @@ export const useGameStore = create<GameState>((set, get) => ({
     linkedAnalyzing: false,
     linkedAnalysisProgress: '',
     importJustCompleted: false,
+    hypothesisActive: false,
+    hypothesisMoves: [],
+    hypothesisBaseIndex: 0,
+    hypothesisSearching: false,
+    hypothesisLines: null,
+    hypothesisDepth: 0,
   }); },
 }));
+
+async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
+  // Abort any previous search (abort-and-restart so fast move sequences work).
+  hypothesisAbortController?.abort();
+  useGameStore.setState({ hypothesisSearching: true });
+
+  const evaluator = createPositionEvaluator(tipMove.fen, {
+    depth: useGameStore.getState().hypothesisDepth,
+    linesCount: 2,
+  });
+  hypothesisAbortController = evaluator.controller;
+
+  try {
+    const lines = await evaluator.evaluate();
+    // Guard staleness: only apply if tipMove is still the tip of the branch
+    // (the user hasn't undone or played another move meanwhile).
+    const moves = useGameStore.getState().hypothesisMoves;
+    const isCurrent = moves.length > 0 && moves[moves.length - 1].index === tipMove.index;
+    if (!isCurrent) return; // stale — drop the result
+    useGameStore.setState(state => ({
+      hypothesisMoves: state.hypothesisMoves.map(m =>
+        m.index === tipMove.index
+          ? { ...m, engineLines: lines, evaluation: getEvaluationResultFromLines(lines) }
+          : m
+      ),
+      hypothesisLines: lines,
+      hypothesisSearching: false,
+    }));
+  } catch (err: unknown) {
+    // If the search was replaced by a newer one, leave hypothesisSearching alone.
+    const moves = useGameStore.getState().hypothesisMoves;
+    const isCurrent = moves.length > 0 && moves[moves.length - 1].index === tipMove.index;
+    if (isCurrent) {
+      useGameStore.setState({ hypothesisSearching: false });
+    }
+    if (err instanceof Error && err.message === 'aborted') return;
+    console.warn('[GameStore] hypothesis search failed:', err);
+  }
+}
 
 async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<void> {
   const startTime = performance.now();

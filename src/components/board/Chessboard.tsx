@@ -43,6 +43,7 @@ type ChessboardProps = {
     from: string;
     to: string;
   };
+  hintSquare?: string;
   rightClickedSquares?: string[];
   onSquareRightClick?(square: string): void;
   onLeftClick?(): void;
@@ -141,6 +142,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     className = '',
     highlightSquares,
     bestMoveArrow,
+    hintSquare,
     rightClickedSquares = [],
     arrows = [],
     winnerOverlay = false,
@@ -173,12 +175,15 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     if (selectedSquare != null) {
       setBg(selectedSquare, hexToRgba(ssColor, 0.55));
     }
+    if (hintSquare != null) {
+      setBg(hintSquare, 'rgba(251, 191, 36, 0.40)');
+    }
     for (const sq of rightClickedSquares) {
       setBg(sq,
         hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
     }
     return styles;
-  }, [highlightSquares, selectedSquare, rightClickedSquares, orientation, mtColor, ssColor, rcColor]);
+  }, [highlightSquares, selectedSquare, hintSquare, rightClickedSquares, orientation, mtColor, ssColor, rcColor]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];
@@ -194,6 +199,8 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
       if (!playable || targetSquare == null) return false;
+      // Picking a piece up and putting it back on the same square is not a move.
+      if (sourceSquare === targetSquare) return false;
       // Allow the caller to veto the move (e.g. wrong puzzle move): when onMove
       // returns false the piece snaps back instead of staying on the square.
       const accepted = props.onMove?.(sourceSquare, targetSquare);
@@ -206,6 +213,13 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     ({ square }: { square: string }) => {
       props.onLeftClick?.();
       if (!playable) return;
+
+      // Clicking the already-selected square again deselects — never a move.
+      if (selectedSquare != null && square === selectedSquare) {
+        setSelectedSquare(null);
+        setValidMoves([]);
+        return;
+      }
 
       if (selectedSquare != null && validMoves.includes(square)) {
         if (props.onMove) props.onMove(selectedSquare, square);
@@ -250,13 +264,25 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
       const isDot = validMoves.includes(square);
       const isBadge = highlightSquares?.to === square && highlightSquares.classification != null;
-      if (!isDot && !isBadge) return <>{children}</>;
+      const isHint = hintSquare === square;
+      if (!isDot && !isBadge && !isHint) return <>{children}</>;
 
       const hasPiece = children != null;
       return (
         <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
           {children}
           {isBadge && renderClassificationBadge(highlightSquares.classification)}
+          {isHint && (
+            <div
+              className="animate-pulse"
+              style={{
+                position: 'absolute', inset: '6%', borderRadius: '50%',
+                border: '4px solid #fbbf24',
+                boxShadow: '0 0 14px rgba(251, 191, 36, 0.8)',
+                pointerEvents: 'none', zIndex: 12,
+              }}
+            />
+          )}
           {isDot && !hasPiece && (
             <div style={{
               width: '28%', height: '28%', borderRadius: '50%',
@@ -278,7 +304,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
         </div>
       );
     },
-    [validMoves, highlightSquares, squareStyles],
+    [validMoves, highlightSquares, hintSquare, squareStyles],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {

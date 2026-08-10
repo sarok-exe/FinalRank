@@ -25,6 +25,7 @@ import {
   Focus,
   Heart,
   Share2,
+  GitBranch,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -33,6 +34,7 @@ import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/tursoCache';
 import type { AnalysisRunMeta } from '../lib/tursoCache';
 import { generateShortId } from '../lib/shortId';
 import type { ChessGame } from '../types';
+import { STARTING_FEN } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
@@ -61,6 +63,12 @@ export default function Analysis() {
     linkedLoading,
     linkedAnalyzing,
     linkedAnalysisProgress,
+    hypothesisActive,
+    hypothesisMoves,
+    hypothesisBaseIndex,
+    hypothesisSearching,
+    hypothesisLines,
+    hypothesisDepth,
     importChessComGames,
     selectGame,
     setCurrentMoveIndex,
@@ -71,6 +79,11 @@ export default function Analysis() {
     fetchLinkedUserGames,
     loadUserGames,
     loadGameByShortId,
+    enterHypothesisMode,
+    exitHypothesisMode,
+    playHypothesisMove,
+    undoHypothesisMove,
+    clearHypothesisMoves,
   } = useGameStore();
   const games = storeGames;
 
@@ -349,6 +362,20 @@ function formatDuration(ms: number | undefined): string {
         if (selectedGame) setAutoplay(!autoplay);
       },
     },
+    {
+      key: 'Backspace',
+      description: 'Undo what-if move',
+      handler: () => {
+        if (hypothesisActive && hypothesisMoves.length) undoHypothesisMove();
+      },
+    },
+    {
+      key: 'Escape',
+      description: 'Exit what-if mode',
+      handler: () => {
+        if (hypothesisActive) exitHypothesisMode();
+      },
+    },
   ]);
 
   const handleChessComSubmit = (e: React.FormEvent) => {
@@ -401,19 +428,43 @@ function formatDuration(ms: number | undefined): string {
   };
 
   const getCurrentFen = () => {
-    if (!selectedGame || currentMoveIndex === -1) {
-      return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    if (hypothesisActive) {
+      if (hypothesisMoves.length > 0) return hypothesisMoves[hypothesisMoves.length - 1].fen;
+      if (selectedGame && hypothesisBaseIndex >= 0 && selectedGame.moves[hypothesisBaseIndex]) {
+        return selectedGame.moves[hypothesisBaseIndex].fen;
+      }
+      return STARTING_FEN;
     }
-    return selectedGame.moves[currentMoveIndex]?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    if (!selectedGame || currentMoveIndex === -1) {
+      return STARTING_FEN;
+    }
+    return selectedGame.moves[currentMoveIndex]?.fen || STARTING_FEN;
   };
 
   const getMoveHighlight = () => {
+    if (hypothesisActive) {
+      if (hypothesisMoves.length > 0) {
+        const last = hypothesisMoves[hypothesisMoves.length - 1];
+        return { from: last.from, to: last.to };
+      }
+      return undefined;
+    }
     if (!selectedGame || currentMoveIndex === -1) return undefined;
     const m = selectedGame.moves[currentMoveIndex];
     return { from: m.from, to: m.to, classification: m.classification };
   };
 
   const getBestMoveArrow = () => {
+    if (hypothesisActive) {
+      if (hypothesisLines?.length) {
+        const topLine = getTopEngineLine(hypothesisLines);
+        if (topLine?.moves?.length) {
+          const uci = topLine.moves[0].uci;
+          if (uci.length >= 4) return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
+        }
+      }
+      return undefined;
+    }
     if (!selectedGame || currentMoveIndex === -1) return undefined;
     const m = selectedGame.moves[currentMoveIndex];
     if (!m.engineLines || m.engineLines.length === 0) return undefined;
@@ -726,7 +777,18 @@ function formatDuration(ms: number | undefined): string {
   const boardEl = (
     <Chessboard
       fen={getCurrentFen()}
-      playable={false}
+      playable={hypothesisActive}
+      onMove={(from, to) => {
+        if (hypothesisActive) {
+          const ok = playHypothesisMove(from, to);
+          if (ok) {
+            const moves = useGameStore.getState().hypothesisMoves;
+            if (moves.length > 0) playFromSan(moves[moves.length - 1].san);
+          }
+          return ok;
+        }
+        return false;
+      }}
       orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
       bestMoveArrow={getBestMoveArrow()}
@@ -747,6 +809,26 @@ function formatDuration(ms: number | undefined): string {
 
   const evalScore = currentMove?.evaluation?.score ?? null;
   const evalMate = currentMove?.evaluation?.mateIn ?? null;
+
+  const hypothesisEvalScore = hypothesisActive && hypothesisLines?.length
+    ? (() => {
+        const topLine = getTopEngineLine(hypothesisLines);
+        if (!topLine?.evaluation) return null;
+        if (topLine.evaluation.type === 'mate') return null;
+        return topLine.evaluation.value / 100;
+      })()
+    : null;
+  const hypothesisEvalMate = hypothesisActive && hypothesisLines?.length
+    ? (() => {
+        const topLine = getTopEngineLine(hypothesisLines);
+        if (!topLine?.evaluation) return null;
+        if (topLine.evaluation.type === 'mate') return topLine.evaluation.value;
+        return null;
+      })()
+    : null;
+
+  const displayScore = hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalScore : evalScore;
+  const displayMate = hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalMate : evalMate;
 
   return (
     <div className="space-y-5" id="analysis-viewport">
@@ -811,42 +893,91 @@ function formatDuration(ms: number | undefined): string {
         </div>
         )}
         <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+          {/* What-if banner */}
+          {hypothesisActive && (
+            <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl px-3 py-2.5 flex items-center gap-2.5 flex-wrap" id="whatif-banner" style={{ maxWidth: boardWidth }}>
+              <span className="flex items-center gap-1.5 text-[var(--color-accent)] text-xs font-bold shrink-0">
+                <GitBranch className="w-3.5 h-3.5" />
+                What-if
+              </span>
+              <span className="text-xs font-mono text-white flex-1 min-w-0 truncate">
+                {hypothesisMoves.length > 0
+                  ? hypothesisMoves.map((m, i) => {
+                      const ply = hypothesisBaseIndex + i + 1;
+                      const n = Math.floor(ply / 2) + 1;
+                      const prefix = m.color === 'w' ? `${n}. ` : `${n}... `;
+                      return prefix + m.san;
+                    }).join(' ')
+                  : 'Play a move to explore'
+                }
+              </span>
+              {hypothesisSearching && (
+                <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
+              )}
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={undoHypothesisMove}
+                  disabled={hypothesisMoves.length === 0}
+                  className="px-2 py-1 rounded text-[10px] font-bold text-[var(--color-text-muted)] hover:text-white disabled:opacity-30 transition-colors"
+                  aria-label="Undo what-if move (Backspace)"
+                  title="Undo what-if move (Backspace)"
+                >
+                  Undo
+                </button>
+                <button
+                  onClick={clearHypothesisMoves}
+                  disabled={hypothesisMoves.length === 0}
+                  className="px-2 py-1 rounded text-[10px] font-bold text-[var(--color-text-muted)] hover:text-white disabled:opacity-30 transition-colors"
+                  title="Reset what-if line"
+                >
+                  Reset
+                </button>
+                <button
+                  onClick={exitHypothesisMode}
+                  className="px-2 py-1 rounded text-[10px] font-bold bg-[var(--color-accent)] text-black hover:brightness-110 transition-all"
+                  title="Exit what-if mode (Esc)"
+                >
+                  Exit
+                </button>
+              </div>
+            </div>
+          )}
           {/* Single board, reordered with CSS grid: phones get a horizontal eval
               bar below, desktop gets a vertical bar on the left. Rendering the
               board twice (hidden via display:none) made react-chessboard's piece
               animation read a 0-width square and throw 'Square width not found'. */}
           <div className="w-full grid grid-cols-1 lg:grid-cols-[min-content_1fr] lg:items-stretch" style={{ maxWidth: boardWidth }} id="board-single-layout">
             <div className="hidden lg:flex lg:self-stretch lg:min-h-[300px]">
-              <EvalBar score={evalScore} mate={evalMate} flipped={false} />
+              <EvalBar score={displayScore} mate={displayMate} flipped={false} />
             </div>
             <div className="w-full min-w-0">{boardEl}</div>
             <div className="lg:hidden w-full h-[30px]">
-              <EvalBar score={evalScore} mate={evalMate} flipped={false} horizontal />
+              <EvalBar score={displayScore} mate={displayMate} flipped={false} horizontal />
             </div>
           </div>
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
               <div className="flex items-center space-x-1">
-                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
+                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
                   <ChevronsLeft className="w-5 h-5" />
                 </button>
-                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
+                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => { setAutoplay(!autoplay); }}
-                  disabled={currentMoveIndex === selectedGame.moves.length - 1}
+                  disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive}
                   className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                   aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
                 >
                   <span className="text-lg">{autoplay ? '■' : '▶'}</span>
                 </button>
-                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
+                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
+                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
                   <ChevronsRight className="w-5 h-5" />
                 </button>
               </div>
@@ -943,7 +1074,10 @@ function formatDuration(ms: number | undefined): string {
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
                   <span>Stockfish 18</span>
                 </h3>
-                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}</p>
+                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
+                  Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
+                  {hypothesisActive && <span className="text-[var(--color-accent)]"> · Exploring hypothetical line</span>}
+                </p>
               </div>
               <div className="flex items-center gap-1.5 sm:space-x-2">
                 <select
@@ -971,6 +1105,26 @@ function formatDuration(ms: number | undefined): string {
                 >
                   <Activity className="w-3.5 h-3.5" />
                   <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    if (hypothesisActive) {
+                      exitHypothesisMode();
+                    } else {
+                      enterHypothesisMode(settings.engineDepth);
+                    }
+                  }}
+                  disabled={analyzing}
+                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                    hypothesisActive
+                      ? 'bg-[var(--color-accent)] text-black border-[var(--color-accent)]'
+                      : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                  } disabled:opacity-50 transition-all`}
+                  id="whatif-toggle-button"
+                  title="What-if analysis"
+                >
+                  <GitBranch className="w-3.5 h-3.5" />
+                  <span className="hidden xs:inline">What-if</span>
                 </button>
                 {priorAnalyses.length > 0 && !analyzing && (
                   <button
@@ -1089,7 +1243,7 @@ function formatDuration(ms: number | undefined): string {
                       <div key={rowIndex} className="col-span-2 grid grid-cols-12 py-1.5 px-2 rounded-lg bg-transparent items-center">
                         <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-bold">{turnNum}.</div>
                         <button
-                          onClick={() => { setCurrentMoveIndex(whiteMove.index); }}
+                          onClick={() => { if (hypothesisActive) exitHypothesisMode(); setCurrentMoveIndex(whiteMove.index); }}
                           className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
                             currentMoveIndex === whiteMove.index
                               ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
@@ -1104,7 +1258,7 @@ function formatDuration(ms: number | undefined): string {
                         </button>
                         {blackMove ? (
                           <button
-                            onClick={() => { setCurrentMoveIndex(blackMove.index); }}
+                            onClick={() => { if (hypothesisActive) exitHypothesisMode(); setCurrentMoveIndex(blackMove.index); }}
                             className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
                               currentMoveIndex === blackMove.index
                                 ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
@@ -1133,7 +1287,77 @@ function formatDuration(ms: number | undefined): string {
               <Activity className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Engine Diagnosis</span>
             </h3>
-            {currentMoveIndex === -1 ? (
+            {hypothesisActive ? (
+              hypothesisSearching ? (
+                <div className="flex items-center gap-2 text-xs text-[var(--color-accent)] italic leading-relaxed py-2">
+                  <Activity className="w-3.5 h-3.5 animate-pulse" />
+                  <span>Analyzing what-if...</span>
+                </div>
+              ) : hypothesisMoves.length === 0 ? (
+                <div className="text-xs text-[var(--color-text-muted)] italic leading-relaxed py-2">
+                  Play a move to explore the line.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {/* What-if Header */}
+                  <div className="text-[10px] text-[var(--color-accent)] font-semibold pb-1.5 border-b border-[var(--color-accent)]/30 flex items-center gap-1.5">
+                    <GitBranch className="w-3 h-3" />
+                    <span>What-if line</span>
+                    <span className="text-[var(--color-text-muted)]">depth={hypothesisDepth}</span>
+                    <span>|</span>
+                    <span>Stockfish 18 Lite</span>
+                    {hypothesisLines && hypothesisLines.length > 1 && (
+                      <span className="ml-auto text-[var(--color-text-muted)]">({hypothesisLines.length} PV)</span>
+                    )}
+                  </div>
+                  {/* Last hypothesis move SAN */}
+                  <div className="flex items-center justify-between">
+                    <span className="font-extrabold text-sm text-[var(--color-accent)]">
+                      {hypothesisMoves[hypothesisMoves.length - 1]?.san}
+                    </span>
+                    {hypothesisLines?.length > 0 && (() => {
+                      const topLine = getTopEngineLine(hypothesisLines);
+                      if (!topLine?.evaluation) return null;
+                      const evalStr = topLine.evaluation.type === 'mate'
+                        ? `#${topLine.evaluation.value}`
+                        : topLine.evaluation.value > 0
+                          ? `+${(topLine.evaluation.value / 100).toFixed(2)}`
+                          : (topLine.evaluation.value / 100).toFixed(2);
+                      return (
+                        <span className={`text-xs font-mono font-bold ${
+                          topLine.evaluation.type === 'mate' || topLine.evaluation.value > 0
+                            ? 'text-[var(--color-primary)]' : 'text-white'
+                        }`}>{evalStr}</span>
+                      );
+                    })()}
+                  </div>
+                  {/* Variation Lines */}
+                  {hypothesisLines && hypothesisLines.length > 0 && (
+                    <div className="space-y-1 pt-1">
+                      {hypothesisLines.slice(0, 4).map((line, i) => {
+                        let lineEval = '';
+                        if (line.evaluation.type === 'mate') {
+                          lineEval = `#${line.evaluation.value}`;
+                        } else {
+                          const val = line.evaluation.value / 100;
+                          lineEval = val > 0 ? `+${val.toFixed(2)}` : val.toFixed(2);
+                        }
+                        const lineMoves = line.moves.map(m => m.san).join(' ');
+                        return (
+                          <div key={i} className="flex items-start gap-2 text-[11px] bg-[var(--color-surface)] p-1.5 rounded border border-[var(--color-accent)]/30">
+                            <span className={`font-mono font-bold shrink-0 w-[5ch] ${
+                              line.evaluation.type === 'mate' || line.evaluation.value > 0
+                                ? 'text-[var(--color-primary)]' : 'text-white'
+                            }`}>{lineEval}</span>
+                            <span className="text-white font-mono truncate">{lineMoves}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            ) : currentMoveIndex === -1 ? (
               <div className="text-xs text-[var(--color-text-muted)] italic leading-relaxed py-2">
                 Starting position. Browse moves or click 'Analyze' to compute.
               </div>
@@ -1355,9 +1579,21 @@ function formatDuration(ms: number | undefined): string {
                 <span className="text-white">Toggle focus mode</span>
                 <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Z</span>
               </div>
-              <div className="flex justify-between text-sm py-1.5">
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
                 <span className="text-white">Toggle fullscreen</span>
                 <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">F11</span>
+              </div>
+              <div className="flex justify-between text-sm py-1.5 border-t border-[var(--color-border)] pt-3 mt-1">
+                <span className="text-[var(--color-accent)] font-bold text-xs">What-if</span>
+                <span />
+              </div>
+              <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
+                <span className="text-white">Undo what-if move</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Backspace</span>
+              </div>
+              <div className="flex justify-between text-sm py-1.5">
+                <span className="text-white">Exit what-if mode</span>
+                <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Esc</span>
               </div>
             </div>
             <p className="text-xs text-[var(--color-text-muted)] mt-4 text-center">Shortcuts can be disabled in Profile settings.</p>

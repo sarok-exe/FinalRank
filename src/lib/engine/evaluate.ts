@@ -1,7 +1,7 @@
 import { sum, round } from 'lodash-es';
-import type { ChessGame, EngineLine} from '../../types';
+import type { ChessGame, EngineLine, EvaluationResult } from '../../types';
 import { STARTING_FEN } from '../../types';
-import { Engine } from './index';
+import { Engine, getTopEngineLine } from './index';
 import { getOpeningName } from '../reporter/utils/opening';
 
 type EvaluateMovesOptions = {
@@ -248,4 +248,76 @@ export function createGameEvaluator(
   }
 
   return { evaluate: evaluateAll, controller };
+}
+
+export function createPositionEvaluator(
+  fen: string,
+  options: { depth: number; linesCount?: number; engineVersion?: string }
+): { evaluate(): Promise<EngineLine[]>; controller: AbortController } {
+  const controller = new AbortController();
+  const engine = new Engine(options.engineVersion ?? 'stockfish-18-lite-single.js');
+  engine.setLineCount(options.linesCount ?? 2);
+  engine.onError(() => {});
+  engine.setPositionQuiet(fen);
+
+  // Holds the reject of the in-flight evaluate() promise so the abort listener
+  // can reject it with 'aborted' (treated as a non-error by the app).
+  let rejectEvaluate: ((reason: Error) => void) | null = null;
+
+  async function evaluate(): Promise<EngineLine[]> {
+    const key = getCacheKey(fen, [], options.depth);
+    const cached = fenCache.get(key);
+    if (cached && cached.depth >= options.depth) {
+      engine.terminate();
+      return cached.lines;
+    }
+
+    return new Promise<EngineLine[]>((resolve, reject) => {
+      rejectEvaluate = reject;
+      engine.evaluate({ depth: options.depth }).then(lines => {
+        rejectEvaluate = null;
+        fenCache.set(key, { lines, depth: options.depth });
+        if (fenCache.size > 5000) {
+          const first = fenCache.keys().next().value;
+          if (first) fenCache.delete(first);
+        }
+        engine.terminate();
+        resolve(lines);
+      }).catch(err => {
+        rejectEvaluate = null;
+        reject(err);
+      });
+    });
+  }
+
+  controller.signal.addEventListener('abort', () => {
+    engine.terminate();
+    if (rejectEvaluate) {
+      rejectEvaluate(new Error('aborted'));
+      rejectEvaluate = null;
+    }
+  });
+
+  return { evaluate, controller };
+}
+
+export function getEvaluationResultFromLines(lines: EngineLine[]): EvaluationResult | undefined {
+  const line = getTopEngineLine(lines);
+  if (!line) return undefined;
+  let score: number;
+  if (line.evaluation.type === 'centipawn') {
+    score = line.evaluation.value / 100;
+  } else if (line.evaluation.value > 0) {
+    score = 10;
+  } else {
+    score = -10;
+  }
+  return {
+    score,
+    isMate: line.evaluation.type === 'mate',
+    mateIn: line.evaluation.type === 'mate' ? line.evaluation.value : undefined,
+    depthReached: line.depth,
+    bestMove: line.moves?.[0]?.uci,
+    pv: line.moves.map(m => m.san),
+  };
 }

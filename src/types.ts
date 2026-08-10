@@ -155,6 +155,17 @@ export type AnalyzedMove = {
   opening?: string;
 }
 
+export type HypothesisMove = {
+  index: number;        // 0-based within the hypothesis branch
+  san: string;
+  from: string;
+  to: string;
+  fen: string;
+  color: 'w' | 'b';
+  engineLines?: EngineLine[];
+  evaluation?: EvaluationResult;
+}
+
 export type ChessGame = {
   id: string;
   shortId?: string;
