@@ -58,7 +58,7 @@ type GameState = {
   clearHypothesisMoves(): void;
 }
 
-const pendingAnalysis = new Map<string, Promise<void>>();
+const pendingAnalysis = new Map<string, Promise<boolean>>();
 let activeAbortController: AbortController | null = null;
 let hypothesisAbortController: AbortController | null = null;
 
@@ -370,7 +370,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ analyzing: true, analysisProgress: 1 });
 
     try {
-      await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
+      const ok = await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
+      if (!ok) return; // total engine failure — state reset + error toast already handled
 
       // runEvaluationPipeline already updated the cache and merged moves into selectedGame.
       // Pull the final analysed game from the cache (or fall back to the updated selectedGame).
@@ -643,7 +644,7 @@ async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
   }
 }
 
-async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<void> {
+async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<boolean> {
   const startTime = performance.now();
 
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
@@ -676,6 +677,24 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const evaluatedGame = await evaluator.evaluate();
   cleanupController();
+
+  // If every engine attempt failed (e.g. the engine worker/WASM is blocked),
+  // don't present a fake "analyzed" game — surface the failure instead.
+  const { attemptedPositions = 0, failedPositions = 0 } = evaluator;
+  if (attemptedPositions > 0 && failedPositions === attemptedPositions) {
+    useGameStore.setState({ analysisProgress: 0, analyzing: false, autoAnalyzing: false });
+    useToastStore.getState().addToast({
+      type: 'error',
+      message: 'Analysis failed — the chess engine could not start. Reload and try again.',
+    });
+    return false;
+  }
+  if (failedPositions > 0) {
+    useToastStore.getState().addToast({
+      type: 'error',
+      message: `Analysis finished with ${failedPositions} failed position(s) — some moves may be missing evaluations.`,
+    });
+  }
   useGameStore.setState({ analysisProgress: 95 });
 
   const analysedGame = getGameAnalysis(evaluatedGame, {
@@ -728,6 +747,8 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     });
     setTimeout(() => { unsub(); }, 15000);
   }
+
+  return true;
 }
 
 function hydratePgnMoves(pgn: string): AnalyzedMove[] {

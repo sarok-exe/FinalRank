@@ -17,6 +17,10 @@ type EvaluateMovesOptions = {
 type EvaluationProcess = {
   evaluate(): Promise<ChessGame>;
   controller: AbortController;
+  /** Positions actually sent to an engine (after book/cache prefills). */
+  attemptedPositions: number;
+  /** Positions that failed every engine attempt and were zero-filled. */
+  failedPositions: number;
 }
 
 const fenCache = new Map<string, { lines: EngineLine[]; depth: number }>();
@@ -46,6 +50,8 @@ export function createGameEvaluator(
   const moveCount = game.moves.length;
   const fens: string[] = [startingFen, ...game.moves.map(m => m.fen)];
   const progresses: number[] = new Array(fens.length).fill(0);
+  let attemptedPositions = 0;
+  let failedPositions = 0;
 
   function getProgress() {
     if (moveCount === 0) return 1;
@@ -137,6 +143,7 @@ export function createGameEvaluator(
           settleSlot();
           return;
         }
+        if (attempt === 0) attemptedPositions++;
 
         const uciMoves = updatedMoves
           .slice(0, Math.min(currentFenIndex, updatedMoves.length))
@@ -163,6 +170,7 @@ export function createGameEvaluator(
           }
           // Give up on this position only — mark it zero and keep the rest of the
           // game. A failed move must never strand the remaining tail.
+          failedPositions++;
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = [zeroLine];
           options.onProgress?.(getProgress());
@@ -247,7 +255,7 @@ export function createGameEvaluator(
     return { ...game, moves: updatedMoves };
   }
 
-  return { evaluate: evaluateAll, controller };
+  return { evaluate: evaluateAll, controller, attemptedPositions, failedPositions };
 }
 
 export function createPositionEvaluator(
