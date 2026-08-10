@@ -34,6 +34,7 @@ type GameState = {
   hypothesisMoves: HypothesisMove[];
   hypothesisBaseIndex: number;
   hypothesisSearching: boolean;
+  hypothesisError: boolean;
   hypothesisLines: EngineLine[] | null;
   hypothesisDepth: number;
 
@@ -81,6 +82,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hypothesisMoves: [],
   hypothesisBaseIndex: 0,
   hypothesisSearching: false,
+  hypothesisError: false,
   hypothesisLines: null,
   hypothesisDepth: 0,
 
@@ -98,6 +100,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisDepth: depth ?? useSettingsStore.getState().settings.engineDepth,
       hypothesisLines: null,
       hypothesisSearching: false,
+      hypothesisError: false,
     });
     return true;
   },
@@ -105,7 +108,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   exitHypothesisMode: () => {
     hypothesisAbortController?.abort();
     hypothesisAbortController = null;
-    set({ hypothesisActive: false, hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false });
+    set({ hypothesisActive: false, hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false });
   },
 
   playHypothesisMove: (from, to) => {
@@ -146,13 +149,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisMoves: newMoves,
       hypothesisLines: newTip?.engineLines ?? null,
       hypothesisSearching: false,
+      hypothesisError: false,
     });
   },
 
   clearHypothesisMoves: () => {
     hypothesisAbortController?.abort();
     hypothesisAbortController = null;
-    set({ hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false });
+    set({ hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false });
   },
 
   selectGame: (gameId) => {
@@ -166,6 +170,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         hypothesisMoves: [],
         hypothesisBaseIndex: 0,
         hypothesisSearching: false,
+        hypothesisError: false,
         hypothesisLines: null,
         hypothesisDepth: 0,
       });
@@ -592,6 +597,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     hypothesisMoves: [],
     hypothesisBaseIndex: 0,
     hypothesisSearching: false,
+    hypothesisError: false,
     hypothesisLines: null,
     hypothesisDepth: 0,
   }); },
@@ -600,7 +606,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
   // Abort any previous search (abort-and-restart so fast move sequences work).
   hypothesisAbortController?.abort();
-  useGameStore.setState({ hypothesisSearching: true });
+  useGameStore.setState({ hypothesisSearching: true, hypothesisError: false });
 
   const evaluator = createPositionEvaluator(tipMove.fen, {
     depth: useGameStore.getState().hypothesisDepth,
@@ -623,13 +629,14 @@ async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
       ),
       hypothesisLines: lines,
       hypothesisSearching: false,
+      hypothesisError: false,
     }));
   } catch (err: unknown) {
     // If the search was replaced by a newer one, leave hypothesisSearching alone.
     const moves = useGameStore.getState().hypothesisMoves;
     const isCurrent = moves.length > 0 && moves[moves.length - 1].index === tipMove.index;
     if (isCurrent) {
-      useGameStore.setState({ hypothesisSearching: false });
+      useGameStore.setState({ hypothesisSearching: false, hypothesisError: true });
     }
     if (err instanceof Error && err.message === 'aborted') return;
     console.warn('[GameStore] hypothesis search failed:', err);

@@ -67,6 +67,7 @@ export default function Analysis() {
     hypothesisMoves,
     hypothesisBaseIndex,
     hypothesisSearching,
+    hypothesisError,
     hypothesisLines,
     hypothesisDepth,
     importChessComGames,
@@ -911,9 +912,11 @@ function formatDuration(ms: number | undefined): string {
                   : 'Play a move to explore'
                 }
               </span>
-              {hypothesisSearching && (
+              {hypothesisSearching ? (
                 <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
-              )}
+              ) : hypothesisError && hypothesisMoves.length > 0 ? (
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Engine search failed" />
+              ) : null}
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={undoHypothesisMove}
@@ -1292,6 +1295,11 @@ function formatDuration(ms: number | undefined): string {
                 <div className="flex items-center gap-2 text-xs text-[var(--color-accent)] italic leading-relaxed py-2">
                   <Activity className="w-3.5 h-3.5 animate-pulse" />
                   <span>Analyzing what-if...</span>
+                </div>
+              ) : hypothesisError && hypothesisMoves.length > 0 ? (
+                <div className="flex items-start gap-2 text-xs text-amber-400 leading-relaxed py-2">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>Engine search failed. Try undoing and replaying the move.</span>
                 </div>
               ) : hypothesisMoves.length === 0 ? (
                 <div className="text-xs text-[var(--color-text-muted)] italic leading-relaxed py-2">

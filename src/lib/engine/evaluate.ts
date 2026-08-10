@@ -255,10 +255,19 @@ export function createPositionEvaluator(
   options: { depth: number; linesCount?: number; engineVersion?: string }
 ): { evaluate(): Promise<EngineLine[]>; controller: AbortController } {
   const controller = new AbortController();
-  const engine = new Engine(options.engineVersion ?? 'stockfish-18-lite-single.js');
-  engine.setLineCount(options.linesCount ?? 2);
-  engine.onError(() => {});
-  engine.setPositionQuiet(fen);
+
+  // Every engine spawned across the initial attempt and the retry; the abort
+  // listener terminates all of them.
+  const engines: Engine[] = [];
+
+  function spawnEngine(): Engine {
+    const engine = new Engine(options.engineVersion ?? 'stockfish-18-lite-single.js');
+    engine.setLineCount(options.linesCount ?? 2);
+    engine.onError(() => {});
+    engine.setPositionQuiet(fen);
+    engines.push(engine);
+    return engine;
+  }
 
   // Holds the reject of the in-flight evaluate() promise so the abort listener
   // can reject it with 'aborted' (treated as a non-error by the app).
@@ -268,30 +277,50 @@ export function createPositionEvaluator(
     const key = getCacheKey(fen, [], options.depth);
     const cached = fenCache.get(key);
     if (cached && cached.depth >= options.depth) {
-      engine.terminate();
+      engines.forEach(e => e.terminate());
       return cached.lines;
     }
 
     return new Promise<EngineLine[]>((resolve, reject) => {
       rejectEvaluate = reject;
-      engine.evaluate({ depth: options.depth }).then(lines => {
-        rejectEvaluate = null;
-        fenCache.set(key, { lines, depth: options.depth });
-        if (fenCache.size > 5000) {
-          const first = fenCache.keys().next().value;
-          if (first) fenCache.delete(first);
-        }
-        engine.terminate();
-        resolve(lines);
-      }).catch(err => {
-        rejectEvaluate = null;
-        reject(err);
-      });
+
+      const runAttempt = (attempt: number): void => {
+        const engine = spawnEngine();
+        engine.evaluate({ depth: options.depth }).then(lines => {
+          rejectEvaluate = null;
+          fenCache.set(key, { lines, depth: options.depth });
+          if (fenCache.size > 5000) {
+            const first = fenCache.keys().next().value;
+            if (first) fenCache.delete(first);
+          }
+          engines.forEach(e => e.terminate());
+          resolve(lines);
+        }).catch(err => {
+          // Once aborted, never retry — surface the abort to the caller.
+          if (controller.signal.aborted) {
+            rejectEvaluate = null;
+            reject(new Error('aborted'));
+            return;
+          }
+          // Worker/WASM failures are often transient (e.g. a dropped worker
+          // after the tab sat idle); retry once with a fresh engine.
+          if (attempt < 2) {
+            engine.terminate();
+            runAttempt(attempt + 1);
+          } else {
+            rejectEvaluate = null;
+            engines.forEach(e => e.terminate());
+            reject(err);
+          }
+        });
+      };
+
+      runAttempt(1);
     });
   }
 
   controller.signal.addEventListener('abort', () => {
-    engine.terminate();
+    engines.forEach(e => e.terminate());
     if (rejectEvaluate) {
       rejectEvaluate(new Error('aborted'));
       rejectEvaluate = null;
