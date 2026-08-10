@@ -3,7 +3,7 @@ import { STARTING_FEN } from '../../types';
 import { getTopEngineLine } from '../engine';
 import type { AnalysisOptions } from './types';
 import { getMoveAccuracy } from './accuracy';
-import { classifyMove } from './classify';
+import { classifyMove, isSyntheticZeroLine } from './classify';
 import { getWinPercent, getGameAccuracy } from './expectedPoints';
 
 function extractEvaluation(line: EngineLine): EvaluationResult {
@@ -49,11 +49,15 @@ export function getGameAnalysis(
     let accuracy: number | undefined;
     const prevTopLine = getTopEngineLine(prevEngineLines);
     const currTopLine = getTopEngineLine(currEngineLines);
-    if (prevTopLine && currTopLine) {
+    // Book moves legitimately carry a synthetic cp-0 line; keep their data.
+    // Failed positions (synthetic line + no book classification) have no real
+    // engine result — don't fabricate an accuracy or evaluation for them.
+    const isSynthetic = isSyntheticZeroLine(currTopLine) && result.classification !== 'book';
+    if (prevTopLine && currTopLine && !isSynthetic) {
       accuracy = getMoveAccuracy(prevTopLine.evaluation, currTopLine.evaluation, move.color === 'w' ? 'w' : 'b');
     }
 
-    const evaluation = currTopLine ? extractEvaluation(currTopLine) : undefined;
+    const evaluation = currTopLine && !isSynthetic ? extractEvaluation(currTopLine) : undefined;
 
     return { ...move, engineLines: currEngineLines, evaluation, classification: result.classification, opening: result.opening, accuracy };
   });

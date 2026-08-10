@@ -270,6 +270,40 @@ describe('classifyMove', () => {
       }
     }
   });
+
+  it('classifies the first move after a book zero-line via cp-0 baseline fallback', () => {
+    // Book positions carry a synthetic zero-line ({cp: 0, depth: 1, moves: []}).
+    // The move leaving the book must still get a real classification.
+    const prevFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1'; // after 1.e4
+    const zeroLine: EngineLine = {
+      evaluation: { type: 'centipawn', value: 0 },
+      source: 'engine',
+      depth: 1,
+      index: 1,
+      moves: [],
+    };
+    const playedSan = 'g5'; // bad for black; white ends up clearly better
+    const currFen = 'rnbqkbnr/pppp1ppp/8/8/4P1P1/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2';
+    const currLines = syntheticLines(currFen, 'd4', { type: 'centipawn', value: 100 });
+    const result = classifyMove(prevFen, [zeroLine], currFen, currLines, playedSan, { includeTheory: false });
+    // 0.0 -> +1.0 for the mover: expected-points loss ~0.087 lands in 'inaccuracy'
+    expect(result.classification).toBe('inaccuracy');
+  });
+
+  it('does not classify positions whose engine evaluation failed (synthetic zero-line)', () => {
+    const prevFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    const prevLines = syntheticLines(prevFen, 'e4', { type: 'centipawn', value: 0 });
+    const currFen = 'rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1';
+    const failureLine: EngineLine = {
+      evaluation: { type: 'centipawn', value: 0 },
+      source: 'engine',
+      depth: 1,
+      index: 1,
+      moves: [],
+    };
+    const result = classifyMove(prevFen, prevLines, currFen, [failureLine], 'e5', { includeTheory: false });
+    expect(result.classification).toBeUndefined();
+  });
 });
 
 describe('getGameAnalysis', () => {

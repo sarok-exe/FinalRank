@@ -98,7 +98,13 @@ function removeUser() {
   localStorage.removeItem('finalrank_user');
 }
 
-let streakMutationLock = Promise.resolve();
+type StreakResult = { streakIncremented: boolean; newStreak: number; prevStreak: number };
+
+let streakMutationLock: Promise<StreakResult> = Promise.resolve({
+  streakIncremented: false,
+  newStreak: 0,
+  prevStreak: 0,
+});
 
 /** Format a Date as YYYY-MM-DD in the user's local timezone. */
 function formatLocalDate(d: Date): string {
@@ -250,7 +256,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     saveUser(updated);
     if (user.authProvider === 'google') {
       void updateUserProfile(updated.id, {
-        streak: 0,
+        streak: updated.streak,
       });
     }
   },
@@ -282,7 +288,7 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
     authProvider: 'google',
     streak: existing?.streak ?? 0,
     analyzedCount: existing?.analyzedCount ?? 0,
-    lastActiveDate: null,
+    lastActiveDate: existing?.lastActiveDate ?? null,
     chessComUsername: existing?.chessComUsername ?? undefined,
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
@@ -343,7 +349,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       authProvider: 'google',
       streak: (remoteProfile.streak as number | undefined) ?? 0,
       analyzedCount: (remoteProfile.analyzedCount as number | undefined) ?? 0,
-      lastActiveDate: (remoteProfile.lastActiveDate as string | undefined) ?? null,
+      lastActiveDate: (remoteProfile.lastActiveDate as string | undefined) ?? existing?.lastActiveDate ?? null,
       chessComUsername: (remoteProfile.chessComUsername as string | undefined) ?? existing?.chessComUsername ?? undefined,
       settings: (remoteProfile.settings as User['settings'] | undefined) ?? { ...DEFAULT_GUEST.settings },
     };
