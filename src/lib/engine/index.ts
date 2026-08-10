@@ -116,7 +116,6 @@ export class Engine {
     depth: number;
     goMode?: 'depth' | 'time';
     timeLimit?: number;
-    onEngineLine?(line: EngineLine): void;
   }): Promise<EngineLine[]> {
     const engineLines: EngineLine[] = [];
     const goCommand = options.goMode === 'time' && options.timeLimit
@@ -152,7 +151,6 @@ export class Engine {
           moves: moveUcis.map((uci, i) => ({ uci, san: moveSans[i] || uci })),
         };
         engineLines.push(newEngineLine);
-        options.onEngineLine?.(newEngineLine);
       },
     );
     this.evaluating = false;

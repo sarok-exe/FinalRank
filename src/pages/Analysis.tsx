@@ -312,7 +312,7 @@ function formatDuration(ms: number | undefined): string {
       description: 'Analyze game',
       handler: () => {
         if (!selectedGame || analyzing) return;
-        triggerEvaluationPipeline(settings.engineDepth);
+        triggerEvaluationPipeline();
       },
     },
     {
@@ -1078,26 +1078,12 @@ function formatDuration(ms: number | undefined): string {
                   <span>Stockfish 18</span>
                 </h3>
                 <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
-                  Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
-                  {hypothesisActive && <span className="text-[var(--color-accent)]"> · Exploring hypothetical line</span>}
+                  {hypothesisActive && <span className="text-[var(--color-accent)]">Exploring hypothetical line</span>}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 sm:space-x-2">
-                <select
-                  value={settings.engineDepth}
-                  onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
-                  className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
-                  id="depth-picker"
-                >
-                  <option value={6}>Depth 6</option>
-                  <option value={8}>Depth 8</option>
-                  <option value={10}>Depth 10</option>
-                  <option value={12}>Depth 12</option>
-                  <option value={15}>Depth 15</option>
-                  <option value={18}>Depth 18</option>
-                </select>
                 <button
-                  onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
+                  onClick={() => triggerEvaluationPipeline()}
                   disabled={analyzing}
                   className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
                     analyzing
@@ -1114,7 +1100,7 @@ function formatDuration(ms: number | undefined): string {
                     if (hypothesisActive) {
                       exitHypothesisMode();
                     } else {
-                      enterHypothesisMode(settings.engineDepth);
+                      enterHypothesisMode();
                     }
                   }}
                   disabled={analyzing}
@@ -1188,7 +1174,7 @@ function formatDuration(ms: number | undefined): string {
                 <span className="truncate max-w-[120px]">{selectedGame.date}</span>
                 {selectedGame.analyzedAt && (
                   <span className="text-[10px] text-green-500 font-bold">
-                    &#x2713; Depth {selectedGame.analysisDepth ?? '?'}{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
+                    &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
                   </span>
                 )}
               </div>
@@ -1632,7 +1618,7 @@ function formatDuration(ms: number | undefined): string {
                       setShowPriorAnalyses(false);
                       useToastStore.getState().addToast({
                         type: 'success',
-                        message: `Loaded pre-analyzed game (${engineLabel(run.engine)} · depth ${run.depth})`,
+                        message: `Loaded pre-analyzed game (${engineLabel(run.engine)})`,
                       });
                     }
                   }}
@@ -1643,7 +1629,7 @@ function formatDuration(ms: number | undefined): string {
                     <span className="text-xs font-bold text-white truncate">{engineLabel(run.engine)}</span>
                   </span>
                   <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
-                    Depth {run.depth}{run.analyzedAt ? ` · ${run.analyzedAt.slice(0, 10)}` : ''}
+                    {run.analyzedAt ? `Analyzed ${run.analyzedAt.slice(0, 10)}` : 'Analyzed'}
                   </span>
                 </button>
               ))}

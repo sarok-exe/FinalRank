@@ -29,9 +29,6 @@ const DEFAULT_GUEST: User = {
   analyzedCount: 0,
   lastActiveDate: null,
     settings: {
-      engineDepth: 10,
-      engineGoMode: 'depth',
-      engineTimeLimitMs: 2000,
       boardColor: 'green',
       boardOrientation: 'white',
       notificationsEnabled: true,
@@ -68,7 +65,6 @@ const DEFAULT_GUEST: User = {
       streakFlameAnimated: true,
       streakFlameColorMode: 'heat',
       parallelWorkers: 4,
-      autoDepth: true,
       featureToggles: {
         showArrows: true,
         showCoordinates: true,
