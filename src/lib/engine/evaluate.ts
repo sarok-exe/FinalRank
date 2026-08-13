@@ -96,6 +96,8 @@ export function createGameEvaluator(
       let enginesResting = 0;
       let nextFenIndex = 1;
       const engines: Engine[] = [];
+      let totalRespawns = 0;
+      const MAX_ENGINE_RESPAWNS = 5;
       const zeroLine: EngineLine = {
         evaluation: { type: 'centipawn', value: 0 },
         source: options.engineVersion as unknown as EngineLine['source'],
@@ -103,11 +105,6 @@ export function createGameEvaluator(
         index: 1,
         moves: [],
       };
-      const MAX_SLOT_FAILURES = 3;
-      const slotFailures: number[] = [];
-      const positionTimeoutMs = options.engineTimeLimit
-        ? options.engineTimeLimit * 1000 + 10000
-        : 120000;
 
       function fillRemainingWithZeros(from: number) {
         for (let i = from; i < fens.length; i++) {
@@ -126,24 +123,20 @@ export function createGameEvaluator(
         return nextFenIndex;
       }
 
-      function spawnEngine(): Engine {
-        const engine = new Engine(options.engineVersion);
-        options.engineConfig?.(engine);
-        engine.onError(() => {});
-        return engine;
-      }
-
-      function settleSlot() {
-        if (++enginesResting === engines.length) resolve();
-      }
-
-      function evaluatePosition(engine: Engine, engineIndex: number, currentFenIndex: number, attempt: number) {
+      function evaluateNextPosition(engine: Engine, engineIndex: number) {
         if (controller.signal.aborted) {
           engine.terminate();
-          settleSlot();
+          if (++enginesResting === engines.length) reject(new Error('aborted'));
           return;
         }
-        if (attempt === 0) attemptedPositions++;
+        const currentFenIndex = advanceToNextUnresolved();
+        if (currentFenIndex >= fens.length) {
+          engine.terminate();
+          if (++enginesResting === engines.length) resolve();
+          return;
+        }
+        nextFenIndex = currentFenIndex + 1;
+        attemptedPositions++;
 
         const uciMoves = updatedMoves
           .slice(0, Math.min(currentFenIndex, updatedMoves.length))
@@ -155,41 +148,6 @@ export function createGameEvaluator(
         progresses[currentFenIndex] = 0.1;
         options.onProgress?.(getProgress());
 
-        let timer: ReturnType<typeof setTimeout> | undefined;
-        const failPosition = () => {
-          if (timer) { clearTimeout(timer); timer = undefined; }
-          engine.terminate();
-          if (controller.signal.aborted) { settleSlot(); return; }
-          // Retry the position once on a fresh worker before giving up on it, so a
-          // single bad spawn can't lose a move.
-          if (attempt < 1) {
-            const fresh = spawnEngine();
-            engines[engineIndex] = fresh;
-            evaluatePosition(fresh, engineIndex, currentFenIndex, attempt + 1);
-            return;
-          }
-          // Give up on this position only — mark it zero and keep the rest of the
-          // game. A failed move must never strand the remaining tail.
-          failedPositions++;
-          progresses[currentFenIndex] = 1;
-          gameEngineLines[currentFenIndex] = [zeroLine];
-          options.onProgress?.(getProgress());
-          if (++slotFailures[engineIndex] >= MAX_SLOT_FAILURES) {
-            // This slot keeps failing (broken engine env). Retire it. If every
-            // slot retires, fill the remaining tail so analysis still completes.
-            if (++enginesResting === engines.length) {
-              fillRemainingWithZeros(nextFenIndex);
-              resolve();
-            }
-            return;
-          }
-          const fresh = spawnEngine();
-          engines[engineIndex] = fresh;
-          evaluateNextPosition(fresh, engineIndex);
-        };
-
-        timer = setTimeout(failPosition, positionTimeoutMs);
-
         engine.evaluate({
           depth: options.engineDepth,
           timeLimit: options.engineTimeLimit ? options.engineTimeLimit * 1000 : undefined,
@@ -198,8 +156,6 @@ export function createGameEvaluator(
             options.onProgress?.(getProgress());
           },
         }).then(lines => {
-          if (timer) { clearTimeout(timer); timer = undefined; }
-          if (controller.signal.aborted) { engine.terminate(); settleSlot(); return; }
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = lines;
           const key = getCacheKey(startingFen, uciMoves, options.engineDepth);
@@ -211,30 +167,40 @@ export function createGameEvaluator(
           options.onProgress?.(getProgress());
           evaluateNextPosition(engine, engineIndex);
         }).catch(() => {
-          failPosition();
+          if (controller.signal.aborted) {
+            // Already cancelled — terminate this engine without respawning so no
+            // worker is leaked, and let the abort rejection settle the promise.
+            engine.terminate();
+            if (++enginesResting === engines.length) resolve();
+            return;
+          }
+          failedPositions++;
+          if (++totalRespawns > MAX_ENGINE_RESPAWNS) {
+            // Engine keeps failing (e.g. WASM blocked by CSP). Don't loop forever —
+            // fill the rest with zero lines so analysis completes instead of hanging.
+            progresses[currentFenIndex] = 1;
+            gameEngineLines[currentFenIndex] = [zeroLine];
+            fillRemainingWithZeros(nextFenIndex);
+            engine.terminate();
+            if (++enginesResting === engines.length) resolve();
+            return;
+          }
+          progresses[currentFenIndex] = 1;
+          gameEngineLines[currentFenIndex] = [zeroLine];
+          options.onProgress?.(getProgress());
+          const newEngine = new Engine(options.engineVersion);
+          options.engineConfig?.(newEngine);
+          newEngine.onError(() => {});
+          engines[engineIndex] = newEngine;
+          evaluateNextPosition(newEngine, engineIndex);
         });
-      }
-
-      function evaluateNextPosition(engine: Engine, engineIndex: number) {
-        if (controller.signal.aborted) {
-          engine.terminate();
-          settleSlot();
-          return;
-        }
-        const currentFenIndex = advanceToNextUnresolved();
-        if (currentFenIndex >= fens.length) {
-          engine.terminate();
-          settleSlot();
-          return;
-        }
-        nextFenIndex = currentFenIndex + 1;
-        evaluatePosition(engine, engineIndex, currentFenIndex, 0);
       }
 
       const engineCount = Math.max(1, getOptimalEngineCount(options.maxEngineCount));
       for (let i = 0; i < engineCount; i++) {
-        slotFailures.push(0);
-        const engine = spawnEngine();
+        const engine = new Engine(options.engineVersion);
+        options.engineConfig?.(engine);
+        engine.onError(() => {});
         engines.push(engine);
         evaluateNextPosition(engine, i);
       }
