@@ -676,7 +676,23 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   // Clear reference once evaluation completes so it can't be double-aborted
   const cleanupController = () => { if (activeAbortController === evaluator.controller) activeAbortController = null; };
 
-  const evaluatedGame = await evaluator.evaluate();
+  let evaluatedGame: ChessGame;
+  try {
+    evaluatedGame = await evaluator.evaluate();
+  } catch (err: unknown) {
+    cleanupController();
+    // 'aborted' is a normal cancellation and is handled by the callers.
+    if (err instanceof Error && (err.message === 'aborted' || err.message === 'abort')) throw err;
+    // The engine environment is broken (all worker slots died, e.g. WASM
+    // blocked or OOM). Don't present a fake "analyzed" game — surface the
+    // failure instead.
+    useGameStore.setState({ analysisProgress: 0, analyzing: false, autoAnalyzing: false });
+    useToastStore.getState().addToast({
+      type: 'error',
+      message: 'Analysis failed — the chess engine could not start. Reload and try again.',
+    });
+    return false;
+  }
   cleanupController();
 
   // If every engine attempt failed (e.g. the engine worker/WASM is blocked),

@@ -96,8 +96,6 @@ export function createGameEvaluator(
       let enginesResting = 0;
       let nextFenIndex = 1;
       const engines: Engine[] = [];
-      let totalRespawns = 0;
-      const MAX_ENGINE_RESPAWNS = 5;
       const zeroLine: EngineLine = {
         evaluation: { type: 'centipawn', value: 0 },
         source: options.engineVersion as unknown as EngineLine['source'],
@@ -105,16 +103,12 @@ export function createGameEvaluator(
         index: 1,
         moves: [],
       };
-
-      function fillRemainingWithZeros(from: number) {
-        for (let i = from; i < fens.length; i++) {
-          if (progresses[i] < 1) {
-            progresses[i] = 1;
-            gameEngineLines[i] = [zeroLine];
-          }
-        }
-        options.onProgress?.(getProgress());
-      }
+      // Per-slot failure budget: a failing engine retires its own slot (the
+      // others keep pulling positions from the shared index) instead of draining
+      // one global respawn counter that, once exhausted, zero-fills the whole
+      // remaining game.
+      const MAX_SLOT_FAILURES = 3;
+      const slotFailures: number[] = [];
 
       function advanceToNextUnresolved(): number {
         while (nextFenIndex < fens.length && progresses[nextFenIndex] >= 1) {
@@ -123,16 +117,28 @@ export function createGameEvaluator(
         return nextFenIndex;
       }
 
+      function spawnEngine(): Engine | null {
+        try {
+          const engine = new Engine(options.engineVersion);
+          options.engineConfig?.(engine);
+          engine.onError(() => {});
+          return engine;
+        } catch {
+          // Worker could not be created (browser worker limit / OOM).
+          return null;
+        }
+      }
+
       function evaluateNextPosition(engine: Engine, engineIndex: number) {
         if (controller.signal.aborted) {
           engine.terminate();
-          if (++enginesResting === engines.length) reject(new Error('aborted'));
+          if (++enginesResting === engineCount) reject(new Error('aborted'));
           return;
         }
         const currentFenIndex = advanceToNextUnresolved();
         if (currentFenIndex >= fens.length) {
           engine.terminate();
-          if (++enginesResting === engines.length) resolve();
+          if (++enginesResting === engineCount) resolve();
           return;
         }
         nextFenIndex = currentFenIndex + 1;
@@ -171,26 +177,32 @@ export function createGameEvaluator(
             // Already cancelled — terminate this engine without respawning so no
             // worker is leaked, and let the abort rejection settle the promise.
             engine.terminate();
-            if (++enginesResting === engines.length) resolve();
+            if (++enginesResting === engineCount) resolve();
             return;
           }
           failedPositions++;
-          if (++totalRespawns > MAX_ENGINE_RESPAWNS) {
-            // Engine keeps failing (e.g. WASM blocked by CSP). Don't loop forever —
-            // fill the rest with zero lines so analysis completes instead of hanging.
-            progresses[currentFenIndex] = 1;
-            gameEngineLines[currentFenIndex] = [zeroLine];
-            fillRemainingWithZeros(nextFenIndex);
-            engine.terminate();
-            if (++enginesResting === engines.length) resolve();
-            return;
-          }
+          // Terminate the failed engine before respawning — otherwise every dead
+          // worker keeps its ~7MB WASM footprint alive, and that memory pressure
+          // is exactly what kills the next worker.
+          engine.terminate();
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = [zeroLine];
           options.onProgress?.(getProgress());
-          const newEngine = new Engine(options.engineVersion);
-          options.engineConfig?.(newEngine);
-          newEngine.onError(() => {});
+          if (++slotFailures[engineIndex] >= MAX_SLOT_FAILURES) {
+            // This slot keeps failing (broken engine env). Retire it; the other
+            // slots pick up the remaining positions via the shared index.
+            if (++enginesResting === engineCount) {
+              // Every slot is gone and the game isn't finished. Surface the real
+              // failure instead of completing with a silently zero-filled tail.
+              reject(new Error('engine-failed'));
+            }
+            return;
+          }
+          const newEngine = spawnEngine();
+          if (!newEngine) {
+            if (++enginesResting === engineCount) reject(new Error('engine-failed'));
+            return;
+          }
           engines[engineIndex] = newEngine;
           evaluateNextPosition(newEngine, engineIndex);
         });
@@ -198,9 +210,12 @@ export function createGameEvaluator(
 
       const engineCount = Math.max(1, getOptimalEngineCount(options.maxEngineCount));
       for (let i = 0; i < engineCount; i++) {
-        const engine = new Engine(options.engineVersion);
-        options.engineConfig?.(engine);
-        engine.onError(() => {});
+        slotFailures.push(0);
+        const engine = spawnEngine();
+        if (!engine) {
+          if (++enginesResting === engineCount) reject(new Error('engine-failed'));
+          continue;
+        }
         engines.push(engine);
         evaluateNextPosition(engine, i);
       }
