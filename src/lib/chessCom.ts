@@ -5,7 +5,7 @@
 
 import { Chess } from 'chess.js';
 import type { ChessGame, AnalyzedMove } from '../types';
-import { generateShortId } from './shortId';
+import { shortIdFromKey } from './shortId';
 
 type ChessComPlayer = {
   username?: string;
@@ -71,7 +71,7 @@ export async function fetchChessComGames(username: string): Promise<ChessGame[]>
 
     return {
       id: g.uuid ?? `chesscom-${cleanUsername}-${index}`,
-      shortId: generateShortId(),
+      shortId: shortIdFromKey(g.uuid ?? `chesscom-${cleanUsername}-${index}`),
       white: {
         username: g.white?.username ?? 'White',
         rating: g.white?.rating

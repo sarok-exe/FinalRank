@@ -11,7 +11,7 @@ import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
-import { generateShortId } from '../lib/shortId';
+import { generateShortId, shortIdFromKey } from '../lib/shortId';
 import { useToastStore } from './toastStore';
 
 type GameState = {
@@ -416,7 +416,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const latest = raw.slice(0, 3);
 
       const withAvatars = await fetchAvatarsForGames(latest);
-      const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: generateShortId() }));
+      const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: shortIdFromKey(`linked-${g.id}`) }));
 
         const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => ({

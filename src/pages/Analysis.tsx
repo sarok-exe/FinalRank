@@ -32,7 +32,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/tursoCache';
 import type { AnalysisRunMeta } from '../lib/tursoCache';
-import { generateShortId } from '../lib/shortId';
+import { shortIdFromKey } from '../lib/shortId';
 import type { ChessGame } from '../types';
 import { STARTING_FEN } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -151,7 +151,7 @@ function formatDuration(ms: number | undefined): string {
     if (selectedGame?.shortId && selectedGame.shortId !== urlGameId) {
       navigate(`/game/${selectedGame.shortId}`, { replace: true });
     } else if (selectedGame && !selectedGame.shortId && !urlGameId) {
-      const shortId = generateShortId();
+      const shortId = shortIdFromKey(selectedGame.id);
       useGameStore.setState(s => ({
         games: s.games.map(g => g.id === selectedGame.id ? { ...g, shortId } : g),
         selectedGame: s.selectedGame?.id === selectedGame.id ? { ...s.selectedGame, shortId } : s.selectedGame,
@@ -410,7 +410,7 @@ function formatDuration(ms: number | undefined): string {
     selectGame(gameId);
     let game = useGameStore.getState().games.find(g => g.id === gameId);
     if (!game?.shortId) {
-      const shortId = generateShortId();
+      const shortId = shortIdFromKey(gameId);
       useGameStore.setState(s => ({
         games: s.games.map(g => g.id === gameId ? { ...g, shortId } : g),
         selectedGame: s.selectedGame?.id === gameId ? { ...s.selectedGame, shortId } : s.selectedGame,
