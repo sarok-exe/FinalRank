@@ -352,11 +352,11 @@ export default function Training() {
       return () => clearTimeout(t);
     }
     if (active.status === 'failed') {
-      // Failing should break the streak, same as pressing "Skip".
-      const t = setTimeout(() => skip(), AUTO_ADVANCE_DELAY_MS.failed);
+      // Retry the same puzzle instead of auto-advancing to the next one.
+      const t = setTimeout(() => retry(), AUTO_ADVANCE_DELAY_MS.failed);
       return () => clearTimeout(t);
     }
-  }, [active, advance, skip]);
+  }, [active, advance, retry]);
 
   /* -------------------------------------------------------------------------- */
   /*  Derived values                                                             */
@@ -508,13 +508,13 @@ export default function Training() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => { play('click'); retry(); }}
-                  className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
+                  className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-lg font-bold text-base hover:brightness-110 active:scale-[0.97] transition-all"
                 >
                   <RotateCcw className="w-4 h-4" /> Retry
                 </button>
                 <button
                   onClick={() => { play('click'); skip(); }}
-                  className="flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
+                  className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
                 >
                   <SkipForward className="w-4 h-4" /> Skip
                 </button>
@@ -624,7 +624,7 @@ export default function Training() {
             <button
               onClick={handleHint}
               disabled={!canHint}
-              className="flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 active:scale-[0.97] transition-all"
+              className={`flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 active:scale-[0.97] transition-all ${isFailed ? 'col-span-2' : ''}`}
             >
               <Lightbulb className="w-4 h-4" /> Hint
             </button>
@@ -632,7 +632,7 @@ export default function Training() {
             {isFailed && (
               <button
                 onClick={() => { play('click'); retry(); }}
-                className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
+                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 active:scale-[0.97] transition-all"
               >
                 <RotateCcw className="w-4 h-4" /> Retry
               </button>
@@ -650,7 +650,7 @@ export default function Training() {
             {isSolved && (
               <button
                 onClick={() => { play('click'); advance(); }}
-                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
+                className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
               >
                 Next puzzle <ChevronRight className="w-4 h-4" />
               </button>

@@ -295,11 +295,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const autoEnabled = settings.featureToggles.autoAnalyze;
     if (!autoEnabled) return;
 
+    // Automatic analysis may be auto-clamped to the device-tier recommendation
+    // when autoDepth is on, so weak devices aren't overwhelmed. A depth the user
+    // explicitly picks in the UI is honored as-is (see triggerEvaluationPipeline).
+    const tier = detectDeviceTier();
+    const effectiveDepth = settings.autoDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
+
     // Always run analysis from scratch (no Turso cache lookup)
 
     set({ autoAnalyzing: true });
 
-    const promise = runEvaluationPipeline(game, depth, gameId);
+    const promise = runEvaluationPipeline(game, effectiveDepth, gameId);
     pendingAnalysis.set(gameId, promise);
 
     try {
@@ -651,7 +657,10 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const engineVersion = getEngineVersion(cores);
   const settings = useSettingsStore.getState().settings;
   const tier = detectDeviceTier();
-  const effectiveDepth = settings.autoDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
+  // Depth is honored as requested: auto-clamping happens only in the automatic
+  // analysis path (autoAnalyzeGame), so a depth the user explicitly picks in the
+  // UI reaches the engine as-is.
+  const effectiveDepth = depth;
   const maxEngineCount = getOptimalEngineCount(
     settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier)
   );
