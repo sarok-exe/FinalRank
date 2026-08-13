@@ -146,6 +146,21 @@ export async function initTursoSchema(): Promise<void> {
         PRIMARY KEY (uid, game_id)
       )
     `);
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS user_analysis_stats (
+        user_id TEXT NOT NULL,
+        username TEXT NOT NULL,
+        avatar TEXT NOT NULL DEFAULT '',
+        pgn_hash TEXT NOT NULL,
+        short_id TEXT NOT NULL DEFAULT '',
+        game_label TEXT NOT NULL DEFAULT '',
+        accuracy REAL,
+        brilliant_count INTEGER NOT NULL DEFAULT 0,
+        depth INTEGER NOT NULL DEFAULT 0,
+        analyzed_at TEXT DEFAULT (datetime('now')),
+        PRIMARY KEY (user_id, pgn_hash)
+      )
+    `);
   } catch {
     markTursoUnhealthy();
   }

@@ -5,11 +5,14 @@ import {
   User as UserIcon, Flame, Trophy, Volume2,
   Bell, Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
-  Heart,
+  Heart, Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
 import { fetchUserFavorites } from '../lib/firebase';
+import { fetchCommunityUserStats } from '../lib/tursoCache';
+import { estimateRating } from '../lib/community';
+import type { CommunityUserStats } from '../lib/community';
 import ColorPicker from '../components/ColorPicker';
 import StreakFlame, { getStreakTier } from '../components/StreakFlame';
 import { Search } from 'lucide-react';
@@ -78,6 +81,7 @@ export default function Profile(): React.ReactElement {
   const [colorPickerTarget, setColorPickerTarget] = useState<'site' | 'board' | null>(null);
   const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
 
   useEffect(() => {
     if (user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
@@ -90,6 +94,15 @@ export default function Profile(): React.ReactElement {
       setSavedGames([]);
     }
   }, [user?.id, user?.authProvider]);
+
+  useEffect(() => {
+    if (user?.id == null) return;
+    let cancelled = false;
+    void fetchCommunityUserStats(user.id)
+      .then(stats => { if (!cancelled) setCommunityStats(stats); })
+      .catch(() => { if (!cancelled) setCommunityStats(null); });
+    return () => { cancelled = true; };
+  }, [user, user?.id]);
 
   const handleGuestLogin = (e: React.FormEvent<HTMLFormElement>): void => {
     e.preventDefault();
@@ -115,6 +128,13 @@ export default function Profile(): React.ReactElement {
         className="w-9 h-5 bg-[var(--color-background)] border border-[var(--color-border)] rounded-full appearance-none checked:bg-[var(--color-primary)] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
       />
     </label>
+  );
+
+  const CommunityMiniStat = ({ label, value }: { label: string; value: string }): React.ReactElement => (
+    <div className="flex flex-col items-center text-center gap-0.5">
+      <span className="text-sm font-black font-mono text-[var(--color-text)]">{value}</span>
+      <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">{label}</span>
+    </div>
   );
 
   const renderTabNav = (): React.ReactElement => (
@@ -250,6 +270,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           ))}
         </div>
       );
+    const communityRating = communityStats != null ? estimateRating(communityStats.avgAccuracy, communityStats.matches) : null;
     return (
       <div className="space-y-5">
         <div className="flex flex-col items-center text-center space-y-3">
@@ -284,6 +305,30 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
             <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
           </div>
+        </div>
+
+        <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
+          <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
+            <Sparkles className="w-3 h-3 text-[var(--color-accent)]" />
+            Brilliants
+          </span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-mono font-black text-[var(--color-accent)]">
+              {communityStats?.brilliants ?? 0}
+            </span>
+            <span className="text-[10px] text-[var(--color-text-muted)]">total accepted</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 border-t border-[var(--color-border)] pt-3">
+            <CommunityMiniStat label="Matches" value={String(communityStats?.matches ?? 0)} />
+            <CommunityMiniStat
+              label="Avg. Accuracy"
+              value={communityStats?.avgAccuracy != null ? `${communityStats.avgAccuracy.toFixed(1)}%` : '—'}
+            />
+            <CommunityMiniStat label="Est. Rating" value={communityRating != null ? `≈ ${communityRating}` : '—'} />
+          </div>
+          <p className="text-[9px] text-[var(--color-text-muted)]">
+            Brilliants are counted once per game and only from analyses at depth 15+.
+          </p>
         </div>
 
         {(user.authProvider === 'google' || user.authProvider === 'anonymous') && (

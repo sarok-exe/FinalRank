@@ -1,5 +1,6 @@
 import type { ChessGame } from '../types';
 import { getTurso, isTursoConfigured, markTursoUnhealthy } from './turso';
+import type { CommunityMatchSummary, CommunityUserStats, LeaderboardEntry } from './community';
 
 export function hashPgn(pgn: string): string {
   let hash = 5381;
@@ -221,4 +222,164 @@ export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): 
   }
 
   return result;
+}
+
+export async function saveUserAnalysisStats(
+  user: { id: string; username: string; avatar?: string; chessComUsername?: string },
+  game: ChessGame,
+  depth: number
+): Promise<void> {
+  // Brilliants are only accepted from analyses at depth 15+.
+  if (!isTursoConfigured() || depth < 15) return;
+  const db = getTurso();
+  if (!db) return;
+  try {
+    const pgnHash = hashPgn(game.pgn);
+
+    // Determine the user's side from their linked chess.com username (case-insensitive).
+    const chessCom = (user.chessComUsername ?? '').trim();
+    const whiteName = game.white?.username ?? '';
+    const blackName = game.black?.username ?? '';
+    let side: 'w' | 'b' | null = null;
+    if (chessCom && whiteName && chessCom.toLowerCase() === whiteName.toLowerCase()) side = 'w';
+    else if (chessCom && blackName && chessCom.toLowerCase() === blackName.toLowerCase()) side = 'b';
+
+    // Accuracy: user's side when known, else average of both, else whichever is defined.
+    const whiteAcc = game.accuracy?.white;
+    const blackAcc = game.accuracy?.black;
+    let accuracy: number | null;
+    if (side === 'w') accuracy = whiteAcc ?? null;
+    else if (side === 'b') accuracy = blackAcc ?? null;
+    else if (whiteAcc != null && blackAcc != null) accuracy = (whiteAcc + blackAcc) / 2;
+    else accuracy = whiteAcc ?? blackAcc ?? null;
+
+    // Brilliant count: user's side when known, else both sides combined.
+    const whiteBrilliants = game.classificationCounts?.white?.brilliant ?? 0;
+    const blackBrilliants = game.classificationCounts?.black?.brilliant ?? 0;
+    let brilliantCount: number;
+    if (side === 'w') brilliantCount = whiteBrilliants;
+    else if (side === 'b') brilliantCount = blackBrilliants;
+    else brilliantCount = whiteBrilliants + blackBrilliants;
+
+    const shortId = game.shortId ?? game.id ?? '';
+    const gameLabel = `${whiteName} vs ${blackName}`;
+
+    await db.execute({
+      sql: `INSERT INTO user_analysis_stats (user_id, username, avatar, pgn_hash, short_id, game_label, accuracy, brilliant_count, depth, analyzed_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+            ON CONFLICT(user_id, pgn_hash) DO NOTHING`,
+      args: [
+        user.id,
+        user.username,
+        user.avatar ?? '',
+        pgnHash,
+        shortId,
+        gameLabel,
+        accuracy,
+        brilliantCount,
+        depth,
+      ],
+    });
+  } catch {
+    markTursoUnhealthy();
+  }
+}
+
+export async function fetchCommunityLeaderboard(limit?: number): Promise<LeaderboardEntry[]> {
+  if (!isTursoConfigured()) return [];
+  const db = getTurso();
+  if (!db) return [];
+  try {
+    const rs = await db.execute({
+      sql: `SELECT user_id, username, avatar, COUNT(*) AS matches, SUM(brilliant_count) AS brilliants, AVG(accuracy) AS avg_accuracy, MAX(analyzed_at) AS last_analysis
+            FROM user_analysis_stats
+            GROUP BY user_id, username, avatar
+            ORDER BY matches DESC, brilliants DESC, last_analysis DESC
+            LIMIT ?`,
+      args: [limit ?? 50],
+    });
+    return rs.rows.map((r) => {
+      const avgRaw = r.avg_accuracy == null ? null : Math.round(Number(r.avg_accuracy) * 10) / 10;
+      return {
+        userId: String(r.user_id ?? ''),
+        username: String(r.username ?? ''),
+        avatar: String(r.avatar ?? ''),
+        matches: Number(r.matches ?? 0),
+        brilliants: Number(r.brilliants ?? 0),
+        avgAccuracy: avgRaw == null ? null : Number(avgRaw),
+        lastAnalysis: String(r.last_analysis ?? ''),
+      };
+    });
+  } catch {
+    markTursoUnhealthy();
+    return [];
+  }
+}
+
+export async function fetchCommunityUserStats(userId: string): Promise<CommunityUserStats | null> {
+  if (!isTursoConfigured() || !userId) return null;
+  const db = getTurso();
+  if (!db) return null;
+  try {
+    const profileRs = await db.execute({
+      sql: 'SELECT username, avatar FROM user_analysis_stats WHERE user_id = ? LIMIT 1',
+      args: [userId],
+    });
+    if (profileRs.rows.length === 0) return null;
+
+    const aggRs = await db.execute({
+      sql: 'SELECT COUNT(*) AS matches, SUM(brilliant_count) AS brilliants, AVG(accuracy) AS avg_accuracy FROM user_analysis_stats WHERE user_id = ?',
+      args: [userId],
+    });
+    const agg = aggRs.rows[0];
+    const avgRaw = agg.avg_accuracy == null ? null : Math.round(Number(agg.avg_accuracy) * 10) / 10;
+
+    const strongestRs = await db.execute({
+      sql: `SELECT pgn_hash, short_id, game_label, brilliant_count, accuracy, analyzed_at
+            FROM user_analysis_stats
+            WHERE user_id = ?
+            ORDER BY brilliant_count DESC, accuracy DESC NULLS LAST, analyzed_at DESC
+            LIMIT 1`,
+      args: [userId],
+    });
+
+    const toSummary = (r: Record<string, unknown>): CommunityMatchSummary => ({
+      pgnHash: String(r.pgn_hash ?? ''),
+      shortId: String(r.short_id ?? ''),
+      gameLabel: String(r.game_label ?? ''),
+      brilliantCount: Number(r.brilliant_count ?? 0),
+      accuracy: r.accuracy == null ? null : Number(r.accuracy),
+      analyzedAt: String(r.analyzed_at ?? ''),
+    });
+
+    let recent: CommunityMatchSummary[] = [];
+    try {
+      const recentRs = await db.execute({
+        sql: `SELECT pgn_hash, short_id, game_label, brilliant_count, accuracy, analyzed_at
+              FROM user_analysis_stats
+              WHERE user_id = ?
+              ORDER BY analyzed_at DESC
+              LIMIT 10`,
+        args: [userId],
+      });
+      recent = recentRs.rows.map(toSummary);
+    } catch {
+      markTursoUnhealthy();
+      // Never throw — recent degrades to [] on error.
+    }
+
+    return {
+      userId,
+      username: String(profileRs.rows[0].username ?? ''),
+      avatar: String(profileRs.rows[0].avatar ?? ''),
+      matches: Number(agg.matches ?? 0),
+      brilliants: Number(agg.brilliants ?? 0),
+      avgAccuracy: avgRaw == null ? null : Number(avgRaw),
+      strongest: strongestRs.rows.length > 0 ? toSummary(strongestRs.rows[0]) : null,
+      recent,
+    };
+  } catch {
+    markTursoUnhealthy();
+    return null;
+  }
 }

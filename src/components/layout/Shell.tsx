@@ -11,6 +11,7 @@ import {
   LogOut,
   ChevronDown,
   Brain,
+  Trophy,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -35,6 +36,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
     { name: 'Training', path: '/training', icon: Brain },
     { name: 'Tools', path: '/tools', icon: Clock },
     { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Community', path: '/community', icon: Trophy },
     { name: 'Report', path: '/report', icon: Flag },
   ];
 

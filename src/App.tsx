@@ -4,6 +4,7 @@
  */
 
 import { lazy, Suspense } from 'react';
+import type React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import Shell from './components/layout/Shell';
@@ -17,8 +18,10 @@ const Tools = lazy(() => import('./pages/Tools'));
 const Profile = lazy(() => import('./pages/Profile'));
 const Report = lazy(() => import('./pages/Report'));
 const Training = lazy(() => import('./pages/Training'));
+const Community = lazy(() => import('./pages/Community'));
+const CommunityUser = lazy(() => import('./pages/CommunityUser'));
 
-function PageLoading() {
+function PageLoading(): React.ReactElement {
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="w-8 h-8 border-2 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin" />
@@ -42,11 +45,12 @@ function getPageKey(pathname: string): string {
   // Strip dynamic segments so that /game/:gameId doesn't re-trigger transitions
   // when the user switches between games on the Analysis page.
   if (pathname.startsWith('/game')) return '/game';
+  if (pathname.startsWith('/community')) return '/community';
   if (pathname === '/' || pathname === '') return '/';
   return pathname;
 }
 
-function AnimatedRoutes() {
+function AnimatedRoutes(): React.ReactElement {
   const location = useLocation();
   const pageKey = getPageKey(location.pathname);
   return (
@@ -68,6 +72,8 @@ function AnimatedRoutes() {
             <Route path="/training" element={<Training />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/report" element={<Report />} />
+            <Route path="/community" element={<Community />} />
+            <Route path="/community/:userId" element={<CommunityUser />} />
             <Route path="*" element={<Analysis />} />
           </Routes>
         </Suspense>
@@ -76,7 +82,7 @@ function AnimatedRoutes() {
   );
 }
 
-export default function App() {
+export default function App(): React.ReactElement {
   return (
     <BrowserRouter>
       <Shell>

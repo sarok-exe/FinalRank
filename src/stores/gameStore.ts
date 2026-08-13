@@ -6,7 +6,7 @@ import { createGameEvaluator, getEngineVersion, createPositionEvaluator, getEval
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { getCachedAnalysis, saveCachedAnalysis, getCachedAnalysisByKey, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
+import { getCachedAnalysis, saveCachedAnalysis, getCachedAnalysisByKey, saveSharedGameToTurso, batchCheckAnalysis, hashPgn, saveUserAnalysisStats } from '../lib/tursoCache';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
@@ -767,6 +767,12 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   }));
 
   void saveCachedAnalysis(analysedGame, depth, engineVersion).catch(e => console.warn('[Cache] save failed:', e));
+
+  const authUser = useAuthStore.getState().user;
+  if (authUser != null) {
+    void saveUserAnalysisStats(authUser, analysedGame, effectiveDepth)
+      .catch((e: unknown) => console.warn('[Community] stats save failed:', e));
+  }
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
   void saveSharedGameToTurso(shortId, analysedGame).catch(e => console.warn('[Turso] save shared failed:', e));
