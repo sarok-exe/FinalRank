@@ -13,6 +13,8 @@ export type User = {
 
 export type EngineGoMode = 'depth' | 'time';
 
+export type EngineEffort = 'quick' | 'balanced' | 'max';
+
 export type SiteColorScheme = {
   primary: string;
   secondary: string;
@@ -32,6 +34,7 @@ export type BoardCustomColors = {
 export type UserSettings = {
   engineDepth: number;
   engineGoMode: EngineGoMode;
+  engineEffort: EngineEffort;
   engineTimeLimitMs: number;
   boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant' | 'ocean-sunset' | 'fresh-greens' | 'cherry-blossom' | 'golden-blue' | 'pine-forest' | 'coastal' | 'amber-glow' | 'soft-sand';
   boardOrientation: 'white' | 'black';

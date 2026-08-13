@@ -162,6 +162,7 @@ export const THEME_PRESETS: Record<string, {
 const DEFAULT_SETTINGS: UserSettings = {
   engineDepth: 15,
   engineGoMode: 'depth',
+  engineEffort: 'balanced',
   engineTimeLimitMs: 2000,
   boardColor: 'elegant',
   boardOrientation: 'white',

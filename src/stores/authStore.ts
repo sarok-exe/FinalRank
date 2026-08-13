@@ -31,6 +31,7 @@ const DEFAULT_GUEST: User = {
     settings: {
       engineDepth: 10,
       engineGoMode: 'depth',
+      engineEffort: 'balanced',
       engineTimeLimitMs: 2000,
       boardColor: 'green',
       boardOrientation: 'white',

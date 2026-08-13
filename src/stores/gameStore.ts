@@ -299,7 +299,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     // when autoDepth is on, so weak devices aren't overwhelmed. A depth the user
     // explicitly picks in the UI is honored as-is (see triggerEvaluationPipeline).
     const tier = detectDeviceTier();
-    const effectiveDepth = settings.autoDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
+    const clampDepth = settings.autoDepth && settings.engineEffort !== 'max';
+    const effectiveDepth = clampDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
 
     // Always run analysis from scratch (no Turso cache lookup)
 
@@ -661,15 +662,26 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   // analysis path (autoAnalyzeGame), so a depth the user explicitly picks in the
   // UI reaches the engine as-is.
   const effectiveDepth = depth;
-  const maxEngineCount = getOptimalEngineCount(
-    settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier)
-  );
+  const effort = settings.engineEffort ?? 'balanced';
+  const hashMb = effort === 'max' ? 128 : effort === 'quick' ? 16 : 64;
+  const requestedWorkers =
+    effort === 'max'
+      ? 8
+      : effort === 'quick'
+        ? Math.min(settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier), 2)
+        : (settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier));
+  const maxEngineCount = getOptimalEngineCount(requestedWorkers);
+  const engineTimeLimit =
+    effort === 'quick'
+      ? Math.min(settings.engineTimeLimitMs, 1000) / 1000
+      : settings.engineGoMode === 'time' ? settings.engineTimeLimitMs / 1000 : undefined;
 
   const evaluator = createGameEvaluator(game, {
     engineVersion,
     maxEngineCount,
     engineDepth: effectiveDepth,
-    engineTimeLimit: settings.engineGoMode === 'time' ? settings.engineTimeLimitMs / 1000 : undefined,
+    engineTimeLimit,
+    engineHashMb: hashMb,
     engineLinesCount: 2,
     engineConfig: (engine) => {
       engine.setLineCount(2);

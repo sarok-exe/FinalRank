@@ -424,6 +424,31 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
 
       <div className="space-y-2.5 pt-3 border-t border-[var(--color-border)]">
         <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Performance</span>
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Engine Effort</label>
+          <div className="flex gap-2">
+            {(['quick', 'balanced', 'max'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => { updateSettings({ engineEffort: mode }); }}
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                  settings.engineEffort === mode
+                    ? 'bg-[var(--color-primary)] text-white'
+                    : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+                }`}
+              >
+                {mode === 'quick' ? 'Quick' : mode === 'balanced' ? 'Balanced' : 'Max'}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10px] text-[var(--color-text-muted)]">
+            {settings.engineEffort === 'quick'
+              ? 'Quick — fast and light: caps time per move, uses at most 2 workers, small memory.'
+              : settings.engineEffort === 'max'
+                ? 'Max — maximum speed: uses all CPU cores and more RAM for fastest high-depth analysis.'
+                : 'Balanced — default: tier-based workers, standard depth/time.'}
+          </p>
+        </div>
         <SettingToggle
           label="Auto Depth"
           desc="Reduce engine depth on low-end devices for faster analysis"

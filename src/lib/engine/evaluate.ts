@@ -9,6 +9,7 @@ type EvaluateMovesOptions = {
   maxEngineCount?: number;
   engineDepth: number;
   engineTimeLimit?: number;
+  engineHashMb?: number;
   engineLinesCount: number;
   engineConfig?(engine: Engine): void;
   onProgress?(progress: number): void;
@@ -128,6 +129,7 @@ export function createGameEvaluator(
         try {
           const engine = new Engine(options.engineVersion);
           options.engineConfig?.(engine);
+          if (options.engineHashMb) engine.setOption('Hash', String(options.engineHashMb));
           engine.onError(() => {});
           return engine;
         } catch {
