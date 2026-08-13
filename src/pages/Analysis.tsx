@@ -125,6 +125,10 @@ export default function Analysis() {
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
 const currentMove = selectedGame?.moves[currentMoveIndex];
+// The book prefix is contiguous from the start, so the first move carrying an
+// `opening` value is the game's opening. Derive it once so it persists across
+// all moves of the analysis instead of vanishing past the book prefix.
+const openingName = selectedGame?.moves.find(m => m.opening)?.opening ?? null;
 
 function formatDuration(ms: number | undefined): string {
   if (!ms || ms <= 0) return '';
@@ -951,17 +955,23 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
           )}
-          {/* Opening title */}
-          {currentMove?.opening && (
-            <div className="w-full text-center" style={{ maxWidth: boardWidth }}>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-accent)] mb-1.5">
+          {/* Opening title — always rendered so the board never jumps */}
+          <div className="w-full text-center" style={{ maxWidth: boardWidth }}>
+            <div className="w-full bg-[color-mix(in_srgb,var(--color-surface)_90%,#facc15_10%)] border border-amber-300/30 rounded-xl px-4 py-3">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1.5">
                 Opening
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text)] truncate leading-tight" title={currentMove.opening}>
-                {currentMove.opening}
-              </h2>
+              {openingName ? (
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[color-mix(in_srgb,var(--color-text)_90%,#facc15)] truncate leading-tight min-h-[2.5rem]" title={openingName}>
+                  {openingName}
+                </h2>
+              ) : (
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text-muted)] truncate leading-tight min-h-[2.5rem]">
+                  —
+                </h2>
+              )}
             </div>
-          )}
+          </div>
           {/* Single board, reordered with CSS grid: phones get a horizontal eval
               bar below, desktop gets a vertical bar on the left. Rendering the
               board twice (hidden via display:none) made react-chessboard's piece
