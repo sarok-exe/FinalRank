@@ -2,7 +2,11 @@
 // Caches public assets: images, audio, fonts, and engine files.
 // Never caches user data, API responses, or game PGNs.
 
-const CACHE_NAME = 'finalrank-static-v2';
+// Bumped to v3 so the service worker re-installs and re-precaches engine files
+// with their current response headers. v2 cached /engines/*.js with the OLD
+// Content-Security-Policy header (no 'wasm-unsafe-eval'), which kept blocking
+// WebAssembly in the engine worker even after the live site was fixed.
+const CACHE_NAME = 'finalrank-static-v3';
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
