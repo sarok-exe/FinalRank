@@ -160,6 +160,9 @@ export const THEME_PRESETS: Record<string, {
 };
 
 const DEFAULT_SETTINGS: UserSettings = {
+  engineDepth: 15,
+  engineGoMode: 'depth',
+  engineTimeLimitMs: 2000,
   boardColor: 'elegant',
   boardOrientation: 'white',
   notificationsEnabled: true,
@@ -184,6 +187,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   streakFlameAnimated: true,
   streakFlameColorMode: 'heat',
   parallelWorkers: recommendedWorkers(detectDeviceTier()),
+  autoDepth: true,
   featureToggles: {
     showArrows: true,
     showCoordinates: true,
@@ -211,6 +215,10 @@ const getInitialSettings = (): UserSettings => {
     const cached = localStorage.getItem('finalrank_settings');
     if (cached) {
       const parsed = JSON.parse(cached);
+      // Migrate old default depth (10) to new default (15)
+      if (parsed.engineDepth === 10) {
+        parsed.engineDepth = 15;
+      }
       const merged = { ...DEFAULT_SETTINGS, ...parsed };
       applyThemeCss(merged);
       return merged;

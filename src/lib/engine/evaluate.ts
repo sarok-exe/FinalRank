@@ -1,16 +1,17 @@
-import { ChessGame, EngineLine, EvaluationResult } from '../../types';
+import { sum, round } from 'lodash-es';
+import type { ChessGame, EngineLine, EvaluationResult } from '../../types';
 import { STARTING_FEN } from '../../types';
 import { Engine, getTopEngineLine } from './index';
 import { getOpeningName } from '../reporter/utils/opening';
 
-/** Fixed analysis strength — the engine always analyzes to this depth. */
-export const ANALYSIS_DEPTH = 16;
-
 type EvaluateMovesOptions = {
   engineVersion: string;
   maxEngineCount?: number;
+  engineDepth: number;
+  engineTimeLimit?: number;
   engineLinesCount: number;
   engineConfig?(engine: Engine): void;
+  onProgress?(progress: number): void;
 }
 
 type EvaluationProcess = {
@@ -46,10 +47,16 @@ export function createGameEvaluator(
 ): EvaluationProcess {
   const controller = new AbortController();
   const startingFen = game.initialPosition || STARTING_FEN;
+  const moveCount = game.moves.length;
   const fens: string[] = [startingFen, ...game.moves.map(m => m.fen)];
   const progresses: number[] = new Array(fens.length).fill(0);
   let attemptedPositions = 0;
   let failedPositions = 0;
+
+  function getProgress() {
+    if (moveCount === 0) return 1;
+    return round(sum(progresses.slice(1).map(p => Math.min(p, 1))) / moveCount, 3);
+  }
 
   async function evaluateAll(): Promise<ChessGame> {
     const updatedMoves = [...game.moves];
@@ -77,9 +84,9 @@ export function createGameEvaluator(
         .slice(0, Math.min(i, updatedMoves.length))
         .filter(m => m.from && m.to)
         .map(m => m.from + m.to);
-      const key = getCacheKey(startingFen, uciMoves, ANALYSIS_DEPTH);
+      const key = getCacheKey(startingFen, uciMoves, options.engineDepth);
       const cached = fenCache.get(key);
-      if (cached && cached.depth >= ANALYSIS_DEPTH) {
+      if (cached && cached.depth >= options.engineDepth) {
         gameEngineLines[i] = cached.lines;
         progresses[i] = 1;
       }
@@ -98,7 +105,9 @@ export function createGameEvaluator(
       };
       const MAX_SLOT_FAILURES = 3;
       const slotFailures: number[] = [];
-      const positionTimeoutMs = 120000;
+      const positionTimeoutMs = options.engineTimeLimit
+        ? options.engineTimeLimit * 1000 + 10000
+        : 120000;
 
       function fillRemainingWithZeros(from: number) {
         for (let i = from; i < fens.length; i++) {
@@ -107,6 +116,7 @@ export function createGameEvaluator(
             gameEngineLines[i] = [zeroLine];
           }
         }
+        options.onProgress?.(getProgress());
       }
 
       function advanceToNextUnresolved(): number {
@@ -143,6 +153,7 @@ export function createGameEvaluator(
         engine.setPosition(startingFen, uciMoves);
 
         progresses[currentFenIndex] = 0.1;
+        options.onProgress?.(getProgress());
 
         let timer: ReturnType<typeof setTimeout> | undefined;
         const failPosition = () => {
@@ -162,6 +173,7 @@ export function createGameEvaluator(
           failedPositions++;
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = [zeroLine];
+          options.onProgress?.(getProgress());
           if (++slotFailures[engineIndex] >= MAX_SLOT_FAILURES) {
             // This slot keeps failing (broken engine env). Retire it. If every
             // slot retires, fill the remaining tail so analysis still completes.
@@ -179,18 +191,24 @@ export function createGameEvaluator(
         timer = setTimeout(failPosition, positionTimeoutMs);
 
         engine.evaluate({
-          depth: ANALYSIS_DEPTH,
+          depth: options.engineDepth,
+          timeLimit: options.engineTimeLimit ? options.engineTimeLimit * 1000 : undefined,
+          onEngineLine: line => {
+            progresses[currentFenIndex] = Math.max(progresses[currentFenIndex] || 0, line.depth / options.engineDepth);
+            options.onProgress?.(getProgress());
+          },
         }).then(lines => {
           if (timer) { clearTimeout(timer); timer = undefined; }
           if (controller.signal.aborted) { engine.terminate(); settleSlot(); return; }
           progresses[currentFenIndex] = 1;
           gameEngineLines[currentFenIndex] = lines;
-          const key = getCacheKey(startingFen, uciMoves, ANALYSIS_DEPTH);
-          fenCache.set(key, { lines, depth: ANALYSIS_DEPTH });
+          const key = getCacheKey(startingFen, uciMoves, options.engineDepth);
+          fenCache.set(key, { lines, depth: options.engineDepth });
           if (fenCache.size > 5000) {
             const first = fenCache.keys().next().value;
             if (first) fenCache.delete(first);
           }
+          options.onProgress?.(getProgress());
           evaluateNextPosition(engine, engineIndex);
         }).catch(() => {
           failPosition();

@@ -302,7 +302,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
             <div>
               <h3 className="font-extrabold text-white text-lg">Play vs Stockfish</h3>
               <p className="text-xs text-[var(--color-text-muted)] mt-1">
-                Choose your engine strength and play against the local Stockfish 18 Lite engine.
+                Choose your engine strength and play against the local Stockfish 17 Lite engine.
               </p>
             </div>
             <button

@@ -30,6 +30,9 @@ export type BoardCustomColors = {
 }
 
 export type UserSettings = {
+  engineDepth: number;
+  engineGoMode: EngineGoMode;
+  engineTimeLimitMs: number;
   boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant' | 'ocean-sunset' | 'fresh-greens' | 'cherry-blossom' | 'golden-blue' | 'pine-forest' | 'coastal' | 'amber-glow' | 'soft-sand';
   boardOrientation: 'white' | 'black';
   notificationsEnabled: boolean;
@@ -58,6 +61,7 @@ export type UserSettings = {
   streakFlameAnimated: boolean;
   streakFlameColorMode: 'heat' | 'gold' | 'white';
   parallelWorkers: number;
+  autoDepth: boolean;
   featureToggles: {
     showArrows: boolean;
     showCoordinates: boolean;

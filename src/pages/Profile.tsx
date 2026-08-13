@@ -349,6 +349,64 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
   const renderEngineTab = (): React.ReactElement => (
     <div className="space-y-5">
       <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+          <Zap className="w-4 h-4 text-[var(--color-accent)]" />
+          <span>Engine Depth</span>
+        </label>
+        <select
+          value={settings.engineDepth}
+          onChange={e => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
+          className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+        >
+          <option value={6}>Depth 6 (Fast)</option>
+          <option value={8}>Depth 8</option>
+          <option value={10}>Depth 10</option>
+          <option value={12}>Depth 12</option>
+          <option value={15}>Depth 15 (Default)</option>
+          <option value={18}>Depth 18 (Max)</option>
+        </select>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Go Mode</label>
+        <div className="flex gap-2">
+          {(['depth', 'time'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => { updateSettings({ engineGoMode: mode }); }}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                settings.engineGoMode === mode
+                  ? 'bg-[var(--color-primary)] text-white'
+                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+              }`}
+            >
+              {mode === 'depth' ? 'Depth' : 'Time'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {settings.engineGoMode === 'time' && (
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Time Limit</label>
+          <input
+            type="range"
+            min={500}
+            max={30000}
+            step={500}
+            value={settings.engineTimeLimitMs}
+            onChange={e => { updateSettings({ engineTimeLimitMs: parseInt(e.target.value, 10) }); }}
+            className="w-full accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] font-mono text-[var(--color-text-muted)]">
+            <span>0.5s</span>
+            <span className="font-bold text-[var(--color-accent)]">{(settings.engineTimeLimitMs / 1000).toFixed(1)}s</span>
+            <span>30s</span>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2.5">
         <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
           <Keyboard className="w-4 h-4 text-[var(--color-accent)]" />
           Keyboard Shortcuts
@@ -366,6 +424,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
 
       <div className="space-y-2.5 pt-3 border-t border-[var(--color-border)]">
         <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Performance</span>
+        <SettingToggle
+          label="Auto Depth"
+          desc="Reduce engine depth on low-end devices for faster analysis"
+          checked={settings.autoDepth}
+          onChange={v => { updateSettings({ autoDepth: v }); }}
+        />
         <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-2.5">
           <div className="flex items-center justify-between mb-1">
             <div>

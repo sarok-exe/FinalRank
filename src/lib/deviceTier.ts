@@ -33,6 +33,15 @@ export function detectDeviceTier(): DeviceTier {
   return 'high';
 }
 
+/** Recommended engine depth for each device tier. Conservative for low-end. */
+export function recommendedDepth(tier: DeviceTier): number {
+  switch (tier) {
+    case 'low': return 8;
+    case 'mid': return 12;
+    case 'high': return 15;
+  }
+}
+
 /** Recommended parallel worker count for each device tier. */
 export function recommendedWorkers(tier: DeviceTier): number {
   switch (tier) {

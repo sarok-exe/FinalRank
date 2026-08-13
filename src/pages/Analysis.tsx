@@ -312,7 +312,7 @@ function formatDuration(ms: number | undefined): string {
       description: 'Analyze game',
       handler: () => {
         if (!selectedGame || analyzing) return;
-        triggerEvaluationPipeline();
+        triggerEvaluationPipeline(settings.engineDepth);
       },
     },
     {
@@ -528,7 +528,7 @@ function formatDuration(ms: number | undefined): string {
             Analyze a Chess Game
           </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Import from Chess.com or paste a PGN to start analyzing with Stockfish 18.
+            Import from Chess.com or paste a PGN to start analyzing with Stockfish 17.
           </p>
         </div>
 
@@ -1075,15 +1075,29 @@ function formatDuration(ms: number | undefined): string {
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span>Stockfish 18</span>
+                  <span>Stockfish 17</span>
                 </h3>
                 <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
-                  {hypothesisActive && <span className="text-[var(--color-accent)]">Exploring hypothetical line</span>}
+                  Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
+                  {hypothesisActive && <span className="text-[var(--color-accent)]"> · Exploring hypothetical line</span>}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 sm:space-x-2">
+                <select
+                  value={settings.engineDepth}
+                  onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
+                  className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
+                  id="depth-picker"
+                >
+                  <option value={6}>Depth 6</option>
+                  <option value={8}>Depth 8</option>
+                  <option value={10}>Depth 10</option>
+                  <option value={12}>Depth 12</option>
+                  <option value={15}>Depth 15</option>
+                  <option value={18}>Depth 18</option>
+                </select>
                 <button
-                  onClick={() => triggerEvaluationPipeline()}
+                  onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
                   disabled={analyzing}
                   className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
                     analyzing

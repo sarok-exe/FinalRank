@@ -2,13 +2,13 @@ import { create } from 'zustand';
 import { Chess } from 'chess.js';
 import type { ChessGame, AnalyzedMove, HypothesisMove, EngineLine } from '../types';
 import { STARTING_FEN } from '../types';
-import { createGameEvaluator, getEngineVersion, createPositionEvaluator, getEvaluationResultFromLines, ANALYSIS_DEPTH } from '../lib/engine/evaluate';
+import { createGameEvaluator, getEngineVersion, createPositionEvaluator, getEvaluationResultFromLines } from '../lib/engine/evaluate';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
 import { getCachedAnalysis, saveCachedAnalysis, getCachedAnalysisByKey, saveSharedGameToTurso, batchCheckAnalysis, hashPgn } from '../lib/tursoCache';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
-import { detectDeviceTier, recommendedWorkers } from '../lib/deviceTier';
+import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId } from '../lib/shortId';
@@ -97,7 +97,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisActive: true,
       hypothesisMoves: [],
       hypothesisBaseIndex: currentMoveIndex,
-      hypothesisDepth: depth ?? ANALYSIS_DEPTH,
+      hypothesisDepth: depth ?? useSettingsStore.getState().settings.engineDepth,
       hypothesisLines: null,
       hypothesisSearching: false,
       hypothesisError: false,
@@ -231,7 +231,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
-        const tursoStatus = await batchCheckAnalysis(withAvatars, ANALYSIS_DEPTH);
+        const tursoStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
         set({ analyzedPgnHashes: tursoStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
@@ -291,7 +291,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!game || game.moves.length === 0) return;
 
     const settings = useSettingsStore.getState().settings;
-    const depth = ANALYSIS_DEPTH;
+    const depth = settings.engineDepth;
     const autoEnabled = settings.featureToggles.autoAnalyze;
     if (!autoEnabled) return;
 
@@ -338,7 +338,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const { selectedGame, analyzing } = get();
     if (!selectedGame || analyzing || selectedGame.moves.length === 0) return;
 
-    const evalDepth = depth ?? ANALYSIS_DEPTH;
+    const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
     const pending = pendingAnalysis.get(selectedGame.id);
     if (pending) {
@@ -418,7 +418,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const withAvatars = await fetchAvatarsForGames(latest);
       const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: generateShortId() }));
 
-        const tursoStatus = await batchCheckAnalysis(withIds, ANALYSIS_DEPTH);
+        const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => ({
         linkedGames: withIds,
         linkedLoading: false,
@@ -651,6 +651,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const engineVersion = getEngineVersion(cores);
   const settings = useSettingsStore.getState().settings;
   const tier = detectDeviceTier();
+  const effectiveDepth = settings.autoDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
   const maxEngineCount = getOptimalEngineCount(
     settings.parallelWorkers > 0 ? settings.parallelWorkers : recommendedWorkers(tier)
   );
@@ -658,9 +659,14 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const evaluator = createGameEvaluator(game, {
     engineVersion,
     maxEngineCount,
+    engineDepth: effectiveDepth,
+    engineTimeLimit: settings.engineGoMode === 'time' ? settings.engineTimeLimitMs / 1000 : undefined,
     engineLinesCount: 2,
     engineConfig: (engine) => {
       engine.setLineCount(2);
+    },
+    onProgress: (progress) => {
+      useGameStore.setState({ analysisProgress: Math.round(progress * 90) });
     },
   });
 
@@ -700,7 +706,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const durationMs = Math.round(performance.now() - startTime);
   analysedGame.analysisDurationMs = durationMs;
-  analysedGame.analysisDepth = depth;
+  analysedGame.analysisDepth = effectiveDepth;
 
   // Show toast notification
   useToastStore.getState().addToast({
