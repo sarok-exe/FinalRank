@@ -7,6 +7,12 @@ function toHttpUrl(url: string): string {
   return url.replace(/^libsql:\/\//, 'https://');
 }
 
+type Cell = { type: 'text' | 'integer' | 'null'; value: string | null };
+
+function toArg(value: string | number): Cell {
+  return { type: typeof value === 'number' ? 'integer' : 'text', value: String(value) };
+}
+
 const ALLOWED_ORIGINS = [
   'https://finalrank.pages.dev',
   'https://finalrank.web.app',
@@ -89,7 +95,7 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
                       game_data = excluded.game_data,
                       uid = excluded.uid,
                       updated_at = datetime('now')`,
-              args: [shortId, JSON.stringify(gameData), String(gameData.uid || '')],
+              args: [toArg(shortId), toArg(JSON.stringify(gameData)), toArg(String(gameData.uid || ''))],
             },
           },
         ],

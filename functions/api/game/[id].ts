@@ -7,6 +7,12 @@ function toHttpUrl(url: string): string {
   return url.replace(/^libsql:\/\//, 'https://');
 }
 
+type Cell = { type: 'text' | 'integer' | 'null'; value: string | null };
+
+function toArg(value: string | number): Cell {
+  return { type: typeof value === 'number' ? 'integer' : 'text', value: String(value) };
+}
+
 const ALLOWED_ORIGINS = [
   'https://finalrank.web.app',
   'https://finalrank.firebaseapp.com',
@@ -81,19 +87,21 @@ export async function onRequest(context: { request: Request; env: Env; params: {
             type: 'execute',
             stmt: {
               sql: 'SELECT game_data FROM shared_games WHERE short_id = ?',
-              args: [shortId],
+              args: [toArg(shortId)],
             },
           },
         ],
       }),
     });
 
-    const result = await response.json<any>();
+    const result = await response.json() as {
+      results?: Array<{ response?: { result?: { rows?: Array<unknown[] | string> } } }>;
+    };
     const rows = result?.results?.[1]?.response?.result?.rows;
 
     if (rows && rows.length > 0) {
-      const cell = rows[0];
-      const raw = typeof cell === 'string' ? cell : (cell[0]?.value ?? cell[0]);
+      const cell = rows[0] as Array<{ value?: unknown }> | string;
+      const raw = typeof cell === 'string' ? cell : String(cell[0]?.value ?? cell[0]);
       const gameData = JSON.parse(raw);
       return new Response(JSON.stringify(gameData), { headers });
     }
