@@ -426,13 +426,18 @@ export const useGameStore = create<GameState>((set, get) => ({
       const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: shortIdFromKey(`linked-${g.id}`) }));
 
         const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
-      set(state => ({
-        linkedGames: withIds,
-        linkedLoading: false,
-        analyzedPgnHashes: { ...state.analyzedPgnHashes, ...tursoStatus },
-        games: [...state.games, ...withIds],
-        selectedGame: state.selectedGame,
-      }));
+      set(state => {
+        const deduped = [...state.games, ...withIds].filter(
+          (g, i, arr) => arr.findIndex(x => x.id === g.id) === i
+        );
+        return {
+          linkedGames: withIds,
+          linkedLoading: false,
+          analyzedPgnHashes: { ...state.analyzedPgnHashes, ...tursoStatus },
+          games: deduped,
+          selectedGame: state.selectedGame,
+        };
+      });
 
       const uncached = withIds.filter(g => !tursoStatus[hashPgn(g.pgn)]);
       if (uncached.length === 0) {

@@ -531,7 +531,7 @@ function formatDuration(ms: number | undefined): string {
             Analyze a Chess Game
           </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Import from Chess.com or paste a PGN to start analyzing with Stockfish 17.
+            Import from Chess.com or paste a PGN to start analyzing with Stockfish 18 Lite.
           </p>
         </div>
 
@@ -631,25 +631,25 @@ function formatDuration(ms: number | undefined): string {
                     <button
                       key={g.id}
                       onClick={() => { handleSelectGame(g.id); }}
-                      className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
+                      className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${borderClass}`}
                       id={`game-selector-${g.id}`}
                     >
-                      <div>
-                        <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
-                          <span>{g.date}</span>
-                          <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
+                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
                             <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
                             <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
                           </div>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-2 min-w-0">
                             <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
                             <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
                           </div>
                         </div>
-                        <div className="text-[10px] text-[var(--color-text-muted)] mt-1.5">
+                        <div className="text-[10px] text-[var(--color-text-muted)] font-medium pt-0.5">
                           {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
                         </div>
                       </div>
@@ -701,24 +701,27 @@ function formatDuration(ms: number | undefined): string {
                   <button
                     key={g.id}
                     onClick={() => { handleSelectGame(g.id); }}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${
+                    className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${
                       isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
                     }`}
                   >
-                    <div>
-                      <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
-                        <span>{g.date}</span>
-                        <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
+                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
                       </div>
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-1.5">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
                           <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
                           <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
                         </div>
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2 min-w-0">
                           <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
                           <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
                         </div>
+                      </div>
+                      <div className="text-[10px] text-[var(--color-text-muted)] font-medium pt-0.5">
+                        {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
                       </div>
                     </div>
                     <div className="flex items-center gap-2 self-start mt-2">
@@ -948,6 +951,17 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
           )}
+          {/* Opening title */}
+          {currentMove?.opening && (
+            <div className="w-full text-center" style={{ maxWidth: boardWidth }}>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-accent)] mb-1.5">
+                Opening
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text)] truncate leading-tight" title={currentMove.opening}>
+                {currentMove.opening}
+              </h2>
+            </div>
+          )}
           {/* Single board, reordered with CSS grid: phones get a horizontal eval
               bar below, desktop gets a vertical bar on the left. Rendering the
               board twice (hidden via display:none) made react-chessboard's piece
@@ -1078,7 +1092,7 @@ function formatDuration(ms: number | undefined): string {
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                   <Zap className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span>Stockfish 17</span>
+                  <span>Stockfish 18 Lite</span>
                 </h3>
                 <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
                   Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
@@ -1503,22 +1517,25 @@ function formatDuration(ms: number | undefined): string {
               <button
                 key={g.id}
                 onClick={() => { handleSelectGame(g.id); }}
-                className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:scale-[1.02] ${borderClass}`}
+                className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${borderClass}`}
               >
-                <div>
-                  <div className="flex items-center justify-between text-[10px] text-[var(--color-text-muted)] font-semibold mb-1">
-                    <span>{g.date}</span>
-                    <span className="font-mono bg-[var(--color-surface)] px-1.5 py-0.5 rounded text-white">{g.result}</span>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
                       <PlayerAvatar name={g.white?.username} avatar={g.white?.avatar} size={22} />
                       <span className="text-xs font-bold text-white truncate">{g.white?.username ?? 'White'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
                       <PlayerAvatar name={g.black?.username} avatar={g.black?.avatar} size={22} />
                       <span className="text-xs font-bold text-white truncate">{g.black?.username ?? 'Black'}</span>
                     </div>
+                  </div>
+                  <div className="text-[10px] text-[var(--color-text-muted)] font-medium pt-0.5">
+                    {g.white?.rating && `White: ${g.white.rating}`}{g.white?.rating && g.black?.rating && ' | '}{g.black?.rating && `Black: ${g.black.rating}`}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 self-start mt-2">
@@ -1622,7 +1639,7 @@ function formatDuration(ms: number | undefined): string {
               </h2>
               <button onClick={() => { setShowPriorAnalyses(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
             </div>
-            <p className="text-[11px] text-[var(--color-text-muted)] mb-3 leading-snug">
+            <p className="text-xs text-[var(--color-text-muted)] mb-3 leading-relaxed">
               This match was analyzed before. Pick a saved analysis to enter it directly — no need to re-analyze.
             </p>
             <div className="space-y-2">
@@ -1644,6 +1661,7 @@ function formatDuration(ms: number | undefined): string {
                   <span className="flex items-center gap-2 min-w-0">
                     <Activity className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
                     <span className="text-xs font-bold text-white truncate">{engineLabel(run.engine)}</span>
+                    <span className="text-[10px] font-mono bg-[var(--color-surface)] px-2 py-0.5 rounded text-[var(--color-accent)] shrink-0">depth {run.depth}</span>
                   </span>
                   <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
                     {run.analyzedAt ? `Analyzed ${run.analyzedAt.slice(0, 10)}` : 'Analyzed'}

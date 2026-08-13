@@ -90,11 +90,13 @@ export async function getPriorAnalyses(pgn: string): Promise<AnalysisRunMeta[]> 
       sql: 'SELECT depth, engine, analyzed_at FROM analyzed_games WHERE pgn_hash = ? ORDER BY depth DESC, analyzed_at DESC',
       args: [hashPgn(pgn)],
     });
-    return rs.rows.map((r) => ({
-      depth: (r.depth as number) ?? 0,
-      engine: (r.engine as string) ?? '',
-      analyzedAt: (r.analyzed_at as string) ?? '',
-    }));
+    const seen = new Map<number, { depth: number; engine: string; analyzedAt: string }>();
+    for (const r of rs.rows) {
+      const meta = { depth: (r.depth as number) ?? 0, engine: (r.engine as string) ?? '', analyzedAt: (r.analyzed_at as string) ?? '' };
+      const existing = seen.get(meta.depth);
+      if (!existing || meta.analyzedAt > existing.analyzedAt) seen.set(meta.depth, meta);
+    }
+    return [...seen.values()].sort((a, b) => b.depth - a.depth);
   } catch {
     markTursoUnhealthy();
     return [];
