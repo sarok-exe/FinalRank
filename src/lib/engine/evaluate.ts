@@ -62,9 +62,14 @@ export function createGameEvaluator(
     const updatedMoves = [...game.moves];
     const gameEngineLines: EngineLine[][] = Array.from({ length: fens.length }, () => []);
 
-    // Opening book: positions matching ECO book get a cheap 0-eval and skip engine work.
-    // This saves up to 10-15 full engine calls for typical games.
+    // Opening book: positions in the contiguous book prefix (from the start)
+    // get a cheap 0-eval and skip engine work. This saves up to 10-15 full
+    // engine calls for typical games. Once the game leaves theory, later
+    // positions must get real engine analysis even if the piece placement
+    // transposes back into a known book position.
+    let inBook = true;
     for (let i = 1; i < fens.length; i++) {
+      if (!inBook) break;
       if (getOpeningName(fens[i])) {
         gameEngineLines[i] = [{
           evaluation: { type: 'centipawn', value: 0 },
@@ -74,6 +79,8 @@ export function createGameEvaluator(
           moves: [],
         }];
         progresses[i] = 1;
+      } else {
+        inBook = false;
       }
     }
 

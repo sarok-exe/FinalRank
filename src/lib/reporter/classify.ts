@@ -30,7 +30,7 @@ export function classifyMove(
   playedMoveSan: string,
   options?: AnalysisOptions
 ): { classification?: MoveClassification; opening?: string } {
-  const opts: Required<AnalysisOptions> = {
+  const opts: Required<Omit<AnalysisOptions, 'isInBook'>> & Pick<AnalysisOptions, 'isInBook'> = {
     includeBrilliant: true,
     includeCritical: true,
     includeTheory: true,
@@ -39,7 +39,7 @@ export function classifyMove(
 
   const opening = getOpeningName(currFen);
 
-  if (opts.includeTheory && opening != null) {
+  if (opts.includeTheory && opts.isInBook !== false && opening != null) {
     return { classification: 'book', opening };
   }
 

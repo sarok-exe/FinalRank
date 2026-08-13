@@ -19,6 +19,10 @@ export type AnalysisOptions = {
   includeBrilliant?: boolean;
   includeCritical?: boolean;
   includeTheory?: boolean;
+  /** False once the game has left the contiguous opening-book prefix. The
+   *  position may still match the opening database, but it must not be
+   *  classified 'book'. Defaults to true. */
+  isInBook?: boolean;
 }
 
 export type ExtractedNode = {

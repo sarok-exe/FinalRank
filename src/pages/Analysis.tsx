@@ -23,9 +23,12 @@ import {
   Keyboard,
   Maximize,
   Focus,
+  Pause,
+  Play,
   Heart,
   Share2,
   GitBranch,
+  X,
 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -510,7 +513,7 @@ function formatDuration(ms: number | undefined): string {
               aria-label="Dismiss error"
               title="Dismiss"
             >
-              ×
+              <X className="w-4 h-4" />
             </button>
             <AlertTriangle className="w-8 h-8 mx-auto text-red-400" />
             <h2 className="text-lg font-bold text-white">Game Not Found</h2>
@@ -975,7 +978,7 @@ function formatDuration(ms: number | undefined): string {
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                   aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
                 >
-                  <span className="text-lg">{autoplay ? '■' : '▶'}</span>
+                  {autoplay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                 </button>
                 <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
                   <ChevronRight className="w-5 h-5" />
@@ -1155,7 +1158,7 @@ function formatDuration(ms: number | undefined): string {
                 className="absolute top-2 right-2 text-[var(--color-accent)] text-sm font-bold w-5 h-5 rounded-full flex items-center justify-center bg-[var(--color-border)]"
                 onClick={() => { setNotificationDismissed(true); }}
               >
-                &#x2715;
+                <X className="w-4 h-4" />
               </button>
               <div className="flex items-start space-x-3">
                 <div className="bg-[var(--color-accent)] text-white p-1.5 rounded-lg shrink-0 mt-0.5">
@@ -1548,7 +1551,7 @@ function formatDuration(ms: number | undefined): string {
                 <Keyboard className="w-5 h-5 text-[var(--color-primary)]" />
                 Keyboard Shortcuts
               </h2>
-              <button onClick={() => { setShowShortcuts(false); }} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
+              <button onClick={() => { setShowShortcuts(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
@@ -1617,7 +1620,7 @@ function formatDuration(ms: number | undefined): string {
                 <History className="w-5 h-5 text-[var(--color-primary)]" />
                 Pre-analyzed
               </h2>
-              <button onClick={() => { setShowPriorAnalyses(false); }} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
+              <button onClick={() => { setShowPriorAnalyses(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
             </div>
             <p className="text-[11px] text-[var(--color-text-muted)] mb-3 leading-snug">
               This match was analyzed before. Pick a saved analysis to enter it directly — no need to re-analyze.
@@ -1660,7 +1663,7 @@ function formatDuration(ms: number | undefined): string {
                 <Share2 className="w-5 h-5 text-[var(--color-primary)]" />
                 Share Game
               </h2>
-              <button onClick={() => { setShowShare(false); }} className="text-[var(--color-text-muted)] text-xl leading-none">&times;</button>
+              <button onClick={() => { setShowShare(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               <div>

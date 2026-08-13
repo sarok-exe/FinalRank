@@ -5,6 +5,7 @@ import type { AnalysisOptions } from './types';
 import { getMoveAccuracy } from './accuracy';
 import { classifyMove, isSyntheticZeroLine } from './classify';
 import { getWinPercent, getGameAccuracy } from './expectedPoints';
+import { getOpeningName } from './utils/opening';
 
 function extractEvaluation(line: EngineLine): EvaluationResult {
   let score: number;
@@ -31,6 +32,11 @@ export function getGameAnalysis(
 ): ChessGame {
   const startingFen = game.initialPosition ?? STARTING_FEN;
 
+  // Contiguous opening-book prefix from the start. Once the game leaves the
+  // book, no later move may be classified 'book' even if its position matches
+  // the opening database again (transposition back into a known position).
+  let inBook = true;
+
   const updatedMoves = game.moves.map((move, i) => {
     const prevFen = i === 0 ? startingFen : game.moves[i - 1].fen;
     const prevEngineLines: EngineLine[] = [];
@@ -40,11 +46,16 @@ export function getGameAnalysis(
     }
     const currEngineLines = move.engineLines ?? [];
 
+    inBook = inBook && getOpeningName(move.fen) != null;
+
     if (currEngineLines.length === 0) {
       return { ...move, engineLines: currEngineLines };
     }
 
-    const result = classifyMove(prevFen, prevEngineLines, move.fen, currEngineLines, move.san, options);
+    const result = classifyMove(prevFen, prevEngineLines, move.fen, currEngineLines, move.san, {
+      ...options,
+      isInBook: inBook,
+    });
 
     let accuracy: number | undefined;
     const prevTopLine = getTopEngineLine(prevEngineLines);

@@ -441,7 +441,7 @@ export default function Training() {
           </div>
 
           {/* Board card */}
-          <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-2 sm:p-3">
+          <div className="w-full max-w-[550px] mx-auto rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-2 sm:p-3">
             <Chessboard
               fen={active.game.fen()}
               onMove={handleMove}
@@ -508,13 +508,13 @@ export default function Training() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => { play('click'); retry(); }}
-                  className="flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
+                  className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
                 >
                   <RotateCcw className="w-4 h-4" /> Retry
                 </button>
                 <button
                   onClick={() => { play('click'); skip(); }}
-                  className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
+                  className="flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
                 >
                   <SkipForward className="w-4 h-4" /> Skip
                 </button>
@@ -632,7 +632,7 @@ export default function Training() {
             {isFailed && (
               <button
                 onClick={() => { play('click'); retry(); }}
-                className="flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] active:scale-[0.97] transition-all"
+                className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
               >
                 <RotateCcw className="w-4 h-4" /> Retry
               </button>
@@ -641,7 +641,7 @@ export default function Training() {
             {isFailed && (
               <button
                 onClick={() => { play('click'); skip(); }}
-                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
+                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] active:scale-[0.97] transition-all"
               >
                 <SkipForward className="w-4 h-4" /> Skip puzzle
               </button>
