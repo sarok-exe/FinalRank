@@ -51,6 +51,17 @@ import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { SkeletonGameGrid, SkeletonBoard, SkeletonMoveList } from '../components/Skeleton';
 import AnalysisReport from '../components/AnalysisReport';
 
+type SavedGame = {
+  id: string;
+  shortId?: string;
+  date?: string;
+  white?: { username?: string; avatar?: string; rating?: number };
+  black?: { username?: string; avatar?: string; rating?: number };
+  result?: string;
+  accuracy?: { white?: number; black?: number };
+  userSaved?: boolean;
+};
+
 export default function Analysis() {
   const {
     games: storeGames,
@@ -109,6 +120,7 @@ export default function Analysis() {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [autoplay, setAutoplay] = useState(false);
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
+  const [favoriteGames, setFavoriteGames] = useState<SavedGame[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [priorAnalyses, setPriorAnalyses] = useState<AnalysisRunMeta[]>([]);
   const [showPriorAnalyses, setShowPriorAnalyses] = useState(false);
@@ -251,6 +263,21 @@ function formatDuration(ms: number | undefined): string {
     return () => { clearInterval(interval); };
   }, [autoplay, selectedGame]);
 
+  const refreshFavorites = React.useCallback(() => {
+    if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) {
+      setSavedGameIds(new Set());
+      setFavoriteGames([]);
+      return;
+    }
+    import('../lib/firebase').then(({ fetchUserFavorites }) => {
+      fetchUserFavorites(authUser.id).then(games => {
+        const favs = (games as SavedGame[]).filter(g => g.userSaved === true);
+        setSavedGameIds(new Set(favs.map(g => g.id)));
+        setFavoriteGames(favs);
+      });
+    });
+  }, [authUser?.id, authUser?.authProvider]);
+
   const handleSaveGame = React.useCallback(() => {
     if (!selectedGame || !authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
     const isSaved = savedGameIds.has(selectedGame.id);
@@ -258,6 +285,7 @@ function formatDuration(ms: number | undefined): string {
       if (isSaved) {
         void deleteUserGame(authUser.id, selectedGame.id).then(() => {
           setSavedGameIds(prev => { const next = new Set(prev); next.delete(selectedGame.id); return next; });
+          refreshFavorites();
         });
         useToastStore.getState().addToast({ type: 'success', message: 'Removed from favorites' });
       } else {
@@ -268,23 +296,26 @@ function formatDuration(ms: number | undefined): string {
         };
         void saveUserGame(authUser.id, selectedGame.id, gameForFirestore).then(() => {
           setSavedGameIds(prev => { const next = new Set(prev); next.add(selectedGame.id); return next; });
+          refreshFavorites();
         });
         useToastStore.getState().addToast({ type: 'success', message: 'Added to favorites' });
       }
     });
-  }, [selectedGame, authUser, savedGameIds]);
+  }, [selectedGame, authUser, savedGameIds, refreshFavorites]);
 
   React.useEffect(() => {
     if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) {
       setSavedGameIds(new Set());
+      setFavoriteGames([]);
       return;
     }
     let cancelled = false;
     import('../lib/firebase').then(({ fetchUserFavorites }) => {
       fetchUserFavorites(authUser.id).then(games => {
         if (cancelled) return;
-        const ids = new Set(games.filter((g: any) => g.userSaved).map((g: any) => g.id));
-        setSavedGameIds(ids);
+        const favs = (games as SavedGame[]).filter((g: any) => g.userSaved);
+        setSavedGameIds(new Set(favs.map(g => g.id)));
+        setFavoriteGames(favs);
       });
     });
     return () => { cancelled = true; };
@@ -1176,6 +1207,50 @@ function formatDuration(ms: number | undefined): string {
 
         {!focusMode && (
         <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
+          {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
+              <Heart className="w-4 h-4 text-[var(--color-accent)]" />
+              <span>Favorites</span>
+              {favoriteGames.length > 0 && (
+                <span className="text-[10px] font-bold text-[var(--color-text-muted)] ml-auto">{favoriteGames.length}</span>
+              )}
+            </h3>
+            {favoriteGames.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-muted)] italic leading-relaxed">
+                No favorites yet — tap the ♥ button on a game.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 scrollbar-thin overscroll-contain">
+                {favoriteGames.map((g) => (
+                  <button
+                    key={g.id}
+                    onClick={() => { handleSelectGame(g.id); }}
+                    className="w-full text-left p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all"
+                  >
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
+                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <PlayerAvatar name={g.white?.username} avatar={g.white?.avatar} size={20} />
+                      <span className="text-xs font-bold text-white truncate">{g.white?.username ?? 'White'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0 mt-1">
+                      <PlayerAvatar name={g.black?.username} avatar={g.black?.avatar} size={20} />
+                      <span className="text-xs font-bold text-white truncate">{g.black?.username ?? 'Black'}</span>
+                    </div>
+                    {g.accuracy != null && (
+                      <div className="text-[10px] text-green-500 font-semibold mt-1.5">
+                        W: {g.accuracy.white}% &middot; B: {g.accuracy.black}%
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          )}
           {legendaryData && !notificationDismissed && (
             <div className="bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl p-4 text-[var(--color-accent)] relative" id="legendary-achievement-banner">
               <button
