@@ -757,6 +757,22 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     gameId: gameId,
   });
 
+  // Tell the user when brilliants count or why they don't.
+  const wB = analysedGame.classificationCounts?.white?.brilliant ?? 0;
+  const bB = analysedGame.classificationCounts?.black?.brilliant ?? 0;
+  const foundBrilliants = wB + bB;
+  if (foundBrilliants > 0 && effectiveDepth >= 15) {
+    useToastStore.getState().addToast({
+      type: 'success',
+      message: `${foundBrilliants} brilliant move${foundBrilliants === 1 ? '' : 's'} counted for your account`,
+    });
+  } else if (foundBrilliants > 0 && effectiveDepth < 15) {
+    useToastStore.getState().addToast({
+      type: 'info',
+      message: `${foundBrilliants} brilliant move${foundBrilliants === 1 ? '' : 's'} found — analyze at depth 15+ for them to count (this run: depth ${effectiveDepth}).`,
+    });
+  }
+
   const pgnHash = hashPgn(game.pgn);
   useGameStore.setState(state => ({
     analysisCache: { ...state.analysisCache, [gameId]: analysedGame },

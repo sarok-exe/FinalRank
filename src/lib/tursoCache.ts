@@ -236,13 +236,23 @@ export async function saveUserAnalysisStats(
   try {
     const pgnHash = hashPgn(game.pgn);
 
-    // Determine the user's side from their linked chess.com username (case-insensitive).
+    // Determine the user's side from their account name or linked chess.com
+    // username (both compared case-insensitively after trim). A brilliant is only
+    // accepted when the name of the player matches the name the user chose for
+    // their account.
+    const accountName = user.username.trim();
     const chessCom = (user.chessComUsername ?? '').trim();
     const whiteName = game.white?.username ?? '';
     const blackName = game.black?.username ?? '';
+    const matchesWhite =
+      (accountName !== '' && whiteName !== '' && accountName.toLowerCase() === whiteName.toLowerCase()) ||
+      (chessCom !== '' && whiteName !== '' && chessCom.toLowerCase() === whiteName.toLowerCase());
+    const matchesBlack =
+      (accountName !== '' && blackName !== '' && accountName.toLowerCase() === blackName.toLowerCase()) ||
+      (chessCom !== '' && blackName !== '' && chessCom.toLowerCase() === blackName.toLowerCase());
     let side: 'w' | 'b' | null = null;
-    if (chessCom && whiteName && chessCom.toLowerCase() === whiteName.toLowerCase()) side = 'w';
-    else if (chessCom && blackName && chessCom.toLowerCase() === blackName.toLowerCase()) side = 'b';
+    if (matchesWhite) side = 'w';
+    else if (matchesBlack) side = 'b';
 
     // Accuracy: user's side when known, else average of both, else whichever is defined.
     const whiteAcc = game.accuracy?.white;
@@ -253,13 +263,15 @@ export async function saveUserAnalysisStats(
     else if (whiteAcc != null && blackAcc != null) accuracy = (whiteAcc + blackAcc) / 2;
     else accuracy = whiteAcc ?? blackAcc ?? null;
 
-    // Brilliant count: user's side when known, else both sides combined.
+    // Brilliant count: only credited when the user's name matches one of the
+    // players. Without a name match, no brilliants are credited to this account
+    // (the accuracy metric is about the analyzed game and is unaffected).
     const whiteBrilliants = game.classificationCounts?.white?.brilliant ?? 0;
     const blackBrilliants = game.classificationCounts?.black?.brilliant ?? 0;
     let brilliantCount: number;
     if (side === 'w') brilliantCount = whiteBrilliants;
     else if (side === 'b') brilliantCount = blackBrilliants;
-    else brilliantCount = whiteBrilliants + blackBrilliants;
+    else brilliantCount = 0;
 
     const shortId = game.shortId ?? game.id ?? '';
     const gameLabel = `${whiteName} vs ${blackName}`;
