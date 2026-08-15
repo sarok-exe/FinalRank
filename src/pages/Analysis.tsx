@@ -992,20 +992,28 @@ function formatDuration(ms: number | undefined): string {
                 <GitBranch className="w-3.5 h-3.5" />
                 What-if
               </span>
-              <span className="flex-1 min-w-0 flex items-center gap-2">
-                <span className="text-xs font-mono text-white truncate">
-                  {hypothesisMoves.length > 0
-                    ? hypothesisMoves.map((m, i) => {
-                        const ply = hypothesisBaseIndex + i + 1;
-                        const n = Math.floor(ply / 2) + 1;
-                        const prefix = m.color === 'w' ? `${n}. ` : `${n}... `;
-                        return prefix + m.san;
-                      }).join(' ')
-                    : 'Play a move to explore'
-                  }
-                </span>
-                {hypothesisMoves.length > 0 && hypothesisClassification != null && (
-                  <HypothesisClassificationBadge classification={hypothesisClassification} />
+              <span className="flex-1 min-w-0">
+                {hypothesisMoves.length > 0 ? (
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {hypothesisMoves.map((m, i) => {
+                      const ply = hypothesisBaseIndex + i + 1;
+                      const n = Math.floor(ply / 2) + 1;
+                      const prefix = m.color === 'w' ? `${n}.` : `${n}...`;
+                      const isLast = i === hypothesisMoves.length - 1;
+                      const iconSrc = m.classification ? classificationImages[m.classification] : undefined;
+                      return (
+                        <span key={m.index} className="flex items-center gap-1 text-xs font-mono text-white">
+                          <span className="text-[var(--color-text-muted)] shrink-0">{prefix}</span>
+                          <span className={isLast ? 'text-[var(--color-accent)] font-bold' : undefined}>{m.san}</span>
+                          {iconSrc && (
+                            <img src={iconSrc} alt="" width={16} height={16} className="shrink-0 opacity-85" />
+                          )}
+                        </span>
+                      );
+                    })}
+                  </span>
+                ) : (
+                  <span className="text-xs font-mono text-white">Play a move to explore</span>
                 )}
               </span>
               {hypothesisSearching ? (
@@ -1484,6 +1492,13 @@ function formatDuration(ms: number | undefined): string {
                   {/* Last hypothesis move SAN */}
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-sm text-[var(--color-accent)] flex items-center gap-2 min-w-0">
+                      {(() => {
+                        const lastMove = hypothesisMoves[hypothesisMoves.length - 1];
+                        const lastIcon = lastMove?.classification ? classificationImages[lastMove.classification] : undefined;
+                        return lastIcon ? (
+                          <img src={lastIcon} alt="" width={18} height={18} className="shrink-0 opacity-85" />
+                        ) : null;
+                      })()}
                       <span className="truncate">{hypothesisMoves[hypothesisMoves.length - 1]?.san}</span>
                       {hypothesisClassification != null && (
                         <HypothesisClassificationBadge classification={hypothesisClassification} />

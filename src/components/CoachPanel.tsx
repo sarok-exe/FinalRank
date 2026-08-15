@@ -1,3 +1,4 @@
+import type React from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import type { CoachNote } from '../lib/reporter/coach';
 import {
@@ -12,7 +13,7 @@ type CoachPanelProps = {
   onTryMove: (note: CoachNote) => void;
 };
 
-export default function CoachPanel({ notes, activeMoveIndex, onTryMove }: CoachPanelProps) {
+export default function CoachPanel({ notes, activeMoveIndex, onTryMove }: CoachPanelProps): React.ReactElement {
   return (
     <div
       className="fade-in flex-shrink-0 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]"
@@ -45,15 +46,16 @@ export default function CoachPanel({ notes, activeMoveIndex, onTryMove }: CoachP
             const turn = Math.floor((note.ply - 1) / 2) + 1;
             const moveLabel = note.color === 'w' ? `${turn}.` : `${turn}...`;
 
-            return (
-              <div
-                key={note.moveIndex}
-                className={`rounded-lg px-2.5 py-2 border-l-2 transition-colors ${
-                  isActive
-                    ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
-                    : 'border-transparent hover:bg-[var(--color-background)]/70'
-                }`}
-              >
+            const rowClasses = `block w-full text-left rounded-lg px-2.5 py-2 border-l-2 transition-colors ${
+              isActive
+                ? 'border-[var(--color-accent)] bg-[var(--color-accent)]/10'
+                : canTry
+                  ? 'border-transparent hover:bg-[var(--color-background)]/70 hover:border-[var(--color-accent)]/40 cursor-pointer'
+                  : 'border-transparent'
+            }`;
+
+            const rowContent = (
+              <>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono font-bold text-[var(--color-text-muted)] shrink-0">
                     {moveLabel}
@@ -64,27 +66,36 @@ export default function CoachPanel({ notes, activeMoveIndex, onTryMove }: CoachP
                       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded shrink-0"
                       style={{ color: badge.color, backgroundColor: badge.bg, border: `1px solid ${badge.border}` }}
                     >
-                      {imgSrc && (
-                        <img src={imgSrc} alt="" width={15} height={15} className="inline-block opacity-90" />
-                      )}
+                      <img src={imgSrc} alt="" width={15} height={15} className="inline-block opacity-90" />
                       <span className="text-[10px] font-bold uppercase tracking-wide">
                         {classificationNames[note.classification] ?? note.classification}
                       </span>
                     </span>
                   )}
                   {canTry && (
-                    <button
-                      onClick={() => onTryMove(note)}
-                      className="ml-auto shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-[var(--color-accent)] border border-[var(--color-accent)]/40 rounded-md px-2 py-1 hover:bg-[var(--color-accent)] hover:text-black transition-colors"
-                      title={`Play ${note.bestSan} instead`}
-                    >
-                      Try engine move
-                      <span className="font-mono">{note.bestSan}</span>
+                    <span className="ml-auto shrink-0 inline-flex items-center gap-1 text-[11px] font-bold text-[var(--color-accent)]/70">
+                      Try {note.bestSan}
                       <ArrowRight className="w-3 h-3" />
-                    </button>
+                    </span>
                   )}
                 </div>
                 <p className="mt-1.5 text-sm text-[var(--color-text-muted)] leading-relaxed">{note.note}</p>
+              </>
+            );
+
+            return canTry ? (
+              <button
+                key={note.moveIndex}
+                type="button"
+                onClick={() => { onTryMove(note); }}
+                className={rowClasses}
+                title={`Play ${note.bestSan} instead`}
+              >
+                {rowContent}
+              </button>
+            ) : (
+              <div key={note.moveIndex} className={rowClasses}>
+                {rowContent}
               </div>
             );
           })

@@ -56,7 +56,7 @@ export type ClassificationBadgeStyle = {
 // Badge colors shared by the Coach panel and the what-if display, so the same
 // classification reads the same everywhere: blunder red, mistake orange,
 // inaccuracy yellow, best green, brilliant purple, mate solid red/white.
-export const classificationBadgeStyles: Record<string, ClassificationBadgeStyle> = {
+export const classificationBadgeStyles: Record<string, ClassificationBadgeStyle | undefined> = {
   mate: { label: 'Mate', color: '#ffffff', bg: 'rgba(220,38,38,0.9)', border: 'rgba(220,38,38,0.9)' },
   blunder: { label: 'Blunder', color: '#f87171', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)' },
   mistake: { label: 'Mistake', color: '#fb923c', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.35)' },
