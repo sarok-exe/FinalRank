@@ -18,7 +18,7 @@ import {
 import Chessboard from '../components/board/Chessboard';
 import { fetchPuzzles, type Puzzle } from '../lib/puzzles';
 import { getStreakTier } from '../components/StreakFlame';
-import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
+import { useSound } from '../hooks/useSound';
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -132,7 +132,7 @@ export default function Training() {
   activeRef.current = active;
   const solvedSinceRefill = useRef(0);
 
-  const { play } = useSound();
+  const { play, playFromSan } = useSound();
 
   /* -------------------------------------------------------------------------- */
   /*  Stats persistence                                                          */
@@ -257,6 +257,7 @@ export default function Training() {
       setActive({ ...active, status: 'failed', wrongMove: `${from}${to}` });
       return false;
     }
+    playFromSan(san);
 
     let moveIdx = active.moveIdx + 1;
     if (moveIdx >= moves.length || game.isCheckmate()) {
@@ -273,13 +274,13 @@ export default function Training() {
     }
 
     try {
-      game.move(uciToMove(moves[moveIdx]));
+      const reply = game.move(uciToMove(moves[moveIdx]));
+      playFromSan(reply.san);
       moveIdx += 1;
     } catch {
       /* ignore opponent reply errors */
     }
 
-    play(getSoundTypeFromSan(san));
     setActive({
       ...active,
       game,
@@ -288,7 +289,7 @@ export default function Training() {
     });
     setHint(null);
     return true;
-  }, [active, markSolved, play]);
+  }, [active, markSolved, play, playFromSan]);
 
   /* -------------------------------------------------------------------------- */
   /*  Retry / skip / fresh batch / range                                         */

@@ -17,6 +17,7 @@ import {
   Search,
   FileText,
   ArrowLeft,
+  Trophy,
   BookOpen,
   ChevronDown,
   RotateCcw,
@@ -77,6 +78,82 @@ function HypothesisClassificationBadge({ classification }: { classification: str
     >
       {style.label}
     </span>
+  );
+}
+
+type PlayerBarProps = {
+  player?: { username?: string; rating?: number; avatar?: string };
+  side: 'w' | 'b';
+  result?: string;
+  accuracy?: { white?: number; black?: number };
+};
+
+// Chess.com-style single-line player bar that hugs the board: avatar,
+// username, rating chip, and a subtle winner/draw indicator.
+function PlayerBar({ player, side, result, accuracy }: PlayerBarProps) {
+  const isWhite = side === 'w';
+  const winner = result === '1-0' ? 'w' : result === '0-1' ? 'b' : undefined;
+  const isDraw = result === '1/2-1/2' || result === '½-½';
+  const isWinner = winner === side;
+  const playerAcc = isWhite ? accuracy?.white : accuracy?.black;
+
+  return (
+    <div
+      id={`player-bar-${side}`}
+      className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors ${
+        isWinner
+          ? 'border-[var(--color-accent)]/50 bg-[color-mix(in_srgb,var(--color-surface)_94%,var(--color-accent)_6%)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface)]'
+      }`}
+    >
+      {player?.avatar ? (
+        <img
+          src={player.avatar}
+          alt=""
+          loading="lazy"
+          className={`w-[32px] h-[32px] rounded-[10px] object-cover shrink-0 border ${
+            isWhite ? 'border-[var(--color-text-muted)]' : 'border-[var(--color-border)]'
+          }`}
+        />
+      ) : (
+        <span
+          className={`w-[32px] h-[32px] rounded-[10px] shrink-0 block border border-[var(--color-text-muted)] ${
+            isWhite ? 'bg-white' : 'bg-[var(--color-surface)]'
+          }`}
+        />
+      )}
+
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-sm font-bold text-white truncate">
+          {player?.username ?? (isWhite ? 'White' : 'Black')}
+        </span>
+        <span
+          className="shrink-0 text-[11px] font-mono font-bold text-white bg-[var(--color-background)] border border-[var(--color-border)] rounded-md px-1.5 py-px leading-4"
+          title={player?.rating != null ? 'Rating' : 'Rating not available'}
+        >
+          {player?.rating ?? '—'}
+        </span>
+      </div>
+
+      {playerAcc != null && (
+        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)] tabular-nums" title="Accuracy">
+          {playerAcc}%
+        </span>
+      )}
+
+      {isDraw ? (
+        <span className="shrink-0 text-[10px] font-bold text-[var(--color-text-muted)] border border-[var(--color-border)] rounded-md px-1.5 py-px" title="Draw">
+          ½–½
+        </span>
+      ) : isWinner ? (
+        <span
+          className="shrink-0 flex items-center justify-center w-[22px] h-[22px] rounded-md text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/40"
+          title="Winner"
+        >
+          <Trophy className="w-3 h-3" />
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -146,6 +223,10 @@ export default function Analysis() {
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
+  // What-if navigation: which hypothesis move's position the board is showing
+  // (-1 = the base position before the line). It stays pinned to the tip whenever
+  // the line changes, and is stepped with the arrow keys while in what-if mode.
+  const [hypViewIndex, setHypViewIndex] = useState(-1);
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
     const onResize = () => { setVpW(window.innerWidth); };
@@ -265,6 +346,17 @@ function formatDuration(ms: number | undefined): string {
     prevLegendaryRef.current = nowLegendary;
   }, [legendaryData, play]);
 
+  // What-if view sync: the board follows the tip whenever the line changes
+  // structurally (play / undo / reset), and falls back to the base position
+  // outside what-if mode. Same-length updates (e.g. a finished search attaching
+  // analysis to the tip) deliberately leave the user's navigation alone.
+  React.useEffect(() => {
+    setHypViewIndex(hypothesisMoves.length - 1);
+  }, [hypothesisMoves.length]);
+  React.useEffect(() => {
+    if (!hypothesisActive) setHypViewIndex(-1);
+  }, [hypothesisActive]);
+
   const toggleOrientation = React.useCallback(() => {
     updateSettings({ boardOrientation: settings.boardOrientation === 'white' ? 'black' : 'white' });
   }, [settings.boardOrientation, updateSettings]);
@@ -377,6 +469,11 @@ function formatDuration(ms: number | undefined): string {
       key: 'ArrowRight',
       description: 'Next move',
       handler: () => {
+        if (hypothesisActive) {
+          // Step the what-if line toward the tip (from the base position at -1).
+          if (hypothesisMoves.length > 0) setHypViewIndex(prev => Math.min(prev + 1, hypothesisMoves.length - 1));
+          return;
+        }
         if (selectedGame) setCurrentMoveIndex(currentMoveIndex + 1);
       },
     },
@@ -384,6 +481,11 @@ function formatDuration(ms: number | undefined): string {
       key: 'ArrowLeft',
       description: 'Previous move',
       handler: () => {
+        if (hypothesisActive) {
+          // Step the what-if line back toward the base position; -1 stays put.
+          if (hypothesisMoves.length > 0) setHypViewIndex(prev => Math.max(prev - 1, -1));
+          return;
+        }
         if (selectedGame) setCurrentMoveIndex(currentMoveIndex - 1);
       },
     },
@@ -516,9 +618,17 @@ function formatDuration(ms: number | undefined): string {
     }
   };
 
+  // The hypothesis move whose position the board shows while in what-if mode:
+  // -1 = the base position, otherwise an index into hypothesisMoves. Clamped to
+  // the live line so a stale hypViewIndex can never index out of bounds.
+  const effHypViewIndex = hypothesisActive && hypothesisMoves.length > 0
+    ? (hypViewIndex >= 0 ? Math.min(hypViewIndex, hypothesisMoves.length - 1) : -1)
+    : -1;
+
   const getCurrentFen = () => {
     if (hypothesisActive) {
-      if (hypothesisMoves.length > 0) return hypothesisMoves[hypothesisMoves.length - 1].fen;
+      if (effHypViewIndex >= 0) return hypothesisMoves[effHypViewIndex].fen;
+      // Base position of the what-if line.
       if (selectedGame && hypothesisBaseIndex >= 0 && selectedGame.moves[hypothesisBaseIndex]) {
         return selectedGame.moves[hypothesisBaseIndex].fen;
       }
@@ -532,9 +642,12 @@ function formatDuration(ms: number | undefined): string {
 
   const getMoveHighlight = () => {
     if (hypothesisActive) {
-      if (hypothesisMoves.length > 0) {
-        const last = hypothesisMoves[hypothesisMoves.length - 1];
-        return { from: last.from, to: last.to };
+      // Highlight the move that produced the displayed position. Its
+      // classification rides along so the Chessboard draws the symbol over the
+      // destination square (undefined → plain from/to highlight, no badge).
+      if (effHypViewIndex >= 0) {
+        const m = hypothesisMoves[effHypViewIndex];
+        return { from: m.from, to: m.to, classification: m.classification };
       }
       return undefined;
     }
@@ -545,11 +658,18 @@ function formatDuration(ms: number | undefined): string {
 
   const getBestMoveArrow = () => {
     if (hypothesisActive) {
-      if (hypothesisLines?.length) {
-        const topLine = getTopEngineLine(hypothesisLines);
-        if (topLine?.moves?.length) {
-          const uci = topLine.moves[0].uci;
-          if (uci.length >= 4) return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
+      // The arrow reflects the viewed position: every hypothesis move carries
+      // its own engine lines (analyzed when it was the tip). Before that search
+      // finishes there are none, so a stale arrow from the previous position is
+      // never shown on an unanalyzed position.
+      if (effHypViewIndex >= 0) {
+        const viewLines = hypothesisMoves[effHypViewIndex].engineLines;
+        if (viewLines?.length) {
+          const topLine = getTopEngineLine(viewLines);
+          if (topLine?.moves?.length) {
+            const uci = topLine.moves[0].uci;
+            if (uci.length >= 4) return { from: uci.slice(0, 2), to: uci.slice(2, 4) };
+          }
         }
       }
       return undefined;
@@ -829,7 +949,7 @@ function formatDuration(ms: number | undefined): string {
 
   const pad = 16;
   // On phones give the board the full available width; the eval bar moves below it.
-  const desiredW = focusMode ? 700 : fullscreenMode ? 660 : vpW < 640 ? vpW - pad : 550;
+  const desiredW = focusMode ? 720 : fullscreenMode ? 700 : vpW < 640 ? vpW - pad : 600;
   const boardWidth = Math.min(desiredW, vpW - pad);
 
   const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
@@ -919,8 +1039,34 @@ function formatDuration(ms: number | undefined): string {
       })()
     : null;
 
-  const displayScore = hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalScore : evalScore;
-  const displayMate = hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalMate : evalMate;
+  // While stepping the what-if line, the eval bar mirrors the position on the
+  // board: each hypothesis move was analyzed with its own evaluation when it was
+  // the tip. The base view shows the main-game eval of the base move, and the
+  // tip keeps the shared hypothesisLines eval so the bar stays live during a
+  // re-search instead of blinking to neutral.
+  const isHypStepView = hypothesisActive && effHypViewIndex >= 0 && effHypViewIndex < hypothesisMoves.length - 1;
+  const isHypBaseView = hypothesisActive && hypothesisMoves.length > 0 && effHypViewIndex === -1;
+  const hypStepEval = isHypStepView ? hypothesisMoves[effHypViewIndex].evaluation : null;
+  const hypStepEvalScore = hypStepEval && !hypStepEval.isMate ? hypStepEval.score : null;
+  const hypStepEvalMate = hypStepEval && hypStepEval.isMate ? hypStepEval.mateIn ?? 0 : null;
+
+  const displayScore = isHypStepView
+    ? hypStepEvalScore
+    : isHypBaseView
+      ? evalScore
+      : (hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalScore : evalScore);
+  const displayMate = isHypStepView
+    ? hypStepEvalMate
+    : isHypBaseView
+      ? evalMate
+      : (hypothesisActive && hypothesisMoves.length > 0 && hypothesisLines?.length ? hypothesisEvalMate : evalMate);
+
+  // Chess.com-style player bars: the bar above the board shows whoever sits at
+  // the top (black when unflipped), the bar below shows the bottom side.
+  const topPlayer = boardOrientation === 'white' ? selectedGame.black : selectedGame.white;
+  const topSide: 'w' | 'b' = boardOrientation === 'white' ? 'b' : 'w';
+  const bottomPlayer = boardOrientation === 'white' ? selectedGame.white : selectedGame.black;
+  const bottomSide: 'w' | 'b' = boardOrientation === 'white' ? 'w' : 'b';
 
   return (
     <div className="space-y-5" id="analysis-viewport">
@@ -984,7 +1130,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
         </div>
         )}
-        <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+        <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7 xl:col-span-8'}`}>
           {/* What-if banner */}
           {hypothesisActive && (
             <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl px-3 py-2.5 flex items-center gap-2.5 flex-wrap" id="whatif-banner" style={{ maxWidth: boardWidth }}>
@@ -999,12 +1145,19 @@ function formatDuration(ms: number | undefined): string {
                       const ply = hypothesisBaseIndex + i + 1;
                       const n = Math.floor(ply / 2) + 1;
                       const prefix = m.color === 'w' ? `${n}.` : `${n}...`;
-                      const isLast = i === hypothesisMoves.length - 1;
+                      const isActive = effHypViewIndex === i;
                       const iconSrc = m.classification ? classificationImages[m.classification] : undefined;
                       return (
-                        <span key={m.index} className="flex items-center gap-1 text-xs font-mono text-white">
+                        <span
+                          key={m.index}
+                          className={`flex items-center gap-1 text-xs font-mono rounded ${
+                            isActive
+                              ? 'text-[var(--color-accent)] font-bold bg-[var(--color-accent)]/10 px-1 -mx-1'
+                              : 'text-white'
+                          }`}
+                        >
                           <span className="text-[var(--color-text-muted)] shrink-0">{prefix}</span>
-                          <span className={isLast ? 'text-[var(--color-accent)] font-bold' : undefined}>{m.san}</span>
+                          <span>{m.san}</span>
                           {iconSrc && (
                             <img src={iconSrc} alt="" width={16} height={16} className="shrink-0 opacity-85" />
                           )}
@@ -1066,6 +1219,10 @@ function formatDuration(ms: number | undefined): string {
               )}
             </div>
           </div>
+          {/* Top player bar — hugs the board, chess.com style */}
+          <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-top">
+            <PlayerBar player={topPlayer} side={topSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
+          </div>
           {/* Single board, reordered with CSS grid: phones get a horizontal eval
               bar below, desktop gets a vertical bar on the left. Rendering the
               board twice (hidden via display:none) made react-chessboard's piece
@@ -1078,6 +1235,11 @@ function formatDuration(ms: number | undefined): string {
             <div className="lg:hidden w-full h-[30px]">
               <EvalBar score={displayScore} mate={displayMate} flipped={false} horizontal />
             </div>
+          </div>
+
+          {/* Bottom player bar — hugs the board, chess.com style */}
+          <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-bottom">
+            <PlayerBar player={bottomPlayer} side={bottomSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
@@ -1269,7 +1431,7 @@ function formatDuration(ms: number | undefined): string {
         </div>
 
         {!focusMode && (
-        <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
+        <div className="lg:col-span-5 xl:col-span-4 space-y-4 flex flex-col h-auto min-h-[400px]">
           {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
@@ -1341,7 +1503,7 @@ function formatDuration(ms: number | undefined): string {
           )}
 
           {!focusMode && selectedGame && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 flex items-start justify-between gap-2" id="game-info-card">
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex items-start justify-between gap-2" id="game-info-card">
             <div className="space-y-1.5 flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--color-text-muted)] font-semibold">
                 <span className="flex items-center gap-1.5">
@@ -1404,8 +1566,9 @@ function formatDuration(ms: number | undefined): string {
             </h3>
             <div className="flex-1 overflow-y-auto pr-1 space-y-1 scrollbar-thin scrollbar-track-[#2a2a2a] scrollbar-thumb-[#4a4a4a] overscroll-contain" id="moves-log-container" style={{ WebkitOverflowScrolling: 'touch' }}>
               {selectedGame.moves?.length === 0 ? (
-                <div className="h-full flex items-center justify-center text-xs text-[var(--color-text-muted)] italic p-6">
-                  Click 'Analyze' to evaluate positions.
+                <div className="h-full flex flex-col items-center justify-center gap-1.5 text-center text-xs text-[var(--color-text-muted)] italic p-6">
+                  <span>No moves recorded for this game.</span>
+                  <span className="text-[var(--color-text-muted)]/80">Import a PGN with moves to use the move list.</span>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-1 text-sm font-mono">
