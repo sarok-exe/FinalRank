@@ -327,7 +327,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <CommunityMiniStat label="Est. Rating" value={communityRating != null ? `≈ ${communityRating}` : '—'} />
           </div>
           <p className="text-[9px] text-[var(--color-text-muted)]">
-            Brilliants are counted once per game and only from analyses at depth 15+.
+            Brilliants are counted once per game, from analyses at depth 15+, and only for moves played by your account name.
           </p>
         </div>
 

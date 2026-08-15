@@ -167,6 +167,7 @@ export type HypothesisMove = {
   color: 'w' | 'b';
   engineLines?: EngineLine[];
   evaluation?: EvaluationResult;
+  classification?: MoveClassification | 'mate';
 }
 
 export type ChessGame = {

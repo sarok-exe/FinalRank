@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { Chess } from 'chess.js';
-import type { ChessGame, AnalyzedMove, HypothesisMove, EngineLine } from '../types';
+import type { ChessGame, AnalyzedMove, HypothesisMove, EngineLine, MoveClassification } from '../types';
 import { STARTING_FEN } from '../types';
 import { createGameEvaluator, getEngineVersion, createPositionEvaluator, getEvaluationResultFromLines } from '../lib/engine/evaluate';
+import { getTopEngineLine } from '../lib/engine';
+import { classifyMove } from '../lib/reporter/classify';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
@@ -37,6 +39,7 @@ type GameState = {
   hypothesisError: boolean;
   hypothesisLines: EngineLine[] | null;
   hypothesisDepth: number;
+  hypothesisClassification: string | null;
 
   importChessComGames(username: string): Promise<void>;
   selectGame(gameId: string): void;
@@ -85,6 +88,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   hypothesisError: false,
   hypothesisLines: null,
   hypothesisDepth: 0,
+  hypothesisClassification: null,
 
   setGames: (games) => { set({ games }); },
 
@@ -101,6 +105,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisLines: null,
       hypothesisSearching: false,
       hypothesisError: false,
+      hypothesisClassification: null,
     });
     return true;
   },
@@ -108,7 +113,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   exitHypothesisMode: () => {
     hypothesisAbortController?.abort();
     hypothesisAbortController = null;
-    set({ hypothesisActive: false, hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false });
+    set({ hypothesisActive: false, hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false, hypothesisClassification: null });
   },
 
   playHypothesisMove: (from, to) => {
@@ -150,13 +155,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisLines: newTip?.engineLines ?? null,
       hypothesisSearching: false,
       hypothesisError: false,
+      hypothesisClassification: null,
     });
   },
 
   clearHypothesisMoves: () => {
     hypothesisAbortController?.abort();
     hypothesisAbortController = null;
-    set({ hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false });
+    set({ hypothesisMoves: [], hypothesisLines: null, hypothesisSearching: false, hypothesisError: false, hypothesisClassification: null });
   },
 
   selectGame: (gameId) => {
@@ -173,6 +179,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         hypothesisError: false,
         hypothesisLines: null,
         hypothesisDepth: 0,
+        hypothesisClassification: null,
       });
       return;
     }
@@ -211,6 +218,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisSearching: false,
       hypothesisLines: null,
       hypothesisDepth: 0,
+      hypothesisClassification: null,
     });
   },
 
@@ -282,8 +290,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   autoAnalyzeGame: async (gameId) => {
-    const { games, analyzing, autoAnalyzing } = get();
-    if (analyzing || autoAnalyzing) return;
+    const { games, analyzing, autoAnalyzing, hypothesisActive } = get();
+    // Same engine-separation guard as triggerEvaluationPipeline: what-if mode
+    // uses its own dedicated Engine instances, so no main-game engine analysis
+    // may run while it is active.
+    if (analyzing || autoAnalyzing || hypothesisActive) return;
     if (pendingAnalysis.has(gameId)) return;
 
     const { linkedGames } = get();
@@ -342,8 +353,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   triggerEvaluationPipeline: async (depth?: number) => {
-    const { selectedGame, analyzing } = get();
-    if (!selectedGame || analyzing || selectedGame.moves.length === 0) return;
+    const { selectedGame, analyzing, hypothesisActive } = get();
+    // What-if (hypothesis) mode never touches the main engine pool: its search
+    // runs on its own dedicated Engine instance spawned per call inside
+    // createPositionEvaluator (src/lib/engine/evaluate.ts:251 spawns `new
+    // Engine(...)` per call), so the main-game pipeline is blocked entirely
+    // while what-if mode is active.
+    if (!selectedGame || analyzing || hypothesisActive || selectedGame.moves.length === 0) return;
 
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
@@ -613,6 +629,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     hypothesisError: false,
     hypothesisLines: null,
     hypothesisDepth: 0,
+    hypothesisClassification: null,
   }); },
 }));
 
@@ -634,13 +651,46 @@ async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
     const moves = useGameStore.getState().hypothesisMoves;
     const isCurrent = moves.length > 0 && moves[moves.length - 1].index === tipMove.index;
     if (!isCurrent) return; // stale — drop the result
+
+    // Classify the tip move against the position it was played from.
+    const { selectedGame, hypothesisBaseIndex } = useGameStore.getState();
+    let prevFen: string;
+    let prevEngineLines: EngineLine[];
+    if (tipMove.index === 0) {
+      // First hypothesis move → the base position is the selected game's move
+      // at hypothesisBaseIndex (or the starting position when it's < 0).
+      const base = hypothesisBaseIndex >= 0 ? selectedGame?.moves[hypothesisBaseIndex] : undefined;
+      prevFen = base?.fen ?? STARTING_FEN;
+      prevEngineLines = base?.engineLines ?? [];
+    } else {
+      const prev = moves[moves.length - 2];
+      prevFen = prev.fen;
+      prevEngineLines = prev.engineLines ?? [];
+    }
+
+    let classification: MoveClassification | 'mate' | undefined = classifyMove(
+      prevFen,
+      prevEngineLines,
+      tipMove.fen,
+      lines,
+      tipMove.san,
+      { includeBrilliant: true, includeCritical: false, includeTheory: false },
+    ).classification;
+
+    // Mate override: a position where the engine announces mate is always
+    // reported as 'mate', regardless of the loss-based classification.
+    if (getTopEngineLine(lines)?.evaluation.type === 'mate') {
+      classification = 'mate';
+    }
+
     useGameStore.setState(state => ({
       hypothesisMoves: state.hypothesisMoves.map(m =>
         m.index === tipMove.index
-          ? { ...m, engineLines: lines, evaluation: getEvaluationResultFromLines(lines) }
+          ? { ...m, engineLines: lines, evaluation: getEvaluationResultFromLines(lines), classification }
           : m
       ),
       hypothesisLines: lines,
+      hypothesisClassification: classification ?? null,
       hypothesisSearching: false,
       hypothesisError: false,
     }));

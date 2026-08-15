@@ -44,12 +44,15 @@ import { useFullscreen } from '../hooks/useFullscreen';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
 import PlayerAvatar from '../components/PlayerAvatar';
-import { classificationImages, classificationColours, classificationNames } from '../constants/classifications';
+import { classificationImages, classificationColours, classificationNames, classificationBadgeStyles } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
 import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { SkeletonGameGrid, SkeletonBoard, SkeletonMoveList } from '../components/Skeleton';
 import AnalysisReport from '../components/AnalysisReport';
+import CoachPanel from '../components/CoachPanel';
+import { buildCoachNotes } from '../lib/reporter/coach';
+import type { CoachNote } from '../lib/reporter/coach';
 
 type SavedGame = {
   id: string;
@@ -61,6 +64,21 @@ type SavedGame = {
   accuracy?: { white?: number; black?: number };
   userSaved?: boolean;
 };
+
+// Compact badge for the what-if (hypothesis) classification: mate is solid
+// red/white, everything else follows the shared classificationBadgeStyles.
+function HypothesisClassificationBadge({ classification }: { classification: string }) {
+  const style = classificationBadgeStyles[classification];
+  if (!style) return null;
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded shrink-0"
+      style={{ color: style.color, backgroundColor: style.bg, border: `1px solid ${style.border}` }}
+    >
+      {style.label}
+    </span>
+  );
+}
 
 export default function Analysis() {
   const {
@@ -84,6 +102,7 @@ export default function Analysis() {
     hypothesisError,
     hypothesisLines,
     hypothesisDepth,
+    hypothesisClassification,
     importChessComGames,
     selectGame,
     setCurrentMoveIndex,
@@ -141,6 +160,7 @@ const currentMove = selectedGame?.moves[currentMoveIndex];
 // `opening` value is the game's opening. Derive it once so it persists across
 // all moves of the analysis instead of vanishing past the book prefix.
 const openingName = selectedGame?.moves.find(m => m.opening)?.opening ?? null;
+const coachNotes = React.useMemo(() => (selectedGame ? buildCoachNotes(selectedGame) : []), [selectedGame]);
 
 function formatDuration(ms: number | undefined): string {
   if (!ms || ms <= 0) return '';
@@ -437,6 +457,36 @@ function formatDuration(ms: number | undefined): string {
   const handlePrevMove = () => { setCurrentMoveIndex(currentMoveIndex - 1); };
   const handleNextMove = () => { setCurrentMoveIndex(currentMoveIndex + 1); };
   const handleEndMove = () => { setCurrentMoveIndex((selectedGame?.moves.length || 0) - 1); };
+
+  // Replay the engine's recommendation for a flagged move: jump to the position
+  // before it, enter what-if mode, and play the engine's best move there so the
+  // user sees the better line side by side with what they actually played.
+  const handleTryCoachMove = async (note: CoachNote) => {
+    if (!selectedGame) return;
+    if (hypothesisActive) exitHypothesisMode();
+    setCurrentMoveIndex(note.moveIndex - 1);
+    enterHypothesisMode();
+    // Zustand set is synchronous, so the store now holds the new base position.
+    // Read it back fresh instead of relying on stale render-closure values.
+    const fresh = useGameStore.getState();
+    const baseFen = fresh.hypothesisMoves.length > 0
+      ? fresh.hypothesisMoves[fresh.hypothesisMoves.length - 1].fen
+      : fresh.hypothesisBaseIndex >= 0 && fresh.selectedGame?.moves[fresh.hypothesisBaseIndex]
+        ? fresh.selectedGame.moves[fresh.hypothesisBaseIndex].fen
+        : STARTING_FEN;
+    try {
+      const Chess = (await import('chess.js')).Chess;
+      const board = new Chess(baseFen);
+      const mv = board.moves({ verbose: true }).find(m => m.san === note.bestSan);
+      // Guard: if the engine move isn't legal here (e.g. the user is viewing a
+      // different position than the one the note was built from), do nothing.
+      if (mv) {
+        playHypothesisMove(mv.from, mv.to);
+      }
+    } catch {
+      // Invalid FEN or engine move — ignore silently.
+    }
+  };
 
   const handleBackToImport = () => {
     selectGame('');
@@ -942,16 +992,21 @@ function formatDuration(ms: number | undefined): string {
                 <GitBranch className="w-3.5 h-3.5" />
                 What-if
               </span>
-              <span className="text-xs font-mono text-white flex-1 min-w-0 truncate">
-                {hypothesisMoves.length > 0
-                  ? hypothesisMoves.map((m, i) => {
-                      const ply = hypothesisBaseIndex + i + 1;
-                      const n = Math.floor(ply / 2) + 1;
-                      const prefix = m.color === 'w' ? `${n}. ` : `${n}... `;
-                      return prefix + m.san;
-                    }).join(' ')
-                  : 'Play a move to explore'
-                }
+              <span className="flex-1 min-w-0 flex items-center gap-2">
+                <span className="text-xs font-mono text-white truncate">
+                  {hypothesisMoves.length > 0
+                    ? hypothesisMoves.map((m, i) => {
+                        const ply = hypothesisBaseIndex + i + 1;
+                        const n = Math.floor(ply / 2) + 1;
+                        const prefix = m.color === 'w' ? `${n}. ` : `${n}... `;
+                        return prefix + m.san;
+                      }).join(' ')
+                    : 'Play a move to explore'
+                  }
+                </span>
+                {hypothesisMoves.length > 0 && hypothesisClassification != null && (
+                  <HypothesisClassificationBadge classification={hypothesisClassification} />
+                )}
               </span>
               {hypothesisSearching ? (
                 <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
@@ -1328,6 +1383,12 @@ function formatDuration(ms: number | undefined): string {
           </div>
           )}
 
+          <CoachPanel
+            notes={coachNotes}
+            activeMoveIndex={currentMoveIndex}
+            onTryMove={handleTryCoachMove}
+          />
+
           <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
@@ -1422,8 +1483,11 @@ function formatDuration(ms: number | undefined): string {
                   </div>
                   {/* Last hypothesis move SAN */}
                   <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-sm text-[var(--color-accent)]">
-                      {hypothesisMoves[hypothesisMoves.length - 1]?.san}
+                    <span className="font-extrabold text-sm text-[var(--color-accent)] flex items-center gap-2 min-w-0">
+                      <span className="truncate">{hypothesisMoves[hypothesisMoves.length - 1]?.san}</span>
+                      {hypothesisClassification != null && (
+                        <HypothesisClassificationBadge classification={hypothesisClassification} />
+                      )}
                     </span>
                     {hypothesisLines?.length > 0 && (() => {
                       const topLine = getTopEngineLine(hypothesisLines);

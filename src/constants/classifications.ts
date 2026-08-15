@@ -45,3 +45,23 @@ export const classificationNames: Record<string, string> = {
   book: 'Book',
   risky: 'Risky',
 };
+
+export type ClassificationBadgeStyle = {
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+};
+
+// Badge colors shared by the Coach panel and the what-if display, so the same
+// classification reads the same everywhere: blunder red, mistake orange,
+// inaccuracy yellow, best green, brilliant purple, mate solid red/white.
+export const classificationBadgeStyles: Record<string, ClassificationBadgeStyle> = {
+  mate: { label: 'Mate', color: '#ffffff', bg: 'rgba(220,38,38,0.9)', border: 'rgba(220,38,38,0.9)' },
+  blunder: { label: 'Blunder', color: '#f87171', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.35)' },
+  mistake: { label: 'Mistake', color: '#fb923c', bg: 'rgba(249,115,22,0.12)', border: 'rgba(249,115,22,0.35)' },
+  inaccuracy: { label: 'Inaccuracy', color: '#facc15', bg: 'rgba(234,179,8,0.12)', border: 'rgba(234,179,8,0.35)' },
+  best: { label: 'Best', color: '#4ade80', bg: 'rgba(34,197,94,0.12)', border: 'rgba(34,197,94,0.35)' },
+  brilliant: { label: 'Brilliant', color: '#c084fc', bg: 'rgba(168,85,247,0.12)', border: 'rgba(168,85,247,0.35)' },
+  critical: { label: 'Critical', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.35)' },
+};

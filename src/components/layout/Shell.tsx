@@ -31,12 +31,15 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
 
   const isActive = (path: string): boolean => location.pathname === path;
 
-  const navItems = [
+  const mainNavItems = [
     { name: 'Analysis', path: '/', icon: BarChart3 },
     { name: 'Training', path: '/training', icon: Brain },
     { name: 'Tools', path: '/tools', icon: Clock },
-    { name: 'Profile', path: '/profile', icon: User },
     { name: 'Community', path: '/community', icon: Trophy },
+  ];
+
+  const rightNavItems = [
+    { name: 'Profile', path: '/profile', icon: User },
     { name: 'Report', path: '/report', icon: Flag },
   ];
 
@@ -57,16 +60,16 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           </Link>
 
           <nav className="hidden md:flex space-x-1">
-            {navItems.map((item) => {
+            {mainNavItems.map((item) => {
               const Icon = item.icon;
               const active = isActive(item.path);
               return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    aria-current={active ? 'page' : undefined}
-                    className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium ${
-                      active
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium ${
+                    active
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                       : 'text-[var(--color-text-muted)]'
                   }`}
@@ -78,6 +81,28 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
             })}
           </nav>
         </div>
+
+        <nav className="hidden md:flex space-x-1 ml-auto">
+          {rightNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                aria-current={active ? 'page' : undefined}
+                className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium ${
+                  active
+                    ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                    : 'text-[var(--color-text-muted)]'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.name}</span>
+              </Link>
+            );
+          })}
+        </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 flex-shrink-0">
           {user && (
@@ -186,7 +211,27 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
               </div>
             </div>
           )}
-          {navItems.map((item) => {
+          {mainNavItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={handleNavClick}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium min-w-0 ${
+                  active
+                    ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
+                    : 'text-[var(--color-text-muted)]'
+                }`}
+              >
+                <Icon className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">{item.name}</span>
+              </Link>
+            );
+          })}
+          <div className="border-t border-[var(--color-border)]" />
+          {rightNavItems.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.path);
             return (
