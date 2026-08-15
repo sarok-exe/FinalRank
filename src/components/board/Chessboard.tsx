@@ -151,6 +151,14 @@ type ChessboardProps = {
   checkmateOverlay?: boolean;
   checkmateSide?: 'w' | 'b';
   animationDurationInMs?: number;
+  /** Arm premove capture: while `playable` is false, attempts to move a piece
+   *  of the premove color are queued as a premove instead of calling onMove. */
+  premoveEnabled?: boolean;
+  /** Color allowed to premove. Defaults to the side that will move next
+   *  (opposite of the side to move in the current FEN). */
+  premoveColor?: 'w' | 'b';
+  /** Notified whenever the queued premove changes or is cleared. */
+  onPremoveChange?(premove: { from: string; to: string } | null): void;
 }
 
 const THEME_COLORS: Record<string, { light: string; dark: string }> = {
@@ -184,13 +192,21 @@ const THEME_COLORS: Record<string, { light: string; dark: string }> = {
 function buildCustomPieces(
   isDraggable: boolean,
   draggingSquare: string | null,
+  dragColor: 'w' | 'b' | null,
+  pieceMap: Record<string, string>,
 ): PieceRenderObject {
   const make = (type: string, color: 'w' | 'b') => (props?: { square?: string }) => {
+    const square = props?.square;
     const isDragging =
-      isDraggable && draggingSquare != null && props?.square === draggingSquare;
+      isDraggable && draggingSquare != null && square === draggingSquare;
+    // While the board is locked for a premove, only the color that will move
+    // next is grabbable — restrict the hover/lift nudge to those pieces.
+    const squareColor = square != null ? pieceMap[square]?.[0] ?? null : null;
+    const canGrip =
+      isDraggable && (dragColor == null || squareColor === dragColor);
     const className = isDragging
       ? 'board-piece-lift'
-      : isDraggable
+      : canGrip
         ? 'board-piece-hover'
         : '';
     return (
@@ -228,6 +244,33 @@ function isDarkSquare(square: string, orientation: 'white' | 'black'): boolean {
   const dr = orientation === 'black' ? 7 - rank : rank;
   const dc = orientation === 'black' ? 7 - file : file;
   return (dr + dc) % 2 === 1;
+}
+
+/** Center of a square in board-percentage units (0–100), orientation-aware. */
+function squareCenterPct(
+  square: string,
+  orientation: 'white' | 'black',
+): { x: number; y: number } {
+  const file = square.charCodeAt(0) - 97;
+  const rank = 8 - parseInt(square[1], 10);
+  const col = orientation === 'black' ? 7 - file : file;
+  const row = orientation === 'black' ? 7 - rank : rank;
+  return { x: (col + 0.5) * 12.5, y: (row + 0.5) * 12.5 };
+}
+
+/**
+ * Is { from → to } a legal move in this exact position? Used to decide whether
+ * a queued premove still applies after the position underneath it changes and
+ * right before auto-firing it. Promotion defaults to queen (chess.com style).
+ */
+function isLegalMoveInFen(fen: string, from: string, to: string): boolean {
+  try {
+    const chess = new Chess(fen);
+    chess.move({ from, to, promotion: 'q' });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function renderClassificationBadge(cls: MoveClassification): React.JSX.Element | null {
@@ -279,6 +322,9 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     checkmateOverlay = false,
     checkmateSide,
     animationDurationInMs = 300,
+    premoveEnabled = false,
+    premoveColor: premoveColorProp,
+    onPremoveChange,
   } = props;
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
@@ -289,6 +335,29 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   // Square of the in-flight drag, for the piece-lift class. react-chessboard
   // v5 doesn't pass isDragging to piece renderers, so we track it ourselves.
   const [draggingSquare, setDraggingSquare] = useState<string | null>(null);
+
+  // ── Premove state (a queued move, chess.com-style) ────────────────────
+  const [premove, setPremove] = useState<{ from: string; to: string } | null>(null);
+  const [premoveFrom, setPremoveFrom] = useState<string | null>(null);
+  const premoveRef = useRef<{ from: string; to: string } | null>(null);
+  const premoveFromRef = useRef<string | null>(null);
+  const prevPlayableRef = useRef(playable);
+  const onMoveRef = useRef(props.onMove);
+  onMoveRef.current = props.onMove;
+  const onPremoveChangeRef = useRef(onPremoveChange);
+  onPremoveChangeRef.current = onPremoveChange;
+  const premoveEnabledRef = useRef(premoveEnabled);
+  premoveEnabledRef.current = premoveEnabled;
+
+  // The color allowed to premove: explicit prop, or derived as the side that
+  // will move next (the opposite of whoever is to move right now).
+  const premoveColor: 'w' | 'b' | null = premoveColorProp ?? (() => {
+    const side = fen.split(' ')[1];
+    if (side !== 'w' && side !== 'b') return null;
+    return side === 'w' ? 'b' : 'w';
+  })();
+
+  const pieceMap = useMemo(() => fenToPieceMap(fen), [fen]);
 
   // One-shot capture/promotion effects, keyed by a fresh id per move so the
   // animation replays on every new move and never lingers across navigation.
@@ -308,9 +377,15 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const rightClickHighlightColor =
     settings.rightClickHighlightColor ?? settings.highlightColors.rightClick ?? '#e53935';
 
+  // Premove arms grabbing while the board is locked: only the color that will
+  // move next is grabbable (canDragPiece enforces it; the lift/hover nudge in
+  // buildCustomPieces is restricted the same way).
+  const isDraggable = playable || premoveEnabled;
+  const draggableColor: 'w' | 'b' | null = !playable && premoveEnabled ? premoveColor : null;
+
   const customPieces = useMemo(
-    () => buildCustomPieces(playable, draggingSquare),
-    [playable, draggingSquare],
+    () => buildCustomPieces(isDraggable, draggingSquare, draggableColor, pieceMap),
+    [isDraggable, draggingSquare, draggableColor, pieceMap],
   );
 
   const { moveTrail: mtColor, selectedSquare: ssColor } = settings.highlightColors;
@@ -350,11 +425,78 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     return result;
   }, [arrows, bestMoveArrow]);
 
+  // ── Premove plumbing ──────────────────────────────────────────────────
+  const queuePremove = useCallback((pm: { from: string; to: string }) => {
+    premoveRef.current = pm;
+    premoveFromRef.current = null;
+    setPremove(pm);
+    setPremoveFrom(null);
+    onPremoveChangeRef.current?.(pm);
+  }, []);
+
+  const clearPremove = useCallback(() => {
+    if (premoveRef.current == null) return;
+    premoveRef.current = null;
+    setPremove(null);
+    onPremoveChangeRef.current?.(null);
+  }, []);
+
+  const clearPremoveSelection = useCallback(() => {
+    if (premoveFromRef.current == null) return;
+    premoveFromRef.current = null;
+    setPremoveFrom(null);
+  }, []);
+
+  // Can this square's piece be used for a premove right now?
+  const canPremovePiece = useCallback((square: string): boolean => {
+    const piece = pieceMap[square];
+    return piece != null && (premoveColor == null || piece[0] === premoveColor);
+  }, [pieceMap, premoveColor]);
+
+  // Click-click premove while the board is locked: the first click on a piece
+  // of the premove color arms the selection, the second click on any other
+  // square (empty or enemy-occupied) queues it. Clicking empty with no
+  // selection cancels a queued premove, mirroring chess.com.
+  const handlePremoveClick = useCallback((square: string) => {
+    const piece = pieceMap[square];
+    if (premoveFromRef.current != null) {
+      if (square === premoveFromRef.current) {
+        clearPremoveSelection();
+        return;
+      }
+      if (piece != null && (premoveColor == null || piece[0] === premoveColor)) {
+        // Another own-color piece — move the selection instead of targeting it.
+        premoveFromRef.current = square;
+        setPremoveFrom(square);
+        return;
+      }
+      queuePremove({ from: premoveFromRef.current, to: square });
+      return;
+    }
+    if (piece != null && (premoveColor == null || piece[0] === premoveColor)) {
+      premoveFromRef.current = square;
+      setPremoveFrom(square);
+      return;
+    }
+    if (piece == null) {
+      clearPremove();
+    }
+  }, [pieceMap, premoveColor, queuePremove, clearPremove, clearPremoveSelection]);
+
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
       // Any drag end clears the lift — including cancelled/vetoed drops.
       setDraggingSquare(null);
-      if (!playable || targetSquare == null) return false;
+      if (targetSquare == null) return false;
+      if (!playable) {
+        // Board locked: with premove armed, dropping an own-color piece queues
+        // the move as a premove. The piece still snaps back (return false) —
+        // the position only changes when the premove fires later.
+        if (premoveEnabled && sourceSquare !== targetSquare && canPremovePiece(sourceSquare)) {
+          queuePremove({ from: sourceSquare, to: targetSquare });
+        }
+        return false;
+      }
       // Picking a piece up and putting it back on the same square is not a move.
       if (sourceSquare === targetSquare) return false;
       // Allow the caller to veto the move (e.g. wrong puzzle move): when onMove
@@ -362,7 +504,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       const accepted = props.onMove?.(sourceSquare, targetSquare);
       return accepted !== false;
     },
-    [playable, props],
+    [playable, props, premoveEnabled, canPremovePiece, queuePremove],
   );
 
   const handlePieceDragStart = useCallback(
@@ -389,10 +531,69 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     };
   }, [draggingSquare]);
 
+  // A queued premove only survives while it stays legal in the current
+  // position — when the position underneath it changes (engine reply,
+  // browsing, a new puzzle) and the move no longer applies, drop it silently
+  // so the dashed arrow simply disappears.
+  useEffect(() => {
+    const pm = premoveRef.current;
+    if (pm == null) return;
+    if (!isLegalMoveInFen(fen, pm.from, pm.to)) clearPremove();
+  }, [fen, clearPremove]);
+
+  // The board just became playable again: fire any queued premove instantly.
+  // The premove is spent the moment the board unlocks — cleared first, then
+  // validated once more (the position may have shifted under it) and played.
+  useEffect(() => {
+    const wasPlayable = prevPlayableRef.current;
+    prevPlayableRef.current = playable;
+    if (wasPlayable || !playable) return;
+    // An unlocked board also invalidates any in-flight premove selection.
+    if (premoveFromRef.current != null) {
+      premoveFromRef.current = null;
+      setPremoveFrom(null);
+    }
+    const pm = premoveRef.current;
+    if (pm == null) return;
+    premoveRef.current = null;
+    setPremove(null);
+    setSelectedSquare(null);
+    setValidMoves([]);
+    onPremoveChangeRef.current?.(null);
+    if (!isLegalMoveInFen(fen, pm.from, pm.to)) return;
+    // onMove may return false to veto (e.g. a wrong puzzle move); either way
+    // the premove is already cleared above.
+    onMoveRef.current?.(pm.from, pm.to);
+  }, [playable, fen]);
+
+  // If premove support is switched off, drop any queued premove.
+  useEffect(() => {
+    if (premoveEnabledRef.current || premoveRef.current == null) return;
+    premoveRef.current = null;
+    setPremove(null);
+    onPremoveChangeRef.current?.(null);
+  }, [premoveEnabled]);
+
+  // Escape cancels an in-flight premove selection or a queued premove
+  // (mirrors the existing drag-cancel Escape handler above).
+  useEffect(() => {
+    if (premove == null && premoveFrom == null) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      clearPremove();
+      clearPremoveSelection();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [premove, premoveFrom, clearPremove, clearPremoveSelection]);
+
   const handleSquareClick = useCallback(
     ({ square }: { square: string }) => {
       props.onLeftClick?.();
-      if (!playable) return;
+      if (!playable) {
+        handlePremoveClick(square);
+        return;
+      }
 
       // Clicking the already-selected square again deselects — never a move.
       if (selectedSquare != null && square === selectedSquare) {
@@ -424,7 +625,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
         setValidMoves([]);
       }
     },
-    [playable, fen, selectedSquare, validMoves, props],
+    [playable, fen, selectedSquare, validMoves, props, handlePremoveClick],
   );
 
   const handleSquareRightClick = useCallback(
@@ -450,7 +651,11 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       const isBadge = badgeClassification != null;
       const isHint = hintSquare === square;
       const isFx = fx != null && fx.square === square;
-      if (!isDot && !isBadge && !isHint && !isTo && !isFx && !isRightClicked) return <>{children}</>;
+      const isPremoveSource = premove?.from === square;
+      const isPremoveTarget = premove?.to === square;
+      const isPremoveArm = premoveFrom === square && premove == null;
+      const isPremoveMarker = isPremoveSource || isPremoveTarget || isPremoveArm;
+      if (!isDot && !isBadge && !isHint && !isTo && !isFx && !isRightClicked && !isPremoveMarker) return <>{children}</>;
 
       const hasPiece = children != null;
       return (
@@ -462,6 +667,9 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           // the square's highlight. The "from" square is deliberately left
           // un-isolated: react-chessboard slides the piece from there and any
           // stacking context would trap its z-index:10 and break the slide.
+          // Premove markers must survive alongside the same slide-on-fire
+          // animations, so they follow the same un-isolated rule and float
+          // above the sliding piece instead.
           ...((isTo || (isRightClicked && !isSlideSource)) ? { isolation: 'isolate' } : {}),
         }}>
           {isTo && (
@@ -503,6 +711,32 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
                 border: '4px solid #fbbf24',
                 boxShadow: '0 0 14px rgba(251, 191, 36, 0.8)',
                 pointerEvents: 'none', zIndex: 12,
+              }}
+            />
+          )}
+          {(isPremoveArm || isPremoveSource) && (
+            <div
+              className="board-premove-marker"
+              style={{
+                position: 'absolute', inset: 0,
+                // The source square may double as the slide source when the
+                // premove fires; in that case its wrapper isn't isolated and
+                // the marker floats above the sliding piece (see comment up
+                // top). Everywhere else it tucks under the piece.
+                boxShadow: `inset 0 0 0 3px #fbbf24, inset 0 0 0 5px ${hexToRgba('#fbbf24', 0.35)}`,
+                pointerEvents: 'none',
+                zIndex: isPremoveSource ? 12 : -1,
+              }}
+            />
+          )}
+          {isPremoveTarget && (
+            <div
+              className="board-premove-marker"
+              style={{
+                position: 'absolute', inset: '4%', borderRadius: '50%',
+                border: '3px dashed #fbbf24',
+                boxShadow: `0 0 0 2px ${hexToRgba('#fbbf24', 0.22)}, 0 0 12px ${hexToRgba('#fbbf24', 0.45)}`,
+                pointerEvents: 'none', zIndex: -1,
               }}
             />
           )}
@@ -571,7 +805,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
         </div>
       );
     },
-    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs],
+    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs, premove, premoveFrom],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {
@@ -628,7 +862,17 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           darkSquareStyle: { backgroundColor: colors.dark },
           squareStyles,
           arrows: boardArrows,
-          allowDragging: playable,
+          // Premove arms grabbing while the board is locked, so the dashed
+          // premove can be queued by dragging. When locked, canDragPiece
+          // restricts grab to the color allowed to premove.
+          allowDragging: isDraggable,
+          canDragPiece: (args) => {
+            if (playable) return true;
+            if (!premoveEnabled) return false;
+            if (args.isSparePiece) return true;
+            const pieceColor = args.piece.pieceType[0];
+            return premoveColor == null || pieceColor === premoveColor;
+          },
           allowDrawingArrows: true,
           clearArrowsOnClick: true,
           clearArrowsOnPositionChange: false,

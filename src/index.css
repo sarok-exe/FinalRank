@@ -22,6 +22,14 @@
   --breakpoint-2xl: 96rem;  /* 1536px (default) */
 }
 
+/*
+ * Theme tokens: the olive defaults below are the "factory" palette. Per-theme
+ * palettes (olive, ember, chesscom, …) live in THEME_PRESETS in
+ * stores/settingsStore.ts and are applied at runtime as inline CSS custom
+ * properties on <html> (see applyThemeCss) — no [data-theme] / .theme-* classes
+ * are used. chesscom adopts chess.com's board (#eeeed2 / #769656) and dark
+ * chrome (#262421) with green-300 buttons and link-blue accents.
+ */
 :root {
   --color-primary: #606c38;
   --color-secondary: #283618;

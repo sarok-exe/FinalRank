@@ -38,10 +38,8 @@ export type UserSettings = {
   engineTimeLimitMs: number;
   boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant' | 'ocean-sunset' | 'fresh-greens' | 'cherry-blossom' | 'golden-blue' | 'pine-forest' | 'coastal' | 'amber-glow' | 'soft-sand';
   boardOrientation: 'white' | 'black';
-  notificationsEnabled: boolean;
   audioEnabled: boolean;
   audioVolume: number;
-  animationsEnabled: boolean;
   shortcutsEnabled: boolean;
   timeAlertEnabled: boolean;
   timeAlertThreshold: number;
@@ -51,7 +49,7 @@ export type UserSettings = {
     | 'leafy-green' | 'neutral-harmony' | 'nature-harmony' | 'soft-lavender' | 'cherry-blossom'
     | 'gothic-glam' | 'fiery-ocean' | 'warm-autumn' | 'autumn-sunset'
     | 'deep-sea' | 'mystic-mauve' | 'coastal-blues' | 'golden-twilight'
-    | 'fresh-greens' | 'mocha-latte';
+    | 'fresh-greens' | 'mocha-latte' | 'chesscom';
   siteColors: SiteColorScheme;
   boardCustomColors: BoardCustomColors;
   coordinatesSize: number;
@@ -63,12 +61,10 @@ export type UserSettings = {
   rightClickHighlightColor: string;
   streakSoundEnabled: boolean;
   streakSoundVolume: number;
-  streakFlameAnimated: boolean;
   streakFlameColorMode: 'heat' | 'gold' | 'white';
   parallelWorkers: number;
   autoDepth: boolean;
   featureToggles: {
-    showArrows: boolean;
     showCoordinates: boolean;
     autoAnalyze: boolean;
   };

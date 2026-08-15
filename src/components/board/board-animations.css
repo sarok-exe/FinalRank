@@ -146,6 +146,23 @@
 }
 
 /* ----------------------------------------------------------------
+   Premove indicator — a queued move shown while the board is locked
+   (chess.com-style). The arrow is a dashed amber SVG overlay above the
+   pieces; the square markers are dashed outlines with a faint amber
+   fill. Purely informational: pointer-events are none everywhere, and
+   the only animation is a quick fade-in (no from-keyframe means the
+   fade ends at each element's natural opacity).
+   ----------------------------------------------------------------- */
+@keyframes board-premove-fade {
+  from { opacity: 0; }
+}
+
+.board-premove-arrow,
+.board-premove-marker {
+  animation: board-premove-fade 160ms ease-out both;
+}
+
+/* ----------------------------------------------------------------
    Respect users who disabled motion — drop all board FX.
    ----------------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
@@ -154,7 +171,9 @@
   .board-fx-promotion-burst,
   .board-fx-promotion-ring,
   .board-badge,
-  .board-rightclick-pop {
+  .board-rightclick-pop,
+  .board-premove-arrow,
+  .board-premove-marker {
     animation: none !important;
   }
 

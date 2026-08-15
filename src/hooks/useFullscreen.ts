@@ -2,7 +2,7 @@ import { useEffect, useCallback } from 'react';
 import { useUIStore } from '../stores/uiStore';
 
 export function useFullscreen() {
-  const { fullscreenMode, setFullscreenMode, toggleFullscreenMode } = useUIStore();
+  const { setFullscreenMode, toggleFullscreenMode } = useUIStore();
 
   const toggleFullscreen = useCallback(async () => {
     const apiSupported =
@@ -35,5 +35,5 @@ export function useFullscreen() {
     return () => { document.removeEventListener('fullscreenchange', handleChange); };
   }, [setFullscreenMode]);
 
-  return { isFullscreen: fullscreenMode, toggleFullscreen };
+  return { toggleFullscreen };
 }

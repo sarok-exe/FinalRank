@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User as UserIcon, Flame, Trophy, Volume2,
-  Bell, Palette, Zap, LogOut, Keyboard, Clock,
+  Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
   Heart, Sparkles,
 } from 'lucide-react';
@@ -45,6 +45,10 @@ const AVAILABLE_THEMES: { id: UserSettings['boardColor']; name: string; light: s
   { id: 'amber-glow', name: 'Amber Glow', light: '#FEFAE0', dark: '#D62828' },
   { id: 'soft-sand', name: 'Soft Sand', light: '#F5EBE0', dark: '#A9927D' },
 ];
+
+const THEME_DISPLAY_NAMES: Partial<Record<UserSettings['themePreset'], string>> = {
+  chesscom: 'Chess.com',
+};
 
 const shortcutsList = [
   { key: 'flip', label: 'Flip board', keyDisplay: 'F' },
@@ -692,19 +696,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           className="w-24 accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
         />
       </div>
-
-      <div className="space-y-3 pt-3 border-t border-[var(--color-border)]">
-        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
-          <Bell className="w-4 h-4 text-[var(--color-accent)]" />
-          Notifications
-        </span>
-        <SettingToggle
-          label="Analysis Notifications"
-          desc="Show legendary alerts after analysis"
-          checked={settings.notificationsEnabled}
-          onChange={v => { updateSettings({ notificationsEnabled: v }); }}
-        />
-      </div>
     </div>
   );
 
@@ -836,12 +827,13 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         <div className="space-y-2.5">
           <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
             <Paintbrush className="w-4 h-4 text-[var(--color-accent)]" />
-            <span>Theme Preset</span>
+            <span>Themes</span>
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {themeKeys.map(key => {
               const preset = THEME_PRESETS[key];
               const sel = settings.themePreset === key;
+              const label = THEME_DISPLAY_NAMES[key] ?? key;
               return (
                 <button
                   key={key}
@@ -850,6 +842,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                       themePreset: key,
                       siteColors: { ...preset.siteColors },
                       boardCustomColors: { ...preset.boardCustomColors },
+                      highlightColors: { ...preset.highlightColors },
+                      rightClickHighlightColor: preset.highlightColors.rightClick,
+                      // The board renders from THEME_COLORS[boardColor] in
+                      // Chessboard.tsx, so themes drive it through their
+                      // suggestedBoardColor (chess.com → the green/cream pair).
+                      boardColor: preset.suggestedBoardColor,
                     });
                   }}
                   className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
@@ -863,7 +861,11 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                     <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.accent }} />
                     <div className="w-5 h-5 rounded" style={{ backgroundColor: preset.siteColors.background }} />
                   </div>
-                  <span className="text-[9px] font-bold text-[var(--color-text)] capitalize leading-none">{key}</span>
+                  <div className="flex gap-0.5 rounded-sm overflow-hidden border border-[var(--color-border)]/50">
+                    <div className="w-4 h-3.5" style={{ backgroundColor: preset.boardCustomColors.lightSquare }} />
+                    <div className="w-4 h-3.5" style={{ backgroundColor: preset.boardCustomColors.darkSquare }} />
+                  </div>
+                  <span className="text-[9px] font-bold text-[var(--color-text)] capitalize leading-none">{label}</span>
                 </button>
               );
             })}

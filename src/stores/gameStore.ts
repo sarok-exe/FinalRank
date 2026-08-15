@@ -52,7 +52,6 @@ type GameState = {
   fetchLinkedUserGames(): Promise<void>;
   loadUserGames(): Promise<void>;
   loadGameByShortId(shortId: string): Promise<ChessGame | null>;
-  resetGameStore(): void;
   consumeImportFlag(): void;
   enterHypothesisMode(depth?: number): boolean;
   exitHypothesisMode(): void;
@@ -601,36 +600,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
     return game;
   },
-
-  resetGameStore: () => {
-    if (activeAbortController) { activeAbortController.abort(); activeAbortController = null; }
-    hypothesisAbortController?.abort();
-    hypothesisAbortController = null;
-    pendingAnalysis.clear();
-    set({
-    games: [],
-    selectedGame: null,
-    currentMoveIndex: -1,
-    analyzing: false,
-    autoAnalyzing: false,
-    analysisProgress: 0,
-    importError: null,
-    analysisCache: {},
-    analyzedPgnHashes: {},
-    linkedGames: [],
-    linkedLoading: false,
-    linkedAnalyzing: false,
-    linkedAnalysisProgress: '',
-    importJustCompleted: false,
-    hypothesisActive: false,
-    hypothesisMoves: [],
-    hypothesisBaseIndex: 0,
-    hypothesisSearching: false,
-    hypothesisError: false,
-    hypothesisLines: null,
-    hypothesisDepth: 0,
-    hypothesisClassification: null,
-  }); },
 }));
 
 async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
@@ -746,7 +715,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     },
   });
 
-  // Store abort controller so resetGameStore can abort on navigation
+  // Store abort controller so in-flight evaluation can be aborted
   if (activeAbortController) activeAbortController.abort();
   activeAbortController = evaluator.controller;
   // Clear reference once evaluation completes so it can't be double-aborted

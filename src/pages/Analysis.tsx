@@ -1822,7 +1822,6 @@ function formatDuration(ms: number | undefined): string {
             if (u?.chessComUsername) {
               void fetchLinkedUserGames();
             }
-            void importChessComGames('');
           }}
           className="text-[10px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-2 py-0.5 rounded hover:bg-[var(--color-primary)] hover:text-white transition-all"
           title="Refresh game list"

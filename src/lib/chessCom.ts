@@ -168,7 +168,3 @@ export async function fetchAvatarsForGames(games: ChessGame[]): Promise<ChessGam
     black: { ...g.black, avatar: cache.get(g.black.username) },
   }));
 }
-
-export function fetchGameById(_id: string): Promise<ChessGame | null> {
-  return Promise.resolve(null);
-}

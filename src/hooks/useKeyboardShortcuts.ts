@@ -37,13 +37,3 @@ export function useKeyboardShortcuts(shortcuts: ShortcutDef[]) {
     return () => { window.removeEventListener('keydown', handleKeyDown); };
   }, [shortcutsEnabled]);
 }
-
-export const DEFAULT_SHORTCUTS: { key: string; ctrl?: boolean; shift?: boolean; alt?: boolean; description: string }[] = [
-  { key: 'f', description: 'Flip board' },
-  { key: 'a', description: 'Analyze game' },
-  { key: 'ArrowLeft', description: 'Previous move' },
-  { key: 'ArrowRight', description: 'Next move' },
-  { key: 'Home', description: 'First move' },
-  { key: 'End', description: 'Last move' },
-  { key: '?', description: 'Show keyboard shortcuts' },
-];
