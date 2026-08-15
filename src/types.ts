@@ -46,6 +46,7 @@ export type UserSettings = {
   timeAlertEnabled: boolean;
   timeAlertThreshold: number;
   timeAlertSound: boolean;
+  timePressureSound: boolean;
   themePreset: 'olive' | 'dark' | 'ember' | 'ocean' | 'forest' | 'custom'
     | 'leafy-green' | 'neutral-harmony' | 'nature-harmony' | 'soft-lavender' | 'cherry-blossom'
     | 'gothic-glam' | 'fiery-ocean' | 'warm-autumn' | 'autumn-sunset'
@@ -59,6 +60,7 @@ export type UserSettings = {
     selectedSquare: string;
     rightClick: string;
   };
+  rightClickHighlightColor: string;
   streakSoundEnabled: boolean;
   streakSoundVolume: number;
   streakFlameAnimated: boolean;

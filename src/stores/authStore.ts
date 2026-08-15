@@ -43,6 +43,7 @@ const DEFAULT_GUEST: User = {
       timeAlertEnabled: true,
       timeAlertThreshold: 10,
       timeAlertSound: true,
+      timePressureSound: true,
       themePreset: 'olive',
       siteColors: {
         primary: '#606c38',
@@ -64,6 +65,7 @@ const DEFAULT_GUEST: User = {
         selectedSquare: '#ffaa00',
         rightClick: '#003088',
       },
+      rightClickHighlightColor: '#e53935',
       streakSoundEnabled: true,
       streakSoundVolume: 0.4,
       streakFlameAnimated: true,

@@ -147,6 +147,15 @@ function timeToDepth(timeMs: number): number {
   const secs = timeMs / 1000;
   return Math.max(2, Math.min(30, Math.round(8 + 2.5 * Math.log2(secs + 1))));
 }
+
+// 'clock-tick' only plays when the newly-active side is under time pressure (chess.com style).
+const CLOCK_TICK_PRESSURE_THRESHOLD_MS = 30 * 1000;
+
+// Remaining time (ms) of the side that becomes active after switching off `switchedSide`.
+function nextActiveSideRemainingMs(switchedSide: 'w' | 'b'): number {
+  const { whiteTime, blackTime } = useClockStore.getState();
+  return switchedSide === 'w' ? blackTime : whiteTime;
+}
 function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.ReactElement {
   const uiStore = useUIStore();
   const { focusMode, fullscreenMode } = uiStore;
@@ -286,9 +295,9 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
                 onClick={() => { void fullscreen.toggleFullscreen(); }}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
                 title="Toggle fullscreen (F11)"
-                aria-label="Toggle fullscreen"
               >
                 <Maximize className="w-3 h-3" />
+                <span>Fullscreen</span>
               </button>
             </>
           )}
@@ -347,7 +356,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
           {!focusMode && (
           <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
             <div className="grid grid-cols-2 gap-4 w-full">
-              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5" id="engine-controls-panel">
+              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5" id="tools-engine-controls-panel">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Cpu className="w-4 h-4 text-[var(--color-accent)]" />
                   Engine Strength
@@ -513,13 +522,15 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
           clockStore.startClock();
         } else if (activeColor) {
           clockStore.switchTurn(activeColor);
-          sound.play('clock-tick');
+          if (settings.timePressureSound && nextActiveSideRemainingMs(activeColor) < CLOCK_TICK_PRESSURE_THRESHOLD_MS) {
+            sound.play('clock-tick');
+          }
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => { window.removeEventListener('keydown', handler); };
-  }, [isRunning, activeColor, winner, clockStore, sound]);
+  }, [isRunning, activeColor, winner, clockStore, sound, settings]);
 
   useEffect(() => {
     let lastTime = Date.now();
@@ -555,7 +566,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
 
       if (isRunning && activeColor) {
         clockStore.switchTurn(activeColor);
-        sound.play('clock-tick');
+        if (settings.timePressureSound && nextActiveSideRemainingMs(activeColor) < CLOCK_TICK_PRESSURE_THRESHOLD_MS) {
+          sound.play('clock-tick');
+        }
       }
 
       if (fresh.isGameOver()) {
@@ -576,7 +589,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
       console.warn('Invalid move');
     }
     movePendingRef.current = false;
-  }, [fen, autoFlip, sound, isRunning, activeColor, clockStore]);
+  }, [fen, autoFlip, sound, isRunning, activeColor, clockStore, settings]);
 
   const isInAlert = (timeMs: number): boolean =>
     settings.timeAlertEnabled && timeMs > 0 && timeMs <= settings.timeAlertThreshold * 1000;
@@ -647,6 +660,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
             title="Toggle fullscreen (F11)"
           >
             <Maximize className="w-3 h-3" />
+            <span>Fullscreen</span>
           </button>
         </div>
       </div>
@@ -745,20 +759,20 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
               <div
                 className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${renderWhiteClockClass()}`}
               >
-                {winner != null && whiteTime === 0 && (
-                  <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="4" y1="2" x2="4" y2="22" />
-                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
-                  </svg>
-                )}
                 <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded bg-white border border-[var(--color-text-muted)]" />
                   White
+                  {winner != null && whiteTime === 0 && (
+                    <svg className="w-4 h-4 text-red-500 flag-fall shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="4" y1="2" x2="4" y2="22" />
+                      <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                    </svg>
+                  )}
                 </div>
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
                   {formatClockTime(whiteTime)}
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-border)]">
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-border)]">
                   <div
                     className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
                     style={{ width: `${Math.max(0, (initialWhiteTime > 0 ? whiteTime / initialWhiteTime : 1) * 100)}%` }}
@@ -768,20 +782,20 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
               <div
                 className={`flex-1 rounded-lg border p-2 text-center relative overflow-hidden ${renderBlackClockClass()}`}
               >
-                {winner != null && blackTime === 0 && (
-                  <svg className="absolute top-1 right-1 w-3.5 h-3.5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="4" y1="2" x2="4" y2="22" />
-                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
-                  </svg>
-                )}
                 <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider flex items-center justify-center gap-1">
                   <span className="w-1.5 h-1.5 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                   Black
+                  {winner != null && blackTime === 0 && (
+                    <svg className="w-4 h-4 text-red-500 flag-fall shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <line x1="4" y1="2" x2="4" y2="22" />
+                      <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                    </svg>
+                  )}
                 </div>
                 <div className="text-lg font-mono font-black tracking-tighter text-white">
                   {formatClockTime(blackTime)}
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--color-border)]">
+                <div className="absolute bottom-0 left-0 right-0 h-1 bg-[var(--color-border)]">
                   <div
                     className="h-full bg-[var(--color-primary)] transition-all duration-200 ease-linear"
                     style={{ width: `${Math.max(0, (initialBlackTime > 0 ? blackTime / initialBlackTime : 1) * 100)}%` }}
@@ -798,16 +812,18 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
             )}
             <div className="flex items-center justify-center gap-1 mb-2">
               {!isRunning ? (
-                <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50">
-                  Start
+                <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50 flex items-center gap-1">
+                  <Play className="w-4 h-4" />
+                  <span>Start</span>
                 </button>
               ) : (
-                <button onClick={() => { clockStore.pauseClock(); }} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold">
-                  Stop
+                <button onClick={() => { clockStore.pauseClock(); }} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold flex items-center gap-1">
+                  <Pause className="w-4 h-4" />
+                  <span>Pause</span>
                 </button>
               )}
               <button onClick={() => { clockStore.resetClock(); }} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock" aria-label="Reset clock">
-                <RotateCcw className="w-3 h-3" />
+                <RotateCcw className="w-4 h-4" />
               </button>
             </div>
             <div className="flex gap-1 mb-2">
@@ -1003,13 +1019,15 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
           clockStore.startClock();
         } else if (activeColor) {
           clockStore.switchTurn(activeColor);
-          sound.play('clock-tick');
+          if (settings.timePressureSound && nextActiveSideRemainingMs(activeColor) < CLOCK_TICK_PRESSURE_THRESHOLD_MS) {
+            sound.play('clock-tick');
+          }
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => { window.removeEventListener('keydown', handler); };
-  }, [isRunning, activeColor, winner, clockStore, sound]);
+  }, [isRunning, activeColor, winner, clockStore, sound, settings]);
 
   const currentCategoryPresets = PRESET_CATEGORIES[clockCategory].presets;
 
@@ -1052,29 +1070,30 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
             title="Toggle fullscreen (F11)"
           >
             <Maximize className="w-3 h-3" />
+            <span>Fullscreen</span>
           </button>
         </div>
       </div>
 
-      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh] overflow-hidden' : ''}>
+      <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh] px-[5%] sm:px-0' : ''}>
       <div className="flex flex-col items-center overflow-visible w-full">
         <div className={`bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 w-full ${focusMode ? '' : 'max-w-md'} ${fullscreenMode ? 'scale-[1.1] sm:scale-[1.4] md:scale-[1.7] transform-gpu origin-center' : ''}`}>
           <div className="grid grid-rows-2 gap-3" id="clock-sides">
             <button
-              onClick={() => { clockStore.switchTurn('w'); sound.play('clock-tick'); }}
+              onClick={() => { clockStore.switchTurn('w'); if (settings.timePressureSound && nextActiveSideRemainingMs('w') < CLOCK_TICK_PRESSURE_THRESHOLD_MS) { sound.play('clock-tick'); } }}
               disabled={!isRunning || activeColor !== 'w'}
               className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${getWhiteClockClass()}`}
               id="clock-side-white"
             >
-              {whiteFlagFallen && (
-                <svg className="absolute top-2 right-2 w-5 h-5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="4" y1="2" x2="4" y2="22" />
-                  <polyline points="4,6 20,6 18,10 20,14 4,14" />
-                </svg>
-              )}
               <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
                 <span className="w-2 h-2 rounded bg-white border border-[var(--color-text-muted)]" />
                 White
+                {whiteFlagFallen && (
+                  <svg className="w-4 h-4 text-red-500 flag-fall shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="2" x2="4" y2="22" />
+                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                  </svg>
+                )}
               </div>
               <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'w' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(whiteTime)}
@@ -1088,20 +1107,20 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
             </button>
 
             <button
-              onClick={() => { clockStore.switchTurn('b'); sound.play('clock-tick'); }}
+              onClick={() => { clockStore.switchTurn('b'); if (settings.timePressureSound && nextActiveSideRemainingMs('b') < CLOCK_TICK_PRESSURE_THRESHOLD_MS) { sound.play('clock-tick'); } }}
               disabled={!isRunning || activeColor !== 'b'}
               className={`rounded-2xl border flex flex-col items-center justify-center p-4 relative overflow-hidden ${getBlackClockClass()}`}
               id="clock-side-black"
             >
-              {blackFlagFallen && (
-                <svg className="absolute top-2 right-2 w-5 h-5 text-red-500 flag-fall" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="4" y1="2" x2="4" y2="22" />
-                  <polyline points="4,6 20,6 18,10 20,14 4,14" />
-                </svg>
-              )}
               <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-1 flex items-center gap-1">
                 <span className="w-2 h-2 rounded bg-[var(--color-surface)] border border-[var(--color-text-muted)]" />
                 Black
+                {blackFlagFallen && (
+                  <svg className="w-4 h-4 text-red-500 flag-fall shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <line x1="4" y1="2" x2="4" y2="22" />
+                    <polyline points="4,6 20,6 18,10 20,14 4,14" />
+                  </svg>
+                )}
               </div>
               <span className={`text-4xl font-mono font-black tracking-tighter ${activeColor === 'b' ? 'text-[var(--color-primary)]' : 'text-white'}`}>
                 {formatTimeWithAlert(blackTime)}

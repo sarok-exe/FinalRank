@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard as RCChessboard } from 'react-chessboard';
 import { Chess, type Square } from 'chess.js';
 import type { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
 import type { PieceRenderObject } from 'react-chessboard';
+import './board-animations.css';
 
 export type Arrow = { from: string; to: string; color?: string };
 
@@ -25,6 +26,102 @@ function findKingSquare(fen: string, side: 'w' | 'b'): string | null {
       col++;
     }
   }
+  return null;
+}
+
+const FEN_FILES = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+const FEN_RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
+/** Parse the board half of a FEN into { square: pieceCode }, e.g. { e4: 'wP' }. */
+function fenToPieceMap(fen: string): Record<string, string> {
+  const rows = fen.split(' ')[0].split('/');
+  const map: Record<string, string> = {};
+  for (let r = 0; r < 8 && r < rows.length; r++) {
+    let col = 0;
+    for (const ch of rows[r]) {
+      if (/\d/.test(ch)) { col += parseInt(ch); continue; }
+      if (col >= 8) break;
+      const pieceColor = ch === ch.toUpperCase() ? 'w' : 'b';
+      map[FEN_FILES[col] + FEN_RANKS[r]] = pieceColor + ch.toUpperCase();
+      col++;
+    }
+  }
+  return map;
+}
+
+function countPawns(board: Record<string, string>, color: 'w' | 'b'): number {
+  let n = 0;
+  for (const code of Object.values(board)) {
+    if (code === color + 'P') n++;
+  }
+  return n;
+}
+
+type BoardFx = {
+  /** Monotonic id — new value per move so the one-shot effect replays. */
+  id: number;
+  kind: 'capture' | 'promotion';
+  square: string;
+};
+
+/**
+ * Diff the previous and next FEN to figure out what kind of move happened.
+ * react-chessboard doesn't tell us about captures/promotions directly, so we
+ * infer them: a capture removes exactly one more piece than it adds (also
+ * covers en passant), and a promotion turns one of the mover's pawns into a
+ * Q/R/B/N on the arrival square.
+ */
+function detectBoardFx(prevFen: string, fen: string): Omit<BoardFx, 'id'> | null {
+  if (!prevFen || !fen || prevFen === fen) return null;
+
+  const prevMap = fenToPieceMap(prevFen);
+  const nextMap = fenToPieceMap(fen);
+
+  const removed: string[] = [];
+  const added: string[] = [];
+  for (const sq of new Set([...Object.keys(prevMap), ...Object.keys(nextMap)])) {
+    if (prevMap[sq] === nextMap[sq]) continue;
+    if (nextMap[sq] == null) removed.push(sq);
+    else if (prevMap[sq] == null) added.push(sq);
+    else { removed.push(sq); added.push(sq); } // same square, different piece
+  }
+
+  // The side that just moved is whoever was to move in the previous position.
+  const moverColor = prevFen.split(' ')[1];
+  if (moverColor !== 'w' && moverColor !== 'b') return null;
+
+  // Captures and capture-promotions: one more piece vanished than appeared.
+  if (removed.length - added.length === 1 && added.length === 1) {
+    const arrival = added[0];
+    const arrived = nextMap[arrival];
+    const pawnsLost =
+      countPawns(prevMap, moverColor) > countPawns(nextMap, moverColor);
+    if (
+      arrived != null &&
+      arrived[0] === moverColor &&
+      'QRBN'.includes(arrived[1]) &&
+      pawnsLost
+    ) {
+      return { kind: 'promotion', square: arrival };
+    }
+    return { kind: 'capture', square: arrival };
+  }
+
+  // Quiet promotions: a pawn vanished and a Q/R/B/N of the mover's color
+  // appeared (1 piece in, 1 piece out, same totals).
+  if (removed.length === 1 && added.length === 1) {
+    const arrival = added[0];
+    const arrived = nextMap[arrival];
+    if (
+      arrived != null &&
+      arrived[0] === moverColor &&
+      'QRBN'.includes(arrived[1]) &&
+      countPawns(prevMap, moverColor) > countPawns(nextMap, moverColor)
+    ) {
+      return { kind: 'promotion', square: arrival };
+    }
+  }
+
   return null;
 }
 
@@ -72,20 +169,51 @@ const THEME_COLORS: Record<string, { light: string; dark: string }> = {
   green:           { light: '#eedcbf', dark: '#769656' },
 };
 
-const CUSTOM_PIECES: PieceRenderObject = {
-  wK: () => <PieceIcon type="k" color="w" />,
-  wQ: () => <PieceIcon type="q" color="w" />,
-  wR: () => <PieceIcon type="r" color="w" />,
-  wB: () => <PieceIcon type="b" color="w" />,
-  wN: () => <PieceIcon type="n" color="w" />,
-  wP: () => <PieceIcon type="p" color="w" />,
-  bK: () => <PieceIcon type="k" color="b" />,
-  bQ: () => <PieceIcon type="q" color="b" />,
-  bR: () => <PieceIcon type="r" color="b" />,
-  bB: () => <PieceIcon type="b" color="b" />,
-  bN: () => <PieceIcon type="n" color="b" />,
-  bP: () => <PieceIcon type="p" color="b" />,
-};
+/**
+ * Build the custom piece renderers. react-chessboard v5 hands these
+ * functions only a `{ square }` arg — the isDragging/isDraggable flags
+ * only landed in v6, so we emulate them here: `playable` is the
+ * draggable signal (it drives allowDragging) and `draggingSquare` is
+ * tracked from onPieceDrag/onPieceDrop. That lets the wrapper apply a
+ * chess.com-style lift to the grabbed piece (board-piece-lift) and a
+ * subtle grip hint on hover (board-piece-hover). The wrapper stays
+ * 100% x 100% so PieceIcon's w-full h-full svg keeps filling the
+ * square, and its transform never touches the library's own slide
+ * animation on the piece div.
+ */
+function buildCustomPieces(
+  isDraggable: boolean,
+  draggingSquare: string | null,
+): PieceRenderObject {
+  const make = (type: string, color: 'w' | 'b') => (props?: { square?: string }) => {
+    const isDragging =
+      isDraggable && draggingSquare != null && props?.square === draggingSquare;
+    const className = isDragging
+      ? 'board-piece-lift'
+      : isDraggable
+        ? 'board-piece-hover'
+        : '';
+    return (
+      <div className={`w-full h-full ${className}`.trim()}>
+        <PieceIcon type={type} color={color} />
+      </div>
+    );
+  };
+  return {
+    wK: make('k', 'w'),
+    wQ: make('q', 'w'),
+    wR: make('r', 'w'),
+    wB: make('b', 'w'),
+    wN: make('n', 'w'),
+    wP: make('p', 'w'),
+    bK: make('k', 'b'),
+    bQ: make('q', 'b'),
+    bR: make('r', 'b'),
+    bB: make('b', 'b'),
+    bN: make('n', 'b'),
+    bP: make('p', 'b'),
+  };
+}
 
 function hexToRgba(hex: string, alpha: number): string {
   const r = parseInt(hex.slice(1, 3), 16);
@@ -125,6 +253,7 @@ function renderClassificationBadge(cls: MoveClassification): React.JSX.Element |
     <img
       src={iconPath}
       alt={cls}
+      className="board-badge"
       style={{
         position: 'absolute', top: '-8px', right: '-8px',
         width: '28px', height: '28px', zIndex: 10,
@@ -154,10 +283,37 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const { settings } = useSettingsStore();
   const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
   const [validMoves, setValidMoves] = useState<string[]>([]);
+  const [fx, setFx] = useState<BoardFx | null>(null);
+  const prevFenRef = useRef<string | null>(null);
+  const fxIdRef = useRef(0);
+  // Square of the in-flight drag, for the piece-lift class. react-chessboard
+  // v5 doesn't pass isDragging to piece renderers, so we track it ourselves.
+  const [draggingSquare, setDraggingSquare] = useState<string | null>(null);
+
+  // One-shot capture/promotion effects, keyed by a fresh id per move so the
+  // animation replays on every new move and never lingers across navigation.
+  useEffect(() => {
+    const prevFen = prevFenRef.current;
+    prevFenRef.current = fen;
+    const detected = prevFen != null ? detectBoardFx(prevFen, fen) : null;
+    if (detected != null) {
+      setFx({ id: ++fxIdRef.current, ...detected });
+    }
+  }, [fen]);
 
   const colors = THEME_COLORS[settings.boardColor] ?? THEME_COLORS.green;
+  // The Profile "Right-Click" picker writes settings.rightClickHighlightColor,
+  // so that field drives the marker; highlightColors.rightClick is the themed
+  // default (both now default to the chess.com red #e53935).
+  const rightClickHighlightColor =
+    settings.rightClickHighlightColor ?? settings.highlightColors.rightClick ?? '#e53935';
 
-  const { moveTrail: mtColor, selectedSquare: ssColor, rightClick: rcColor } = settings.highlightColors;
+  const customPieces = useMemo(
+    () => buildCustomPieces(playable, draggingSquare),
+    [playable, draggingSquare],
+  );
+
+  const { moveTrail: mtColor, selectedSquare: ssColor } = settings.highlightColors;
 
   const squareStyles = useMemo(() => {
     const styles: Record<string, React.CSSProperties> = {};
@@ -178,12 +334,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     if (hintSquare != null) {
       setBg(hintSquare, 'rgba(251, 191, 36, 0.40)');
     }
-    for (const sq of rightClickedSquares) {
-      setBg(sq,
-        hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
-    }
+    // Right-click markers render as a chess.com-style overlay (see
+    // squareRenderer) instead of a whole-square background tint.
     return styles;
-  }, [highlightSquares, selectedSquare, hintSquare, rightClickedSquares, orientation, mtColor, ssColor, rcColor]);
+  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];
@@ -198,6 +352,8 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
+      // Any drag end clears the lift — including cancelled/vetoed drops.
+      setDraggingSquare(null);
       if (!playable || targetSquare == null) return false;
       // Picking a piece up and putting it back on the same square is not a move.
       if (sourceSquare === targetSquare) return false;
@@ -208,6 +364,30 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     },
     [playable, props],
   );
+
+  const handlePieceDragStart = useCallback(
+    ({ square }: { square: string | null }) => {
+      if (square != null) setDraggingSquare(square);
+    },
+    [],
+  );
+
+  // A drag can be cancelled without ever reaching onPieceDrop (e.g. pressing
+  // Escape), which would leave a square stuck "lifted". Clear the lift state
+  // on any stray pointer-up or Escape while a drag is in flight.
+  useEffect(() => {
+    if (draggingSquare == null) return;
+    const clear = () => setDraggingSquare(null);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') clear();
+    };
+    document.addEventListener('pointerup', clear);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerup', clear);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [draggingSquare]);
 
   const handleSquareClick = useCallback(
     ({ square }: { square: string }) => {
@@ -263,16 +443,58 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const squareRenderer = useCallback(
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
       const isDot = validMoves.includes(square);
-      const badgeClassification = highlightSquares?.to === square ? highlightSquares?.classification : undefined;
+      const isTo = highlightSquares?.to === square;
+      const isSlideSource = highlightSquares?.from === square;
+      const isRightClicked = rightClickedSquares.includes(square);
+      const badgeClassification = isTo ? highlightSquares?.classification : undefined;
       const isBadge = badgeClassification != null;
       const isHint = hintSquare === square;
-      if (!isDot && !isBadge && !isHint) return <>{children}</>;
+      const isFx = fx != null && fx.square === square;
+      if (!isDot && !isBadge && !isHint && !isTo && !isFx && !isRightClicked) return <>{children}</>;
 
       const hasPiece = children != null;
       return (
-        <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
+        <div style={{
+          width: '100%', height: '100%', position: 'relative',
+          ...(squareStyles[square] ?? {}),
+          // Under-piece overlays (glow, right-click marker) need a stacking
+          // context so a z-index:-1 layer paints behind the piece but above
+          // the square's highlight. The "from" square is deliberately left
+          // un-isolated: react-chessboard slides the piece from there and any
+          // stacking context would trap its z-index:10 and break the slide.
+          ...((isTo || (isRightClicked && !isSlideSource)) ? { isolation: 'isolate' } : {}),
+        }}>
+          {isTo && (
+            <div
+              className="board-glow"
+              style={{
+                position: 'absolute', inset: '4%', borderRadius: '50%',
+                background: `radial-gradient(circle at center, ${hexToRgba(mtColor, 0.6)}, ${hexToRgba(mtColor, 0.16)} 55%, transparent 74%)`,
+                pointerEvents: 'none', zIndex: -1,
+              }}
+            />
+          )}
+          {isRightClicked && (
+            <div
+              className="board-rightclick-pop"
+              style={{
+                position: 'absolute', inset: 0,
+                backgroundColor: hexToRgba(rightClickHighlightColor, 0.5),
+                boxShadow: `inset 0 0 0 2px ${rightClickHighlightColor}`,
+                pointerEvents: 'none',
+                // On the slide source the wrapper can't be isolated (see
+                // above), so float the marker above the sliding piece; every
+                // other square keeps it tucked under the piece.
+                zIndex: isSlideSource ? 12 : -1,
+              }}
+            />
+          )}
           {children}
-          {isBadge && badgeClassification != null && renderClassificationBadge(badgeClassification)}
+          {isBadge && badgeClassification != null && (
+            <div key={`badge-${fen}`} style={{ display: 'contents' }}>
+              {renderClassificationBadge(badgeClassification)}
+            </div>
+          )}
           {isHint && (
             <div
               className="animate-pulse"
@@ -302,10 +524,54 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
               pointerEvents: 'none', zIndex: 10,
             }} />
           )}
+          {isFx && fx.kind === 'capture' && (
+            <div
+              key={`fx-capture-${fx.id}`}
+              className="board-fx-ring"
+              style={{
+                position: 'absolute', top: '50%', left: '50%',
+                width: '78%', height: '78%', borderRadius: '50%',
+                border: `3px solid ${hexToRgba(mtColor, 0.9)}`,
+                boxShadow: `0 0 18px ${hexToRgba(mtColor, 0.75)}, inset 0 0 12px ${hexToRgba(mtColor, 0.4)}`,
+                pointerEvents: 'none', zIndex: 12,
+                // Hold the ring invisible until the sliding piece lands.
+                animationDelay: `${animationDurationInMs}ms`,
+              }}
+            />
+          )}
+          {isFx && fx.kind === 'promotion' && (
+            <div
+              key={`fx-promotion-${fx.id}`}
+              style={{
+                position: 'absolute', inset: 0, borderRadius: '50%',
+                pointerEvents: 'none', zIndex: 12,
+              }}
+            >
+              <div
+                className="board-fx-promotion-burst"
+                style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: '96%', height: '96%', borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(255,255,255,0.95), rgba(253,224,71,0.45) 45%, transparent 70%)',
+                  animationDelay: `${animationDurationInMs}ms`,
+                }}
+              />
+              <div
+                className="board-fx-promotion-ring"
+                style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: '80%', height: '80%', borderRadius: '50%',
+                  border: '2px solid rgba(255, 245, 200, 0.95)',
+                  boxShadow: '0 0 16px rgba(253, 224, 71, 0.8)',
+                  animationDelay: `${animationDurationInMs}ms`,
+                }}
+              />
+            </div>
+          )}
         </div>
       );
     },
-    [validMoves, highlightSquares, hintSquare, squareStyles],
+    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {
@@ -335,13 +601,25 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   };
 
   return (
-    <div className={`relative aspect-square w-full ${className}`}>
+    <div
+      className={`relative aspect-square w-full ${className}`}
+      style={{ '--board-slide-duration': `${animationDurationInMs}ms` } as React.CSSProperties}
+    >
       <RCChessboard
         options={{
           id: 'finalrank',
           position: fen,
-          pieces: CUSTOM_PIECES,
+          pieces: customPieces,
           boardOrientation: orientation,
+          // chess.com-style grab lift: the scale/shadow live on the piece
+          // wrapper (.board-piece-lift, animated in via @starting-style), so
+          // the clone's default scale(1.2) is neutralized here to avoid
+          // double-scaling the dragged piece. zIndex keeps the clone above
+          // the board during the drag.
+          draggingPieceStyle: { transform: 'none', zIndex: 40 },
+          // While dragging, leave the origin square empty (chess.com look)
+          // instead of showing a ghost — the lifted clone replaces it.
+          draggingPieceGhostStyle: { opacity: 0 },
           boardStyle: {
             border: '4px solid #2a2a2a',
             borderRadius: '8px',
@@ -360,6 +638,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           alphaNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },
           numericNotationStyle: { fontSize: Math.max(settings.coordinatesSize, 6) },
           onPieceDrop: handlePieceDrop,
+          onPieceDrag: handlePieceDragStart,
           onSquareClick: handleSquareClick,
           onSquareRightClick: handleSquareRightClick,
           onArrowsChange: handleArrowsChange,

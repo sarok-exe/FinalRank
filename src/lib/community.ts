@@ -43,3 +43,33 @@ export function estimateRating(avgAccuracy: number | null, matches: number): num
   if (avgAccuracy >= 70) return 1100;
   return 900;
 }
+
+/** Minimum analyzed matches (depth 15+) required to appear on the leaderboard,
+ *  consistent with the rating estimate's insufficient-data rule. */
+export const LEADERBOARD_MIN_MATCHES = 3;
+
+/** Comparator for the community leaderboard: rank by average accuracy
+ *  descending (nulls last), ties broken by more matches first. */
+export function compareLeaderboardEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
+  const aAcc = a.avgAccuracy;
+  const bAcc = b.avgAccuracy;
+
+  // Entries with a known accuracy always rank above those without one.
+  if (aAcc != null && bAcc == null) return -1;
+  if (aAcc == null && bAcc != null) return 1;
+
+  // Higher average accuracy ranks first.
+  if (aAcc != null && bAcc != null && aAcc !== bAcc) return bAcc - aAcc;
+
+  // Accuracy tie (or both unknown): more matches first.
+  return b.matches - a.matches;
+}
+
+/** Rank leaderboard entries for display: drop users below the minimum match
+ *  count, then order by average accuracy DESC (nulls last) with matches as
+ *  tiebreak. */
+export function rankLeaderboard(entries: LeaderboardEntry[]): LeaderboardEntry[] {
+  return entries
+    .filter((entry) => entry.matches >= LEADERBOARD_MIN_MATCHES)
+    .sort(compareLeaderboardEntries);
+}

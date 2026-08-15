@@ -306,7 +306,8 @@ export async function fetchCommunityLeaderboard(limit?: number): Promise<Leaderb
       sql: `SELECT user_id, username, avatar, COUNT(*) AS matches, SUM(brilliant_count) AS brilliants, AVG(accuracy) AS avg_accuracy, MAX(analyzed_at) AS last_analysis
             FROM user_analysis_stats
             GROUP BY user_id, username, avatar
-            ORDER BY matches DESC, brilliants DESC, last_analysis DESC
+            HAVING COUNT(*) >= 3
+            ORDER BY avg_accuracy DESC NULLS LAST, matches DESC, brilliants DESC, last_analysis DESC
             LIMIT ?`,
       args: [limit ?? 50],
     });

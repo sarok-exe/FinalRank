@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
 import { fetchCommunityLeaderboard } from '../lib/tursoCache';
-import { estimateRating } from '../lib/community';
+import { estimateRating, rankLeaderboard } from '../lib/community';
 import type { LeaderboardEntry } from '../lib/community';
 import CommunityAvatar from '../components/CommunityAvatar';
 
@@ -79,9 +79,11 @@ export default function Community(): React.ReactElement {
     return () => { cancelled = true; };
   }, []);
 
+  const rankedEntries = rankLeaderboard(entries);
+
   const renderContent = (): React.ReactElement => {
     if (loading) return <LeaderboardSkeleton />;
-    if (entries.length === 0) {
+    if (rankedEntries.length === 0) {
       return (
         <div className="flex flex-col items-center text-center py-16 px-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl space-y-3">
           <div className="w-14 h-14 rounded-full bg-[var(--color-primary)]/15 flex items-center justify-center">
@@ -96,7 +98,7 @@ export default function Community(): React.ReactElement {
     }
     return (
       <div className="space-y-2">
-        {entries.map((entry, index) => (
+        {rankedEntries.map((entry, index) => (
           <button
             key={entry.userId}
             onClick={() => { void navigate(`/community/${entry.userId}`); }}
@@ -135,7 +137,7 @@ export default function Community(): React.ReactElement {
         </div>
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">Community</h1>
-          <p className="text-xs text-[var(--color-text-muted)]">Top analyzers — ranked by analyzed games (depth 15+).</p>
+          <p className="text-xs text-[var(--color-text-muted)]">Top analyzers — ranked by average accuracy (min 3 analyzed games, depth 15+).</p>
         </div>
       </div>
 

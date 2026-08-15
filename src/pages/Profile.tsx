@@ -640,17 +640,24 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           {([
             { key: 'moveTrail', label: 'Move Trail', desc: 'From/to squares' },
             { key: 'selectedSquare', label: 'Selected', desc: 'Clicked piece' },
-            { key: 'rightClick', label: 'Right-Click', desc: 'Right-click markers' },
+            { key: 'rightClickHighlightColor', label: 'Right-Click', desc: 'Right-click markers' },
           ] as const).map(({ key, label, desc }) => (
             <div key={key} className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg p-2.5 space-y-1.5">
               <div className="text-[10px] font-semibold text-[var(--color-text)]">{label}</div>
               <div className="text-[9px] text-[var(--color-text-muted)]">{desc}</div>
               <input
                 type="color"
-                value={settings.highlightColors[key]}
-                onChange={e => { updateSettings({
-                  highlightColors: { ...settings.highlightColors, [key]: e.target.value }
-                }); }}
+                value={key === 'rightClickHighlightColor' ? settings.rightClickHighlightColor : settings.highlightColors[key]}
+                onChange={e => {
+                  const v = e.target.value;
+                  if (key === 'rightClickHighlightColor') {
+                    updateSettings({ rightClickHighlightColor: v });
+                  } else {
+                    updateSettings({
+                      highlightColors: { ...settings.highlightColors, [key]: v }
+                    });
+                  }
+                }}
                 className="w-full h-8 rounded border border-[var(--color-border)] cursor-pointer [&::-webkit-color-swatch-wrapper]:p-1 [&::-webkit-color-swatch]:border-none [&::-webkit-color-swatch]:rounded"
               />
             </div>
@@ -720,6 +727,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             desc="Play warning beep"
             checked={settings.timeAlertSound}
             onChange={v => { updateSettings({ timeAlertSound: v }); }}
+          />
+          <SettingToggle
+            label="Time Pressure Sounds"
+            desc="Tick when a player is low on time"
+            checked={settings.timePressureSound}
+            onChange={v => { updateSettings({ timePressureSound: v }); }}
           />
         </div>
       </div>
