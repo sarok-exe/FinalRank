@@ -236,6 +236,12 @@ export default function Analysis() {
   // only the right-hand panel switches. What-if state lives in the Zustand store,
   // so switching tabs never loses the hypothesis line.
   const [analysisTab, setAnalysisTab] = useState<'analysis' | 'whatif'>('analysis');
+  // Regular vs Advanced split of the page chrome. Regular strips the page to a
+  // bare analysis surface (board, engine picker, move log); Advanced keeps all
+  // the extras (tabs, coach, what-if, report, favorites, opening name, banner).
+  // Default 'advanced' preserves current behavior. Only chrome rendering changes —
+  // the shared board, what-if state and analysisProgress live untouched in the store.
+  const [analysisMode, setAnalysisMode] = useState<'regular' | 'advanced'>('advanced');
   // Rewind-on-analyze: refs only (no re-renders needed — the engine's progress
   // ticks already re-render the page while analyzing). `rewindArmedRef` is set
   // when Analyze is pressed from the final position; `prevAnalyzingRef` detects
@@ -248,6 +254,15 @@ export default function Analysis() {
     window.addEventListener('resize', onResize);
     return () => { window.removeEventListener('resize', onResize); };
   }, []);
+
+  // Switching to Regular strips the what-if UI away, so any active hypothesis
+  // line is exited cleanly first (the store keeps its own what-if state).
+  const handleModeChange = React.useCallback((mode: 'regular' | 'advanced') => {
+    setAnalysisMode(mode);
+    if (mode === 'regular' && useGameStore.getState().hypothesisActive) {
+      exitHypothesisMode();
+    }
+  }, [exitHypothesisMode]);
 
 const isInAnalysis = !!selectedGame;
 const legendaryData = checkLegendaryStatus();
@@ -1157,6 +1172,41 @@ function formatDuration(ms: number | undefined): string {
         </button>
       )}
 
+      {/* Regular / Advanced mode split — plain backgroundless text buttons,
+          always visible above the arena. Active mode: white bold text with a
+          subtle accent underline; inactive: muted text. */}
+      <div className="w-full flex items-center gap-0" id="analysis-mode-toggle">
+        <button
+          onClick={() => { handleModeChange('regular'); }}
+          aria-pressed={analysisMode === 'regular'}
+          className={`relative py-0.5 pr-2 text-sm transition-colors ${
+            analysisMode === 'regular'
+              ? 'text-white font-bold'
+              : 'text-[var(--color-text-muted)] font-semibold hover:text-white'
+          }`}
+        >
+          Regular
+          {analysisMode === 'regular' && (
+            <span className="absolute left-0 right-2 -bottom-[2px] h-[2px] rounded-full bg-[var(--color-accent)]" />
+          )}
+        </button>
+        <span className="w-px h-3.5 bg-[var(--color-border)] mx-1" aria-hidden="true" />
+        <button
+          onClick={() => { handleModeChange('advanced'); }}
+          aria-pressed={analysisMode === 'advanced'}
+          className={`relative py-0.5 pl-2 text-sm transition-colors ${
+            analysisMode === 'advanced'
+              ? 'text-white font-bold'
+              : 'text-[var(--color-text-muted)] font-semibold hover:text-white'
+          }`}
+        >
+          Advanced
+          {analysisMode === 'advanced' && (
+            <span className="absolute left-2 right-0 -bottom-[2px] h-[2px] rounded-full bg-[var(--color-accent)]" />
+          )}
+        </button>
+      </div>
+
       <div className={`fade-in ${
         focusMode
           ? 'flex flex-row justify-center items-center gap-6'
@@ -1167,7 +1217,7 @@ function formatDuration(ms: number | undefined): string {
               below (opening, player bars, board, controls) is shared by both tabs
               so the Chessboard is only ever mounted once — rendering it twice
               throws react-chessboard's 'Square width not found'. */}
-          {!focusMode && (
+          {!focusMode && analysisMode === 'advanced' && (
             <div className="w-full fade-in" style={{ maxWidth: boardWidth }}>
               <div className="flex gap-1 p-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl">
                 <button
@@ -1197,25 +1247,21 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
           )}
-          {/* Opening title + big favorite heart — always rendered so the board
-              never jumps. The heart doubles as the 'favorite this game' toggle:
-              outlined when unsaved, red + filled when saved. */}
-          <div className="w-full flex items-stretch gap-2" style={{ maxWidth: boardWidth }}>
-            <div className="flex-1 min-w-0 text-center">
-              <div className="w-full h-full bg-[color-mix(in_srgb,var(--color-surface)_90%,#facc15_10%)] border border-amber-300/30 rounded-xl px-4 py-3 flex flex-col justify-center">
-                <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1.5">
-                  Opening
-                </div>
-                {openingName ? (
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[color-mix(in_srgb,var(--color-text)_90%,#facc15)] truncate leading-tight min-h-[2.5rem]" title={openingName}>
-                    {openingName}
-                  </h2>
-                ) : (
-                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text-muted)] truncate leading-tight min-h-[2.5rem]">
-                    —
-                  </h2>
-                )}
+          {/* Opening name + big favorite heart — Advanced only. The name is a
+              small, plain, backgroundless line (the old amber card is gone);
+              the heart stays beside it. Both are hidden entirely in Regular
+              mode, which keeps the console heart as the single favorite. */}
+          {analysisMode === 'advanced' && (
+          <div className="w-full flex items-center justify-between gap-3" style={{ maxWidth: boardWidth }}>
+            <div className="min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]/70">
+                Opening
               </div>
+              <h2 className={`text-base sm:text-lg font-semibold truncate leading-tight min-h-[1.5rem] ${
+                openingName ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'
+              }`} title={openingName}>
+                {openingName || '—'}
+              </h2>
             </div>
             {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
               <button
@@ -1232,6 +1278,7 @@ function formatDuration(ms: number | undefined): string {
               </button>
             )}
           </div>
+          )}
           {/* Top player bar — hugs the board, chess.com style */}
           <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-top">
             <PlayerBar player={topPlayer} side={topSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
@@ -1259,7 +1306,7 @@ function formatDuration(ms: number | undefined): string {
               the navigation console. Undo/Reset/Exit live in their own
               right-aligned segmented row so they can never collide with the move
               chips. */}
-          {hypothesisActive && (
+          {analysisMode === 'advanced' && hypothesisActive && (
             <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl overflow-hidden fade-in" id="whatif-banner" style={{ maxWidth: boardWidth }}>
               <div className="px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
                 <span className="flex items-center gap-1.5 text-[var(--color-accent)] text-xs font-bold shrink-0">
@@ -1487,6 +1534,9 @@ function formatDuration(ms: number | undefined): string {
                 <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
                   Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
                   {hypothesisActive && <span className="text-[var(--color-accent)]"> · Exploring hypothetical line</span>}
+                  {analysisMode === 'regular' && selectedGame.analyzedAt && (
+                    <span className="text-[10px] text-green-500 font-bold"> &middot; &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}</span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-1.5 sm:space-x-2">
@@ -1516,6 +1566,7 @@ function formatDuration(ms: number | undefined): string {
                   <Activity className="w-3.5 h-3.5" />
                   <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
                 </button>
+                {analysisMode === 'advanced' && (
                 <button
                   onClick={() => {
                     if (hypothesisActive) {
@@ -1536,6 +1587,7 @@ function formatDuration(ms: number | undefined): string {
                   <GitBranch className="w-3.5 h-3.5" />
                   <span className="hidden xs:inline">What-if</span>
                 </button>
+                )}
                 {priorAnalyses.length > 0 && !analyzing && (
                   <button
                     onClick={() => { setShowPriorAnalyses(true); }}
@@ -1556,7 +1608,7 @@ function formatDuration(ms: number | undefined): string {
 
         {!focusMode && (
         <div className="lg:col-span-5 xl:col-span-4 space-y-4 flex flex-col h-auto min-h-[400px]">
-          {analysisTab === 'analysis' && (
+          {analysisMode === 'advanced' && analysisTab === 'analysis' && (
           <>
           {legendaryData && !notificationDismissed && (
             <div className="bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl p-4 text-[var(--color-accent)] relative" id="legendary-achievement-banner">
@@ -1640,7 +1692,10 @@ function formatDuration(ms: number | undefined): string {
             activeMoveIndex={currentMoveIndex}
             onTryMove={handleTryCoachMove}
           />
-
+          </>
+          )}
+          {(analysisMode === 'regular' || (analysisMode === 'advanced' && analysisTab === 'analysis')) && (
+          <>
           <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
@@ -1700,7 +1755,10 @@ function formatDuration(ms: number | undefined): string {
               )}
             </div>
           </div>
-
+          </>
+          )}
+          {analysisMode === 'advanced' && analysisTab === 'analysis' && (
+          <>
           <div className="fade-in bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 flex items-center space-x-1.5">
               <Activity className="w-4 h-4 text-[var(--color-accent)]" />
@@ -1877,7 +1935,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
           </>
           )}
-          {analysisTab === 'whatif' && (
+          {analysisMode === 'advanced' && analysisTab === 'whatif' && (
           <>
           {favoriteGames.length > 0 && (
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
@@ -1922,7 +1980,7 @@ function formatDuration(ms: number | undefined): string {
 
       </div>
 
-      {!focusMode && selectedGame && analysisTab === 'whatif' && (
+      {!focusMode && selectedGame && analysisMode === 'advanced' && analysisTab === 'whatif' && (
         <div className="fade-in">
           <AnalysisReport game={selectedGame} />
         </div>
