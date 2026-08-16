@@ -90,7 +90,11 @@
    ----------------------------------------------------------------- */
 .board-piece-lift {
   transform: scale(1.15);
-  filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.35));
+  /* Shadow is offset 18px down with a 16px blur: the blurred top edge lands
+     at (18 − 16) = 2px BELOW the tallest piece's silhouette, so no dark line
+     can read above the piece. The piece still casts a soft shadow onto the
+     board below it, so it keeps reading as lifted. */
+  filter: drop-shadow(0 18px 16px rgba(0, 0, 0, 0.30));
   transition:
     transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
     filter 140ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -129,6 +133,16 @@
   transition:
     transform var(--board-slide-duration, 300ms) cubic-bezier(0.22, 1, 0.36, 1),
     opacity 140ms ease !important;
+}
+
+/* PieceIcon's svg carries a Tailwind `drop-shadow` utility; neutralize it so
+   no shadow artifact (or extra filter composite layer) is drawn on any piece
+   at rest — the only lift shadow comes from the wrapper (.board-piece-lift)
+   above, which is positioned strictly below the piece. Unlayered CSS wins
+   over Tailwind's layered utility; the selector also covers the drag clone,
+   which shares the finalrank-piece- id. */
+[id^="finalrank-piece-"] svg {
+  filter: none !important;
 }
 
 /* ----------------------------------------------------------------

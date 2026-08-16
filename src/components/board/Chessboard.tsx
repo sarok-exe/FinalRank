@@ -4,7 +4,7 @@ import { Chess, type Square } from 'chess.js';
 import type { MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
-import type { PieceRenderObject } from 'react-chessboard';
+import type { PieceHandlerArgs, PieceRenderObject } from 'react-chessboard';
 import './board-animations.css';
 
 export type Arrow = { from: string; to: string; color?: string };
@@ -193,7 +193,6 @@ function buildCustomPieces(
   isDraggable: boolean,
   draggingSquare: string | null,
   dragColor: 'w' | 'b' | null,
-  pieceMap: Record<string, string>,
 ): PieceRenderObject {
   const make = (type: string, color: 'w' | 'b') => (props?: { square?: string }) => {
     const square = props?.square;
@@ -201,9 +200,14 @@ function buildCustomPieces(
       isDraggable && draggingSquare != null && square === draggingSquare;
     // While the board is locked for a premove, only the color that will move
     // next is grabbable — restrict the hover/lift nudge to those pieces.
-    const squareColor = square != null ? pieceMap[square]?.[0] ?? null : null;
+    // The renderer is keyed by piece color (wK, bP, …) and the piece on the
+    // square is always this renderer, so the piece's own `color` is the check.
+    // Reading the FEN map here would put `pieceMap` in the useMemo deps and
+    // rebuild all 12 renderers on every FEN change — react-chessboard calls
+    // `pieces[pieceType]` for each piece, so a fresh function identity makes
+    // React tear down and remount every piece's DOM mid-slide (the flicker).
     const canGrip =
-      isDraggable && (dragColor == null || squareColor === dragColor);
+      isDraggable && (dragColor == null || color === dragColor);
     const className = isDragging
       ? 'board-piece-lift'
       : canGrip
@@ -335,6 +339,13 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   // Square of the in-flight drag, for the piece-lift class. react-chessboard
   // v5 doesn't pass isDragging to piece renderers, so we track it ourselves.
   const [draggingSquare, setDraggingSquare] = useState<string | null>(null);
+  // Legal target squares for the piece currently being dragged (chess.com-style
+  // "move trail" rings). Only meaningful while a drag is in flight; cleared on
+  // drop/cancel so it never lingers next to the click-select dots.
+  const [dragHighlights, setDragHighlights] = useState<{
+    from: string;
+    to: string[];
+  } | null>(null);
 
   // ── Premove state (a queued move, chess.com-style) ────────────────────
   const [premove, setPremove] = useState<{ from: string; to: string } | null>(null);
@@ -384,9 +395,19 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const draggableColor: 'w' | 'b' | null = !playable && premoveEnabled ? premoveColor : null;
 
   const customPieces = useMemo(
-    () => buildCustomPieces(isDraggable, draggingSquare, draggableColor, pieceMap),
-    [isDraggable, draggingSquare, draggableColor, pieceMap],
+    () => buildCustomPieces(isDraggable, draggingSquare, draggableColor),
+    [isDraggable, draggingSquare, draggableColor],
   );
+
+  // Same grab restriction, as a stable callback (it only depends on board
+  // lock state, not on the position) so the options object stays cheap.
+  const canDragPiece = useCallback((args: PieceHandlerArgs): boolean => {
+    if (playable) return true;
+    if (!premoveEnabled) return false;
+    if (args.isSparePiece) return true;
+    const pieceColor = args.piece.pieceType[0];
+    return premoveColor == null || pieceColor === premoveColor;
+  }, [playable, premoveEnabled, premoveColor]);
 
   const { moveTrail: mtColor, selectedSquare: ssColor } = settings.highlightColors;
 
@@ -485,8 +506,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   const handlePieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
-      // Any drag end clears the lift — including cancelled/vetoed drops.
+      // Any drag end clears the lift and the drag highlights — including
+      // cancelled/vetoed drops.
       setDraggingSquare(null);
+      setDragHighlights(null);
       if (targetSquare == null) return false;
       if (!playable) {
         // Board locked: with premove armed, dropping an own-color piece queues
@@ -509,9 +532,30 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   const handlePieceDragStart = useCallback(
     ({ square }: { square: string | null }) => {
-      if (square != null) setDraggingSquare(square);
+      if (square == null) {
+        setDraggingSquare(null);
+        setDragHighlights(null);
+        return;
+      }
+      setDraggingSquare(square);
+      // A drag supersedes any click-select state: drop the dots so the
+      // drag's legal-move highlights are the only marks on the board.
+      setSelectedSquare(null);
+      setValidMoves([]);
+      // Chess.com-style: while dragging, ring every square this piece can
+      // legally move to (in the current position). On a premove-locked board
+      // only premove-color pieces can be grabbed, and their targets are the
+      // legal ones here — a drop that's not in this list simply won't ring.
+      let targets: string[] = [];
+      try {
+        const chess = new Chess(fen);
+        targets = chess.moves({ square: square as Square, verbose: true }).map(m => m.to);
+      } catch {
+        // Malformed FEN — no targets to show.
+      }
+      setDragHighlights({ from: square, to: targets });
     },
-    [],
+    [fen],
   );
 
   // A drag can be cancelled without ever reaching onPieceDrop (e.g. pressing
@@ -519,7 +563,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   // on any stray pointer-up or Escape while a drag is in flight.
   useEffect(() => {
     if (draggingSquare == null) return;
-    const clear = () => setDraggingSquare(null);
+    const clear = () => {
+      setDraggingSquare(null);
+      setDragHighlights(null);
+    };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') clear();
     };
@@ -647,6 +694,9 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       const isTo = highlightSquares?.to === square;
       const isSlideSource = highlightSquares?.from === square;
       const isRightClicked = rightClickedSquares.includes(square);
+      const isDragTarget =
+        dragHighlights != null && dragHighlights.from !== square &&
+        dragHighlights.to.includes(square);
       const badgeClassification = isTo ? highlightSquares?.classification : undefined;
       const isBadge = badgeClassification != null;
       const isHint = hintSquare === square;
@@ -655,7 +705,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       const isPremoveTarget = premove?.to === square;
       const isPremoveArm = premoveFrom === square && premove == null;
       const isPremoveMarker = isPremoveSource || isPremoveTarget || isPremoveArm;
-      if (!isDot && !isBadge && !isHint && !isTo && !isFx && !isRightClicked && !isPremoveMarker) return <>{children}</>;
+      if (!isDot && !isBadge && !isHint && !isTo && !isFx && !isRightClicked && !isPremoveMarker && !isDragTarget) return <>{children}</>;
 
       const hasPiece = children != null;
       return (
@@ -670,7 +720,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           // Premove markers must survive alongside the same slide-on-fire
           // animations, so they follow the same un-isolated rule and float
           // above the sliding piece instead.
-          ...((isTo || (isRightClicked && !isSlideSource)) ? { isolation: 'isolate' } : {}),
+          ...((isTo || ((isDragTarget || isRightClicked) && !isSlideSource)) ? { isolation: 'isolate' } : {}),
         }}>
           {isTo && (
             <div
@@ -694,6 +744,18 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
                 // above), so float the marker above the sliding piece; every
                 // other square keeps it tucked under the piece.
                 zIndex: isSlideSource ? 12 : -1,
+              }}
+            />
+          )}
+          {isDragTarget && (
+            <div
+              style={{
+                position: 'absolute', inset: 0,
+                // Chess.com-style move trail: faint translucent fill with a
+                // crisp ring, using the same accent as the last-move trail.
+                backgroundColor: hexToRgba(mtColor, 0.28),
+                boxShadow: `inset 0 0 0 3px ${mtColor}`,
+                pointerEvents: 'none', zIndex: -1,
               }}
             />
           )}
@@ -805,7 +867,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
         </div>
       );
     },
-    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs, premove, premoveFrom],
+    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs, premove, premoveFrom, dragHighlights],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {
@@ -836,8 +898,16 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   return (
     <div
-      className={`relative aspect-square w-full ${className}`}
-      style={{ '--board-slide-duration': `${animationDurationInMs}ms` } as React.CSSProperties}
+      className={`relative aspect-square w-full min-w-0 ${className}`}
+      style={{
+        // Explicit min sizes so a transient parent reflow can never collapse
+        // the board to 0×0 mid-update — react-chessboard reads the square
+        // width to animate slides and would throw (and blank the board) on
+        // a 0-width read. min-w-0 also keeps flex/grid parents from blowout.
+        minWidth: 0,
+        minHeight: 0,
+        '--board-slide-duration': `${animationDurationInMs}ms`,
+      } as React.CSSProperties}
     >
       <RCChessboard
         options={{
@@ -857,6 +927,12 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           boardStyle: {
             border: '4px solid #2a2a2a',
             borderRadius: '8px',
+            // RCChessboard defaults to overflow:hidden, which chops anything
+            // poking out of a square (classification badge, edge FX) flat at
+            // the board edge. The opaque 4px border follows the rounded
+            // corner and masks the squares' corners, so overflow:visible
+            // keeps the rounded board look while badges pop out in full.
+            overflow: 'visible',
           },
           lightSquareStyle: { backgroundColor: colors.light },
           darkSquareStyle: { backgroundColor: colors.dark },
@@ -866,13 +942,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           // premove can be queued by dragging. When locked, canDragPiece
           // restricts grab to the color allowed to premove.
           allowDragging: isDraggable,
-          canDragPiece: (args) => {
-            if (playable) return true;
-            if (!premoveEnabled) return false;
-            if (args.isSparePiece) return true;
-            const pieceColor = args.piece.pieceType[0];
-            return premoveColor == null || pieceColor === premoveColor;
-          },
+          canDragPiece,
           allowDrawingArrows: true,
           clearArrowsOnClick: true,
           clearArrowsOnPositionChange: false,
