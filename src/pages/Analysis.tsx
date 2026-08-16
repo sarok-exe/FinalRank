@@ -26,6 +26,7 @@ import {
   Focus,
   Pause,
   Play,
+  Rewind,
   Heart,
   Share2,
   GitBranch,
@@ -235,6 +236,12 @@ export default function Analysis() {
   // only the right-hand panel switches. What-if state lives in the Zustand store,
   // so switching tabs never loses the hypothesis line.
   const [analysisTab, setAnalysisTab] = useState<'analysis' | 'whatif'>('analysis');
+  // Rewind-on-analyze: refs only (no re-renders needed — the engine's progress
+  // ticks already re-render the page while analyzing). `rewindArmedRef` is set
+  // when Analyze is pressed from the final position; `prevAnalyzingRef` detects
+  // the analyzing true→false edge so the board can snap on completion.
+  const rewindArmedRef = React.useRef(false);
+  const prevAnalyzingRef = React.useRef(false);
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
     const onResize = () => { setVpW(window.innerWidth); };
@@ -365,6 +372,49 @@ function formatDuration(ms: number | undefined): string {
     if (!hypothesisActive) setHypViewIndex(-1);
   }, [hypothesisActive]);
 
+  // Entering the match always shows the FINAL position (the store starts at -1),
+  // so pressing Analyze visibly rewinds the pieces back to the start. useLayoutEffect
+  // avoids a one-frame flash of the starting position right after selection.
+  React.useLayoutEffect(() => {
+    if (!selectedGame || selectedGame.moves.length === 0) return;
+    setCurrentMoveIndex(selectedGame.moves.length - 1);
+  }, [selectedGame?.id, setCurrentMoveIndex]);
+
+  // REWIND-ON-ANALYZE: while the engine runs, drive currentMoveIndex backward in
+  // lockstep with analysisProgress (throttled 1→90 ticks) so the pieces return to
+  // the start just as the analysis finishes. Idempotent per progress value — only
+  // steps when the target differs from the freshly-read store index, so throttle
+  // gaps and StrictMode double-runs can never fight the board.
+  React.useEffect(() => {
+    if (!rewindArmedRef.current) return;
+    if (hypothesisActive) return;
+    if (!selectedGame || selectedGame.moves.length === 0) return;
+    if (!analyzing || analysisProgress < 1 || analysisProgress > 95) return;
+    const total = selectedGame.moves.length;
+    const progress = Math.min(analysisProgress, 90); // clamp late ticks so a missed 90 still lands on -1
+    const target = Math.max(-1, total - 1 - Math.floor((progress / 90) * total));
+    const current = useGameStore.getState().currentMoveIndex;
+    if (current !== target) {
+      setCurrentMoveIndex(target);
+    }
+  }, [analyzing, analysisProgress, hypothesisActive, selectedGame, setCurrentMoveIndex]);
+
+  // On completion (analyzing true→false) the rewind is disarmed. A finished run
+  // leaves the board at the start; a failed/aborted run restores the final position
+  // the user was looking at before pressing Analyze.
+  React.useEffect(() => {
+    if (prevAnalyzingRef.current && !analyzing && rewindArmedRef.current) {
+      rewindArmedRef.current = false;
+      const fresh = useGameStore.getState();
+      const finished = fresh.analysisProgress >= 100;
+      const target = finished ? -1 : Math.max(-1, (fresh.selectedGame?.moves.length || 0) - 1);
+      if (fresh.currentMoveIndex !== target) {
+        setCurrentMoveIndex(target);
+      }
+    }
+    prevAnalyzingRef.current = analyzing;
+  }, [analyzing, setCurrentMoveIndex]);
+
   const toggleOrientation = React.useCallback(() => {
     updateSettings({ boardOrientation: settings.boardOrientation === 'white' ? 'black' : 'white' });
   }, [settings.boardOrientation, updateSettings]);
@@ -468,10 +518,7 @@ function formatDuration(ms: number | undefined): string {
     {
       key: 'a',
       description: 'Analyze game',
-      handler: () => {
-        if (!selectedGame || analyzing) return;
-        triggerEvaluationPipeline(settings.engineDepth);
-      },
+      handler: () => { handleAnalyzePress(); },
     },
     {
       key: 'ArrowRight',
@@ -567,6 +614,20 @@ function formatDuration(ms: number | undefined): string {
   const handlePrevMove = () => { setCurrentMoveIndex(currentMoveIndex - 1); };
   const handleNextMove = () => { setCurrentMoveIndex(currentMoveIndex + 1); };
   const handleEndMove = () => { setCurrentMoveIndex((selectedGame?.moves.length || 0) - 1); };
+
+  // Shared entry point for the Analyze button and the 'a' shortcut. When the board
+  // shows the final position the rewind is armed, so the pieces step back in time
+  // with the engine's progress; otherwise the run proceeds without touching the
+  // board (mid-game analysis). Autoplay is stopped when armed so its 1s ticker
+  // can't fight the rewind loop for the board position.
+  const handleAnalyzePress = React.useCallback(() => {
+    const fresh = useGameStore.getState();
+    const game = fresh.selectedGame;
+    if (!game || game.moves.length === 0 || fresh.analyzing || fresh.hypothesisActive) return;
+    rewindArmedRef.current = fresh.currentMoveIndex === game.moves.length - 1;
+    if (rewindArmedRef.current) setAutoplay(false);
+    triggerEvaluationPipeline(settings.engineDepth);
+  }, [settings.engineDepth, triggerEvaluationPipeline, setAutoplay]);
 
   // Replay the engine's recommendation for a flagged move: jump to the position
   // before it, enter what-if mode, and play the engine's best move there so the
@@ -962,6 +1023,12 @@ function formatDuration(ms: number | undefined): string {
 
   const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
 
+  // Rewind window: while the engine is running (and not in what-if mode) the
+  // nav buttons are locked so the stepping loop and the user can't fight over
+  // the position. Mirrors how hypothesisActive locks the same buttons.
+  const rewindActive = analyzing && !hypothesisActive && analysisProgress >= 1 && analysisProgress <= 95;
+  const navLocked = rewindActive && rewindArmedRef.current;
+
   // Face the account holder / analyst: when they're one of the two players, their
   // side is shown at the bottom. When their name isn't linked to the game, keep
   // the user's boardOrientation setting (no automatic change).
@@ -1291,25 +1358,25 @@ function formatDuration(ms: number | undefined): string {
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
               <div className="flex items-center space-x-1">
-                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
+                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
                   <ChevronsLeft className="w-5 h-5" />
                 </button>
-                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
+                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <button
                   onClick={() => { setAutoplay(!autoplay); }}
-                  disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive}
+                  disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked}
                   className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
                   title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
                   aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
                 >
                   {autoplay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                 </button>
-                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
+                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
                   <ChevronRight className="w-5 h-5" />
                 </button>
-                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
+                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
                   <ChevronsRight className="w-5 h-5" />
                 </button>
               </div>
@@ -1358,6 +1425,17 @@ function formatDuration(ms: number | undefined): string {
               </div>
             </div>
           </div>
+
+          {/* Rewind-on-analyze indicator — shown while the pieces are stepping
+              back to the start in lockstep with the engine's progress. */}
+          {rewindActive && rewindArmedRef.current && (
+            <div className="w-full flex justify-center" style={{ maxWidth: boardWidth }}>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-accent)]/40 bg-[var(--color-surface)] px-3 py-1 text-[10px] sm:text-[11px] font-bold text-[var(--color-accent)] fade-in">
+                <Rewind className="w-3.5 h-3.5 animate-pulse" />
+                <span>Rewinding to start…</span>
+              </div>
+            </div>
+          )}
 
           <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
             <button
@@ -1426,7 +1504,7 @@ function formatDuration(ms: number | undefined): string {
                   <option value={18}>Depth 18</option>
                 </select>
                 <button
-                  onClick={() => triggerEvaluationPipeline(settings.engineDepth)}
+                  onClick={handleAnalyzePress}
                   disabled={analyzing}
                   className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
                     analyzing
