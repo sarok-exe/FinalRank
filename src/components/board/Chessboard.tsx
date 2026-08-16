@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Chessboard as RCChessboard } from 'react-chessboard';
 import { Chess, type Square } from 'chess.js';
-import type { MoveClassification } from '../../types';
+import { STARTING_FEN, type MoveClassification } from '../../types';
 import { useSettingsStore } from '../../stores/settingsStore';
 import { PieceIcon } from './PieceIcon';
 import type { PieceHandlerArgs, PieceRenderObject } from 'react-chessboard';
@@ -311,10 +311,16 @@ function renderClassificationBadge(cls: MoveClassification): React.JSX.Element |
         // Inset 3px into the corner, the badge can never be cut on any edge
         // square (top row, right column, corners), stays clear of the board's
         // 4px border rounding, and the pop-in animation is untouched. Size is
-        // set responsively in .board-badge (min(26px, 36%)).
+        // set responsively in .board-badge (min(31px, 43%)).
         top: '3px',
         right: '3px',
-        zIndex: 10,
+        // ABOVE the piece: react-chessboard's moving piece carries
+        // z-index:10 while it slides, so 13 keeps the symbol clear of it in
+        // every frame (the badge and piece share the square's stacking
+        // context, and a latched badge on an older square still beats any
+        // piece sliding past it in the board's context). Arrows (z20) and the
+        // winner/checkmate overlay (z30) still render above it.
+        zIndex: 13,
       }}
       title={`Move classified as ${cls}`}
     />
@@ -357,6 +363,18 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     from: string;
     to: string[];
   } | null>(null);
+  // The classification badge is LATCHED, not derived from highlightSquares
+  // each render, so it survives transient gaps in that prop: hypothesis
+  // exploration updates the board position one render before the badge index
+  // catches up, and a deviation's classification only arrives once the engine
+  // finishes searching. The latch is replaced only by a genuinely new
+  // classification and cleared only on the true start position — it can never
+  // vanish mid-interaction.
+  const [lastBadge, setLastBadge] = useState<{
+    square: string;
+    classification: MoveClassification;
+    fen: string;
+  } | null>(null);
 
   // ── Premove state (a queued move, chess.com-style) ────────────────────
   const [premove, setPremove] = useState<{ from: string; to: string } | null>(null);
@@ -391,6 +409,32 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       setFx({ id: ++fxIdRef.current, ...detected });
     }
   }, [fen]);
+
+  // Badge latch — kept in sync with the latest valid classification via
+  // React's "adjust state while rendering" pattern (guarded, so it settles
+  // immediately and never loops). highlightSquares is a fresh object on every
+  // parent render, so the latch compares VALUES; only a genuinely different
+  // square / classification / position replaces it. Without this the badge
+  // vanished whenever the prop went undefined for a render — exactly what
+  // happens on the first frame of hypothesis exploration (the badge index
+  // lags the position by one render) and for as long as the engine is still
+  // classifying the current move.
+  const badgeTo = highlightSquares?.to;
+  const badgeCls = highlightSquares?.classification;
+  if (badgeTo != null && badgeCls != null) {
+    if (
+      lastBadge == null ||
+      lastBadge.square !== badgeTo ||
+      lastBadge.classification !== badgeCls ||
+      lastBadge.fen !== fen
+    ) {
+      setLastBadge({ square: badgeTo, classification: badgeCls, fen });
+    }
+  } else if (highlightSquares == null && fen === STARTING_FEN && lastBadge != null) {
+    // The genuine start position (no move played yet) is the only place the
+    // badge clears — a fresh position is waiting to be classified instead.
+    setLastBadge(null);
+  }
 
   const colors = THEME_COLORS[settings.boardColor] ?? THEME_COLORS.green;
   // The Profile "Right-Click" picker writes settings.rightClickHighlightColor,
@@ -708,8 +752,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       const isDragTarget =
         dragHighlights != null && dragHighlights.from !== square &&
         dragHighlights.to.includes(square);
-      const badgeClassification = isTo ? highlightSquares?.classification : undefined;
-      const isBadge = badgeClassification != null;
+      // The badge is the LATCHED classification (lastBadge), not the live
+      // highlightSquares, so it stays on its square while the current move is
+      // still being classified or the prop is transiently undefined.
+      const isBadge = lastBadge?.square === square;
       const isHint = hintSquare === square;
       const isFx = fx != null && fx.square === square;
       const isPremoveSource = premove?.from === square;
@@ -771,9 +817,12 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
             />
           )}
           {children}
-          {isBadge && badgeClassification != null && (
-            <div key={`badge-${fen}`} style={{ display: 'contents' }}>
-              {renderClassificationBadge(badgeClassification)}
+          {isBadge && lastBadge != null && (
+            <div
+              key={`badge-${lastBadge.fen}-${lastBadge.square}-${lastBadge.classification}`}
+              style={{ display: 'contents' }}
+            >
+              {renderClassificationBadge(lastBadge.classification)}
             </div>
           )}
           {isHint && (
@@ -878,7 +927,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
         </div>
       );
     },
-    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs, premove, premoveFrom, dragHighlights],
+    [validMoves, highlightSquares, hintSquare, squareStyles, fx, fen, mtColor, rightClickedSquares, rightClickHighlightColor, animationDurationInMs, premove, premoveFrom, dragHighlights, lastBadge],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {

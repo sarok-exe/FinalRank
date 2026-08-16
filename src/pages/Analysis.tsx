@@ -9,7 +9,6 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Zap,
-  TrendingUp,
   AlertTriangle,
   History,
   Activity,
@@ -103,7 +102,7 @@ function PlayerBar({ player, side, result, accuracy }: PlayerBarProps) {
       id={`player-bar-${side}`}
       className={`w-full flex items-center gap-2.5 rounded-xl border px-3 py-2 transition-colors ${
         isWinner
-          ? 'border-[var(--color-accent)]/50 bg-[color-mix(in_srgb,var(--color-surface)_94%,var(--color-accent)_6%)]'
+          ? 'border-[#f5c542]/70 bg-[color-mix(in_srgb,var(--color-surface)_93%,#f5c542_7%)] shadow-[0_0_14px_rgba(245,197,66,0.18)]'
           : 'border-[var(--color-border)] bg-[var(--color-surface)]'
       }`}
     >
@@ -151,7 +150,7 @@ function PlayerBar({ player, side, result, accuracy }: PlayerBarProps) {
         </span>
       ) : isWinner ? (
         <span
-          className="shrink-0 flex items-center justify-center w-[22px] h-[22px] rounded-md text-[var(--color-accent)] bg-[var(--color-accent)]/10 border border-[var(--color-accent)]/40"
+          className="shrink-0 flex items-center justify-center w-[22px] h-[22px] rounded-md bg-[#f5c542] text-black border border-[#f5c542] shadow-[0_0_10px_rgba(245,197,66,0.35)]"
           title="Winner"
         >
           <Trophy className="w-3 h-3" />
@@ -231,11 +230,6 @@ export default function Analysis() {
   // (-1 = the base position before the line). It stays pinned to the tip whenever
   // the line changes, and is stepped with the arrow keys while in what-if mode.
   const [hypViewIndex, setHypViewIndex] = useState(-1);
-  // Two-tab split of the analyzing page. The board column (opening, player bars,
-  // board, controls) is shared by both tabs so the Chessboard mounts exactly once;
-  // only the right-hand panel switches — 'analysis' = coach/diagnosis, 'details'
-  // = report + favorites.
-  const [analysisTab, setAnalysisTab] = useState<'analysis' | 'details'>('analysis');
   // Regular vs Advanced split of the page chrome. Regular strips the page to a
   // bare analysis surface (board, engine picker, move log); Advanced keeps all
   // the extras (tabs, coach, what-if, report, favorites, opening name, banner).
@@ -415,16 +409,25 @@ function formatDuration(ms: number | undefined): string {
   }, [analyzing, analysisProgress, hypothesisActive, selectedGame, setCurrentMoveIndex]);
 
   // On completion (analyzing true→false) the rewind is disarmed. A finished run
-  // leaves the board at the start; a failed/aborted run restores the final position
-  // the user was looking at before pressing Analyze.
+  // ALWAYS returns the pieces to the start position (the state before the match
+  // began) — whether or not the rewind was armed (auto-analysis on load, or
+  // Analyze pressed mid-game) — while a failed/aborted run restores the final
+  // position the user was looking at before pressing Analyze.
   React.useEffect(() => {
-    if (prevAnalyzingRef.current && !analyzing && rewindArmedRef.current) {
-      rewindArmedRef.current = false;
+    if (prevAnalyzingRef.current && !analyzing) {
       const fresh = useGameStore.getState();
       const finished = fresh.analysisProgress >= 100;
-      const target = finished ? -1 : Math.max(-1, (fresh.selectedGame?.moves.length || 0) - 1);
-      if (fresh.currentMoveIndex !== target) {
-        setCurrentMoveIndex(target);
+      if (finished) {
+        rewindArmedRef.current = false;
+        if (fresh.currentMoveIndex !== -1) {
+          setCurrentMoveIndex(-1);
+        }
+      } else if (rewindArmedRef.current) {
+        rewindArmedRef.current = false;
+        const target = Math.max(-1, (fresh.selectedGame?.moves.length || 0) - 1);
+        if (fresh.currentMoveIndex !== target) {
+          setCurrentMoveIndex(target);
+        }
       }
     }
     prevAnalyzingRef.current = analyzing;
@@ -1338,29 +1341,22 @@ function formatDuration(ms: number | undefined): string {
   );
 
   // Engine panel — depth picker, Analyze, pre-analyzed history. Rendered below
-  // the board in Advanced and below the move log in Regular. Regular also
-  // carries the "Analyzed ✓" pill here since the board strip is Advanced-only.
+  // the board in Advanced and below the move log in Regular. The layout is fully
+  // fluid: header + controls wrap independently so nothing cramps or overflows
+  // on narrow screens, and every control keeps a comfortable touch target.
   const enginePanel = (
     <>{!(focusMode && fullscreenMode) && (
-      <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-              <Zap className="w-4 h-4 text-[var(--color-primary)]" />
-              <span>Stockfish 18 Lite</span>
-            </h3>
-            <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
-              Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
-              {analysisMode === 'regular' && selectedGame.analyzedAt && (
-                <span className="text-[10px] text-green-500 font-bold"> &middot; &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}</span>
-              )}
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 sm:space-x-2">
+      <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5">
+          <h3 className="min-w-0 flex items-center gap-2 text-sm font-bold text-white">
+            <Zap className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
+            <span className="truncate">Stockfish 18 Lite</span>
+          </h3>
+          <div className="flex flex-wrap items-center gap-2">
             <select
               value={settings.engineDepth}
               onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
-              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
+              className="min-h-[36px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-2 text-xs text-white"
               id="depth-picker"
             >
               <option value={6}>Depth 6</option>
@@ -1373,7 +1369,7 @@ function formatDuration(ms: number | undefined): string {
             <button
               onClick={handleAnalyzePress}
               disabled={analyzing}
-              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
+              className={`min-h-[36px] px-3.5 sm:px-4 py-2 rounded-lg text-xs font-bold text-white flex items-center gap-1.5 ${
                 analyzing
                   ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
                   : 'bg-[var(--color-primary)]'
@@ -1386,7 +1382,7 @@ function formatDuration(ms: number | undefined): string {
             {priorAnalyses.length > 0 && !analyzing && (
               <button
                 onClick={() => { setShowPriorAnalyses(true); }}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center space-x-1.5"
+                className="min-h-[36px] px-3 py-2 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center gap-1.5"
                 id="pre-analyzed-button"
                 title="This match was analyzed before. Load a saved analysis instead of re-analyzing."
               >
@@ -1416,7 +1412,7 @@ function formatDuration(ms: number | undefined): string {
       {/* Regular / Advanced mode split — plain backgroundless text buttons,
           always visible above the arena. Active mode: white bold text with a
           subtle accent underline; inactive: muted text. */}
-      <div className="w-full flex items-center gap-0" id="analysis-mode-toggle">
+      <div className="w-full flex items-center justify-center gap-0" id="analysis-mode-toggle">
         <button
           onClick={() => { handleModeChange('regular'); }}
           aria-pressed={analysisMode === 'regular'}
@@ -1454,70 +1450,19 @@ function formatDuration(ms: number | undefined): string {
           : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}
       `.trim()} id="game-arena-grid">
         <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7 xl:col-span-8'}`}>
-          {/* Two-tab split: 'Analysis' vs 'What-if & Details'. The board column
-              below (opening, player bars, board, controls) is shared by both tabs
-              so the Chessboard is only ever mounted once — rendering it twice
-              throws react-chessboard's 'Square width not found'. */}
-          {!focusMode && analysisMode === 'advanced' && (
-            <div className="w-full fade-in" style={{ maxWidth: boardWidth }}>
-              <div className="flex gap-1 p-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl">
-                <button
-                  onClick={() => { setAnalysisTab('analysis'); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    analysisTab === 'analysis'
-                      ? 'bg-[var(--color-accent)] text-black shadow-sm'
-                      : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)]'
-                  }`}
-                  aria-pressed={analysisTab === 'analysis'}
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>Analysis</span>
-                </button>
-                <button
-                  onClick={() => { setAnalysisTab('details'); }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    analysisTab === 'details'
-                      ? 'bg-[var(--color-accent)] text-black shadow-sm'
-                      : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)]'
-                  }`}
-                  aria-pressed={analysisTab === 'details'}
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Details</span>
-                </button>
-              </div>
-            </div>
-          )}
-          {/* Opening name + big favorite heart — Advanced only. The name is a
-              small, plain, backgroundless line (the old amber card is gone);
-              the heart stays beside it. Both are hidden entirely in Regular
-              mode, which keeps the console heart as the single favorite. */}
+          {/* Opening name — Advanced only. A small, plain, backgroundless line
+              (the old amber card and the big heart beside it are gone; the
+              console/utility hearts remain the single favorite). */}
           {analysisMode === 'advanced' && (
-          <div className="w-full flex items-center justify-between gap-3" style={{ maxWidth: boardWidth }}>
-            <div className="min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]/70">
-                Opening
-              </div>
-              <h2 className={`text-base sm:text-lg font-semibold truncate leading-tight min-h-[1.5rem] ${
-                openingName ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'
-              }`} title={openingName}>
-                {openingName || '—'}
-              </h2>
+          <div className="w-full" style={{ maxWidth: boardWidth }}>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]/70">
+              Opening
             </div>
-            {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
-              <button
-                onClick={handleSaveGame}
-                className={`shrink-0 w-[52px] sm:w-[60px] flex items-center justify-center rounded-xl border transition-all ${
-                  savedGameIds.has(selectedGame.id)
-                    ? 'bg-red-600/15 border-red-500/60 text-red-500'
-                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-500 hover:border-red-500/50 hover:bg-red-500/5'
-                }`}
-                aria-label={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
-                title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
-              >
-                <Heart className={`w-6 h-6 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
-              </button>
-            )}
+            <h2 className={`text-base sm:text-lg font-semibold truncate leading-tight min-h-[1.5rem] ${
+              openingName ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'
+            }`} title={openingName}>
+              {openingName || '—'}
+            </h2>
           </div>
           )}
           {/* Top player bar — hugs the board, chess.com style */}
@@ -1543,10 +1488,10 @@ function formatDuration(ms: number | undefined): string {
             <PlayerBar player={bottomPlayer} side={bottomSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
 
-          {/* Analysis time + depth — slim, subtle strip at the bottom of the board
-              (Advanced only — Regular carries it in the engine panel below the
-              move log). */}
-          {analysisMode === 'advanced' && selectedGame.analyzedAt && (
+          {/* Analysis time + depth — slim, subtle strip below the board on BOTH
+              pages (the Regular engine subtitle that used to carry it was
+              removed in the cleanup). Appears once the game has been analyzed. */}
+          {selectedGame.analyzedAt && (
             <div className="w-full flex justify-center" style={{ maxWidth: boardWidth }}>
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-background)]/70 px-3 py-1 text-[10px] sm:text-[11px] font-semibold text-[var(--color-text-muted)]">
                 <span className="text-green-500 font-bold leading-none">&#x2713;</span>
@@ -1584,7 +1529,7 @@ function formatDuration(ms: number | undefined): string {
 
         {!focusMode && (
         <div className="lg:col-span-5 xl:col-span-4 space-y-4 flex flex-col h-auto min-h-[400px]">
-          {analysisMode === 'advanced' && analysisTab === 'analysis' && (
+          {analysisMode === 'advanced' && (
           <>
           {legendaryData && !notificationDismissed && (
             <div className="bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl p-4 text-[var(--color-accent)] relative" id="legendary-achievement-banner">
@@ -1612,57 +1557,6 @@ function formatDuration(ms: number | undefined): string {
             </div>
           )}
 
-          {!focusMode && selectedGame && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex items-start justify-between gap-2" id="game-info-card">
-            <div className="space-y-1.5 flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-[var(--color-text-muted)] font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-[var(--color-primary)]" />
-                  <span>Result:</span>
-                  <span className="text-white bg-[var(--color-background)] px-1.5 py-0.5 rounded font-mono">{selectedGame.result}</span>
-                </span>
-                <span className="text-[var(--color-border)]">&bull;</span>
-                <span className="truncate max-w-[120px]">{selectedGame.date}</span>
-                {selectedGame.analyzedAt && (
-                  <span className="text-[10px] text-green-500 font-bold">
-                    &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}
-                  </span>
-                )}
-              </div>
-              <div className="text-sm font-bold text-white flex flex-col gap-1">
-                <div className="flex items-center space-x-2.5">
-                  {selectedGame.white?.avatar ? (
-                    <img src={selectedGame.white.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
-                  ) : (
-                    <span className="w-[44px] h-[44px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
-                  )}
-                  <span className="truncate">{selectedGame.white?.username ?? 'White'} {selectedGame.white?.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.white.rating})</span>}</span>
-                </div>
-                <div className="flex items-center space-x-2.5 mt-[3px]">
-                  {selectedGame.black?.avatar ? (
-                    <img src={selectedGame.black.avatar} alt="" className="w-[44px] h-[44px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
-                  ) : (
-                    <span className="w-[44px] h-[44px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
-                  )}
-                  <span className="truncate">{selectedGame.black?.username ?? 'Black'} {selectedGame.black?.rating && <span className="text-[var(--color-text-muted)]">({selectedGame.black.rating})</span>}</span>
-                </div>
-              </div>
-            </div>
-            {selectedGame.accuracy && (
-              <div className="flex items-center space-x-2 border-l border-[var(--color-border)] pl-3 ml-2 shrink-0">
-                <div className="text-center">
-                  <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">W</div>
-                  <div className="text-sm font-bold text-white">{selectedGame.accuracy.white}%</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">B</div>
-                  <div className="text-sm font-bold text-white">{selectedGame.accuracy.black}%</div>
-                </div>
-              </div>
-            )}
-          </div>
-          )}
-
           <CoachPanel
             notes={coachNotes}
             activeMoveIndex={currentMoveIndex}
@@ -1670,8 +1564,6 @@ function formatDuration(ms: number | undefined): string {
           />
           </>
           )}
-          {(analysisMode === 'regular' || (analysisMode === 'advanced' && analysisTab === 'analysis')) && (
-          <>
           <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
@@ -1731,8 +1623,6 @@ function formatDuration(ms: number | undefined): string {
               )}
             </div>
           </div>
-          </>
-          )}
           {analysisMode === 'regular' && (
           <>
           {navConsole}
@@ -1748,7 +1638,7 @@ function formatDuration(ms: number | undefined): string {
           )}
           </>
           )}
-          {analysisMode === 'advanced' && analysisTab === 'analysis' && (
+          {analysisMode === 'advanced' && (
           <>
           <div className="fade-in bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="positional-evaluation-box">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 flex items-center space-x-1.5">
@@ -1926,7 +1816,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
           </>
           )}
-          {analysisMode === 'advanced' && analysisTab === 'details' && (
+          {analysisMode === 'advanced' && (
           <>
           {favoriteGames.length > 0 && (
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
@@ -1971,7 +1861,7 @@ function formatDuration(ms: number | undefined): string {
 
       </div>
 
-      {!focusMode && selectedGame && analysisMode === 'advanced' && analysisTab === 'details' && (
+      {!focusMode && selectedGame && analysisMode === 'advanced' && (
         <div className="fade-in">
           <AnalysisReport game={selectedGame} />
         </div>
