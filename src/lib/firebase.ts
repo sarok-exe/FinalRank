@@ -9,7 +9,7 @@ import {
 import type { Firestore} from 'firebase/firestore';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
-  collection, getDocs, query, orderBy, limit, deleteDoc, terminate,
+  collection, getDocs, query, orderBy, limit, terminate,
 } from 'firebase/firestore';
 
 import { getTurso } from './turso';
@@ -263,16 +263,22 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
   const shortId = (data.shortId as string | undefined) ?? gameId;
   const fs = await initFirestore();
   if (fs) {
+    // merge: true — writers only touch the fields they carry, so a partial save
+    // (analysis completion, shared-link load, select) can never strip fields it
+    // doesn't know about — critically `userSaved` (the favorite flag).
     try {
-      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }));
+      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }, { merge: true }));
       noteFirestoreSuccess();
     } catch (e) {
       noteFirestoreFailure();
       console.warn('[Firestore] saveUserGame failed:', e);
+      // Propagate so caller .catch paths fire (revert + error toast) instead of
+      // swallowing the failure and reporting a false success.
+      throw e;
     }
     if (shortId !== '') {
       try {
-        await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }));
+        await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }, { merge: true }));
       } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
     }
   }
@@ -322,14 +328,21 @@ export async function fetchUserFavorites(uid: string): Promise<Record<string, un
 
 export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
   const fs = await initFirestore();
-  if (!fs) return [];
+  if (fs) {
+    try {
+      const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+      const snap = await withTimeout(getDocs(q));
+      noteFirestoreSuccess();
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    } catch {
+      noteFirestoreFailure();
+    }
+  }
+  // Fallback to Turso (mirrored on save) when Firestore is unavailable so the
+  // games list is never empty just because the primary store is down.
   try {
-    const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
-    const snap = await withTimeout(getDocs(q));
-    noteFirestoreSuccess();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return await fetchFavoritesTurso(uid);
   } catch {
-    noteFirestoreFailure();
     return [];
   }
 }
@@ -366,17 +379,21 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
   return null;
 }
 
+/** Unfavorite a game. Keeps the game in the user's library (just flips the flag
+ *  with a merge) and does NOT touch the public games/{shortId} doc — an
+ *  unfavorite must not unpublish a share. Name/signature kept so callers (e.g.
+ *  Analysis.tsx) don't need to change. */
 export async function deleteUserGame(uid: string, gameId: string) {
   const fs = await initFirestore();
   if (fs) {
     try {
-      const shortId = gameId;
-      await withTimeout(deleteDoc(doc(fs, 'users', uid, 'games', shortId)));
-      await withTimeout(deleteDoc(doc(fs, 'games', shortId)));
+      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { userSaved: false, updatedAt: serverTimestamp() }, { merge: true }));
       noteFirestoreSuccess();
     } catch (e) {
       noteFirestoreFailure();
       console.warn('[Firestore] deleteUserGame failed:', e);
+      // Propagate so caller .catch paths fire (revert + error toast).
+      throw e;
     }
   }
   try {

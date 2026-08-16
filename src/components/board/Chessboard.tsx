@@ -304,22 +304,23 @@ function renderClassificationBadge(cls: MoveClassification): React.JSX.Element |
       style={{
         position: 'absolute',
         // Anchored to the square's top-right corner but fully INSIDE the
-        // square. Anything that pokes outside the board gets cropped — by
+        // square — PARALLEL to the piece, beside it, never covering its body.
+        // Anything that pokes outside the board gets cropped — by
         // react-chessboard's overflow:hidden (already overridden to visible)
         // and, on edge squares, by the page-level overflow-x:hidden on
         // #root/html/body when the board hugs the viewport edge on phones.
         // Inset 3px into the corner, the badge can never be cut on any edge
         // square (top row, right column, corners), stays clear of the board's
         // 4px border rounding, and the pop-in animation is untouched. Size is
-        // set responsively in .board-badge (min(31px, 43%)).
+        // set responsively in .board-badge (min(26px, 36%)).
         top: '3px',
         right: '3px',
-        // ABOVE the piece: react-chessboard's moving piece carries
-        // z-index:10 while it slides, so 13 keeps the symbol clear of it in
-        // every frame (the badge and piece share the square's stacking
-        // context, and a latched badge on an older square still beats any
-        // piece sliding past it in the board's context). Arrows (z20) and the
-        // winner/checkmate overlay (z30) still render above it.
+        // Above the SLIDING piece only where it matters: react-chessboard's
+        // moving piece carries z-index:10 while it slides, so 13 keeps the
+        // symbol visible as the piece moves INTO the square — they arrive
+        // together ("the piece moves with its symbol in parallel"). Once at
+        // rest the badge sits in the corner beside the piece; arrows (z20)
+        // and the winner/checkmate overlay (z30) still render above it.
         zIndex: 13,
       }}
       title={`Move classified as ${cls}`}

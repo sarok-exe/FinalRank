@@ -4,9 +4,14 @@ import { Chess } from 'chess.js';
 import {
   Play, Pause, RotateCcw, Clock, Cpu, Timer, Layers,
   Maximize, Focus, ChevronLeft, Users, FlipHorizontal,
+  Activity, X,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../stores/authStore';
 import { useClockStore } from '../stores/clockStore';
+import { useGameStore } from '../stores/gameStore';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useToastStore } from '../stores/toastStore';
 import { useUIStore } from '../stores/uiStore';
 import { useFullscreen } from '../hooks/useFullscreen';
 import { analyzePositionLocally, destroyEngine } from '../lib/engine/legacy';
@@ -70,6 +75,111 @@ const ENGINE_DEPTH_PRESETS = [
   { id: 'advanced', name: 'Advanced', depth: 12 },
   { id: 'expert', name: 'Expert', depth: 18 },
 ];
+
+// ── Post-match analysis ────────────────────────────────────
+// Result header for a finished (or stopped) match: decisive endings use the
+// real result, everything else is exported as an unfinished game ('*').
+function matchResultHeader(game: Chess): string {
+  if (game.isCheckmate()) return game.turn() === 'w' ? '0-1' : '1-0';
+  if (game.isDraw()) return '1/2-1/2';
+  return '*';
+}
+
+// Export the current game as PGN with proper headers. Only the Chess instance's
+// header tags are mutated — the moves are untouched.
+function buildMatchPgn(game: Chess, whiteName: string, blackName: string): string {
+  const d = new Date();
+  const dateStr = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+  game.setHeader('White', whiteName);
+  game.setHeader('Black', blackName);
+  game.setHeader('Result', matchResultHeader(game));
+  game.setHeader('Date', dateStr);
+  return game.pgn();
+}
+
+// Send a finished match through the proven import pipeline
+// (importPgnDirectly: build → save → selectGame → autoAnalyzeGame) and land on
+// the analysis page with auto-analysis armed (?post=1). On any failure — a
+// parse error or the store not picking up the new game — show an error toast
+// and stay put.
+function importAndAnalyzeMatch(pgn: string, navigate: ReturnType<typeof useNavigate>): void {
+  try {
+    const prevTopId = useGameStore.getState().games[0]?.id;
+    const result = useGameStore.getState().importPgnDirectly(pgn) as unknown;
+    // The parallel gameStore lane may turn importPgnDirectly async; if it ever
+    // returns a promise, swallow its rejection here (failure is still detected
+    // by the games[0] check below).
+    if (result instanceof Promise) {
+      void (result as Promise<unknown>).catch(() => { /* handled below */ });
+    }
+    const imported = useGameStore.getState().games[0];
+    if (!imported || imported.id === prevTopId || !imported.id.startsWith('pgn_custom_') || !imported.shortId) {
+      useToastStore.getState().addToast({ type: 'error', message: 'The match could not be saved for analysis. Please try again.' });
+      return;
+    }
+    navigate(`/game/${imported.shortId}?post=1`);
+  } catch {
+    useToastStore.getState().addToast({ type: 'error', message: 'The match could not be saved for analysis. Please try again.' });
+  }
+}
+
+// Confirm dialog for analyzing a match that is still in progress: analyzing
+// finishes the match first, so the player is asked before that happens.
+function AnalyzeConfirmDialog(props: Readonly<{
+  open: boolean;
+  onCancel(): void;
+  onContinue(): void;
+}>): React.ReactElement | null {
+  if (!props.open) return null;
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+      onClick={props.onCancel}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Finish match and analyze"
+      id="analyze-confirm-dialog"
+    >
+      <div
+        className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4"
+        onClick={(e) => { e.stopPropagation(); }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+            <Activity className="w-5 h-5 text-[var(--color-primary)]" />
+            Analyze this match
+          </h2>
+          <button
+            onClick={props.onCancel}
+            className="text-[var(--color-text-muted)] hover:text-white transition-colors"
+            aria-label="Cancel"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-sm text-[var(--color-text-muted)] leading-relaxed">
+          This will finish the match. The current position will be saved and analyzed. Continue?
+        </p>
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={props.onCancel}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white transition-colors"
+            id="analyze-confirm-cancel"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={props.onContinue}
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-primary)] text-white"
+            id="analyze-confirm-continue"
+          >
+            Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Feature Card ──────────────────────────────────────────
 function FeatureCard(props: Readonly<{
@@ -174,6 +284,8 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
   const [engineThinkingTime, setEngineThinkingTime] = useState(2000);
   const [engineFeedback, setEngineFeedback] = useState('');
   const [rcSquares, setRcSquares] = useState<string[]>([]);
+  const navigate = useNavigate();
+  const [showAnalyzeConfirm, setShowAnalyzeConfirm] = useState(false);
 
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
@@ -265,6 +377,46 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
     setEngineDepthPreset(presetId);
     setEngineDepth(depth);
   };
+
+  // Export the live game as PGN and hand it to the import/analyze pipeline.
+  // If the engine is mid-think the match is finished first (the engine is
+  // stopped, so no stale engine move can be appended).
+  const runMatchAnalysis = useCallback(() => {
+    if (!gameInstance) return;
+    const u = useAuthStore.getState().user;
+    const whiteName = u?.username || 'You';
+    let pgn: string;
+    try {
+      pgn = buildMatchPgn(gameInstance, whiteName, 'Stockfish 18 Lite');
+    } catch {
+      useToastStore.getState().addToast({ type: 'error', message: 'Could not build this match for analysis.' });
+      return;
+    }
+    if (engineThinking) {
+      destroyEngine();
+      setEngineThinking(false);
+    }
+    if (!gameInstance.isGameOver()) {
+      setEngineFeedback('Match finished for analysis.');
+    }
+    importAndAnalyzeMatch(pgn, navigate);
+  }, [gameInstance, engineThinking, navigate]);
+
+  // Finished matches go straight to the flow; live matches ask first, because
+  // analyzing finishes the match.
+  const handleAnalyzeClick = useCallback(() => {
+    if (!gameInstance || moveHistory.length === 0) return;
+    const u = useAuthStore.getState().user;
+    if (!u || u.authProvider === 'guest') {
+      useToastStore.getState().addToast({ type: 'info', message: 'Sign in to save and analyze matches' });
+      return;
+    }
+    if (gameInstance.isGameOver()) {
+      runMatchAnalysis();
+    } else {
+      setShowAnalyzeConfirm(true);
+    }
+  }, [gameInstance, moveHistory.length, runMatchAnalysis]);
 
   return (
     <div className="space-y-4" id="play-vs-computer-feature">
@@ -462,14 +614,32 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
               {engineFeedback || 'Make your move.'}
             </div>
 
-            <button onClick={startNewGame} className="w-full bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
-              New Game
-            </button>
+            <div className="flex gap-2 w-full">
+              <button
+                onClick={handleAnalyzeClick}
+                disabled={moveHistory.length === 0}
+                className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                id="pvc-analyze-button"
+                title="Save this match and analyze it"
+              >
+                <Activity className="w-3.5 h-3.5" />
+                <span>Analyze</span>
+              </button>
+              <button onClick={startNewGame} className="flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
+                New Game
+              </button>
+            </div>
           </div>
           )}
         </div>
         </div>
       )}
+
+      <AnalyzeConfirmDialog
+        open={showAnalyzeConfirm}
+        onCancel={() => { setShowAnalyzeConfirm(false); }}
+        onContinue={() => { setShowAnalyzeConfirm(false); runMatchAnalysis(); }}
+      />
     </div>
   );
 }
@@ -506,12 +676,16 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
   const [customBlackSec, setCustomBlackSec] = useState(0);
   const [customInc, setCustomInc] = useState(0);
   const movePendingRef = useRef(false);
+  const navigate = useNavigate();
+  const [showAnalyzeConfirm, setShowAnalyzeConfirm] = useState(false);
   const currentCategoryPresets = PRESET_CATEGORIES[clockCategory].presets;
-  let boardWidthTarget = 385;
-  if (focusMode) boardWidthTarget = 490;
-  else if (fullscreenMode) boardWidthTarget = 593;
-  else if (vpW2 < 640) boardWidthTarget = 360;
-  const boardWidth = Math.min(boardWidthTarget, vpW2 - 16);
+  // Same sizing as the Play-vs-Computer board so both tools render identically.
+  const pad = 16;
+  let boardWidthTarget = 644;
+  if (focusMode) boardWidthTarget = 700;
+  else if (fullscreenMode) boardWidthTarget = 990;
+  else if (vpW2 < 640) boardWidthTarget = 500;
+  const boardWidth = Math.min(boardWidthTarget, vpW2 - pad);
 
   // Spacebar for clock turn switching (like Chess Clock feature)
   useEffect(() => {
@@ -619,6 +793,45 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
       cat.presets.some((pp) => pp.id === pId)
     ));
   };
+
+  // Rebuild the game from the recorded SAN history, finish the match if it is
+  // still live (decisive positions keep their real result, otherwise it is an
+  // ended-by-stop match), then hand the PGN to the import/analyze pipeline.
+  const runMatchAnalysis = useCallback(() => {
+    let game: Chess;
+    try {
+      game = new Chess();
+      for (const san of moveHistory) game.move(san);
+    } catch {
+      useToastStore.getState().addToast({ type: 'error', message: 'Could not build this match for analysis.' });
+      return;
+    }
+    if (gameOver == null) {
+      let msg = 'Match ended for analysis.';
+      if (game.isCheckmate()) msg = `Checkmate! ${game.turn() === 'w' ? 'Black' : 'White'} wins!`;
+      else if (game.isDraw()) msg = 'Draw';
+      setGameOver(msg);
+      if (isRunning) clockStore.pauseClock();
+    }
+    const pgn = buildMatchPgn(game, 'Player 1', 'Player 2');
+    importAndAnalyzeMatch(pgn, navigate);
+  }, [moveHistory, gameOver, isRunning, clockStore, navigate]);
+
+  // Finished matches go straight to the flow; live matches ask first, because
+  // analyzing finishes the match.
+  const handleAnalyzeClick = useCallback(() => {
+    if (moveHistory.length === 0) return;
+    const u = useAuthStore.getState().user;
+    if (!u || u.authProvider === 'guest') {
+      useToastStore.getState().addToast({ type: 'info', message: 'Sign in to save and analyze matches' });
+      return;
+    }
+    if (gameOver != null) {
+      runMatchAnalysis();
+    } else {
+      setShowAnalyzeConfirm(true);
+    }
+  }, [moveHistory.length, gameOver, runMatchAnalysis]);
 
   return (
     <div className="space-y-4" id="player-vs-player-feature">
@@ -932,13 +1145,31 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
             )}
           </div>
 
-          <button onClick={resetGame} className="w-full bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
-            New Game
-          </button>
+          <div className="flex gap-2 w-full">
+            <button
+              onClick={handleAnalyzeClick}
+              disabled={moveHistory.length === 0}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+              id="pvp-analyze-button"
+              title="Save this match and analyze it"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>Analyze</span>
+            </button>
+            <button onClick={resetGame} className="flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
+              New Game
+            </button>
+          </div>
         </div>
         )}
       </div>
       </div>
+
+      <AnalyzeConfirmDialog
+        open={showAnalyzeConfirm}
+        onCancel={() => { setShowAnalyzeConfirm(false); }}
+        onContinue={() => { setShowAnalyzeConfirm(false); runMatchAnalysis(); }}
+      />
     </div>
   );
 }

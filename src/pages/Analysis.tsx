@@ -1,6 +1,6 @@
 // @ts-nocheck - TODO: remove when TS 5.8/zustand v5 type inference issue resolved
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import {
   Sparkles,
@@ -210,6 +210,10 @@ export default function Analysis() {
 
   const { gameId: urlGameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Post-game flow: the tools lane lands here via /game/:id?post=1 once a match
+  // finishes. Gates the auto-start and the match-finished options panel below.
+  const isPostFlow = searchParams.get('post') === '1';
 
   const [usernameInput, setUsernameInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
@@ -233,15 +237,23 @@ export default function Analysis() {
   // Regular vs Advanced split of the page chrome. Regular strips the page to a
   // bare analysis surface (board, engine picker, move log); Advanced keeps all
   // the extras (tabs, coach, what-if, report, favorites, opening name, banner).
-  // Default 'advanced' preserves current behavior. Only chrome rendering changes —
-  // the shared board, what-if state and analysisProgress live untouched in the store.
-  const [analysisMode, setAnalysisMode] = useState<'regular' | 'advanced'>('advanced');
+  // Default 'regular' opens on a stripped-down analysis surface; Advanced is one
+  // tap away for the full chrome. Only rendering changes — the shared board,
+  // what-if state and analysisProgress live untouched in the store.
+  const [analysisMode, setAnalysisMode] = useState<'regular' | 'advanced'>('regular');
   // Rewind-on-analyze: refs only (no re-renders needed — the engine's progress
   // ticks already re-render the page while analyzing). `rewindArmedRef` is set
   // when Analyze is pressed from the final position; `prevAnalyzingRef` detects
   // the analyzing true→false edge so the board can snap on completion.
   const rewindArmedRef = React.useRef(false);
   const prevAnalyzingRef = React.useRef(false);
+  // POST-GAME PANEL state. `postPanelConsumedRef` latches the moment the user
+  // dismisses the panel or re-analyzes, so later runs can never resurface it;
+  // `prevPostAnalyzingRef` detects the analyzing true→false edge for the reveal.
+  const [postPanelVisible, setPostPanelVisible] = useState(false);
+  const [postStrength, setPostStrength] = useState<'weaker' | 'same' | 'stronger'>('same');
+  const postPanelConsumedRef = React.useRef(false);
+  const prevPostAnalyzingRef = React.useRef(false);
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
     const onResize = () => { setVpW(window.innerWidth); };
@@ -432,6 +444,55 @@ function formatDuration(ms: number | undefined): string {
     }
     prevAnalyzingRef.current = analyzing;
   }, [analyzing, setCurrentMoveIndex]);
+
+  // POST-GAME FLOW — AUTO-START. Arriving via /game/:id?post=1 guarantees an
+  // analysis runs: if the import already kicked one off (autoAnalyzeGame),
+  // triggerEvaluationPipeline joins its pending promise and surfaces the same
+  // analyzing/progress tracking as the Analyze button; otherwise it starts fresh.
+  // The store's own guards (analyzing/hypothesisActive) make StrictMode re-runs
+  // and repeated kicks no-ops, and this path skips the cache, so it always runs
+  // from scratch like the import flow.
+  React.useEffect(() => {
+    if (!isPostFlow) return;
+    const state = useGameStore.getState();
+    if (!state.selectedGame || state.selectedGame.moves.length === 0) return;
+    if (state.analyzing || state.hypothesisActive) return;
+    void triggerEvaluationPipeline();
+  }, [isPostFlow, triggerEvaluationPipeline, selectedGame?.id]);
+
+  // POST-GAME FLOW — PANEL REVEAL. When the analysis completes (analyzing
+  // true→false and progress reached 100) while post=1 is present, show the
+  // match-finished options. Dismissing or re-analyzing consumes the panel for
+  // the rest of the visit, so a later run can never bring it back.
+  React.useEffect(() => {
+    if (prevPostAnalyzingRef.current && !analyzing) {
+      if (isPostFlow && !postPanelConsumedRef.current) {
+        const fresh = useGameStore.getState();
+        if (fresh.analysisProgress >= 100) {
+          setPostPanelVisible(true);
+        }
+      }
+    }
+    prevPostAnalyzingRef.current = analyzing;
+  }, [analyzing, isPostFlow]);
+
+  // POST-GAME FLOW — ACTIONS. Dismissal and Re-analyze both consume the panel;
+  // Play new match heads back to the tools page for the next game.
+  const dismissPostPanel = React.useCallback(() => {
+    postPanelConsumedRef.current = true;
+    setPostPanelVisible(false);
+  }, []);
+
+  const handlePostReanalyze = React.useCallback(() => {
+    postPanelConsumedRef.current = true;
+    setPostPanelVisible(false);
+    const depth = postStrength === 'weaker' ? 8 : postStrength === 'stronger' ? 18 : 15;
+    void triggerEvaluationPipeline(depth);
+  }, [postStrength, triggerEvaluationPipeline]);
+
+  const handlePlayNewMatch = React.useCallback(() => {
+    navigate('/tools');
+  }, [navigate]);
 
   const toggleOrientation = React.useCallback(() => {
     updateSettings({ boardOrientation: settings.boardOrientation === 'white' ? 'black' : 'white' });
@@ -715,7 +776,7 @@ function formatDuration(ms: number | undefined): string {
       if (uid) {
         import('../lib/firebase').then(({ saveUserGame }) => {
           saveUserGame(uid, game!.id, { ...game!, shortId });
-        });
+        }).catch(() => { /* fire-and-forget: the games list is the source of truth */ });
       }
     } else {
       navigate(`/game/${game.shortId}`, { replace: true });
@@ -1443,6 +1504,81 @@ function formatDuration(ms: number | undefined): string {
           )}
         </button>
       </div>
+
+      {/* Post-game match-finished options — only in the ?post=1 flow, after the
+          analysis completes. Inline so it never blocks the page, gold-accented to
+          echo the winner treatment, and consumed by X / Later / Re-analyze. */}
+      {isPostFlow && postPanelVisible && (
+        <div className="w-full fade-in" id="post-analysis-panel">
+          <div className="w-full bg-[var(--color-surface)] border border-[#f5c542]/40 rounded-xl p-4 relative">
+            <button
+              onClick={dismissPostPanel}
+              className="absolute top-2.5 right-2.5 p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)] transition-colors"
+              aria-label="Dismiss match options"
+              title="Dismiss"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2.5 pr-8">
+              <div className="w-8 h-8 rounded-lg bg-[#f5c542]/15 text-[#f5c542] flex items-center justify-center shrink-0">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-bold text-white leading-tight">Match analyzed</h3>
+                <p className="text-xs text-[var(--color-text-muted)] leading-snug mt-0.5">
+                  Your result is in. Rematch at this strength, tune it, or start a new game.
+                </p>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div
+                className="flex items-center gap-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg p-1"
+                role="group"
+                aria-label="Analysis strength"
+              >
+                {([
+                  ['weaker', 'Weaker', 'd8'],
+                  ['same', 'Same', 'd15'],
+                  ['stronger', 'Stronger', 'd18'],
+                ] as const).map(([key, label, depthLabel]) => (
+                  <button
+                    key={key}
+                    onClick={() => { setPostStrength(key); }}
+                    aria-pressed={postStrength === key}
+                    className={`px-2.5 py-1.5 rounded-md text-xs font-bold transition-colors ${
+                      postStrength === key
+                        ? 'bg-[var(--color-accent)] text-black'
+                        : 'text-[var(--color-text-muted)] hover:text-white'
+                    }`}
+                  >
+                    {label} <span className="opacity-70">{depthLabel}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={handlePostReanalyze}
+                  className="min-h-[34px] px-3.5 py-1.5 rounded-lg text-xs font-bold text-black bg-[var(--color-accent)] hover:brightness-110 transition-all"
+                >
+                  Re-analyze
+                </button>
+                <button
+                  onClick={handlePlayNewMatch}
+                  className="min-h-[34px] px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-[var(--color-primary)] hover:opacity-90 transition-opacity"
+                >
+                  Play new match
+                </button>
+                <button
+                  onClick={dismissPostPanel}
+                  className="min-h-[34px] px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--color-text-muted)] hover:text-white transition-colors"
+                >
+                  Later
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={`fade-in ${
         focusMode

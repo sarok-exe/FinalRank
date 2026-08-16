@@ -576,7 +576,8 @@ export const useGameStore = create<GameState>((set, get) => ({
               analysisCache: { ...state2.analysisCache, [game.id]: game },
               analyzedPgnHashes: { ...state2.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
             }));
-            void saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)), userSaved: false });
+            void saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)) })
+              .catch(e => console.warn('[Firestore] save game failed:', e));
           }
           return game;
         }
@@ -842,7 +843,6 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   const gameForFirestore = {
     ...analysedGame,
     moves: JSON.parse(JSON.stringify(analysedGame.moves)) as AnalyzedMove[],
-    userSaved: false,
   };
 
   const u = useAuthStore.getState().user;

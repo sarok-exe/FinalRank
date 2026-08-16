@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User as UserIcon, Flame, Trophy, Volume2,
@@ -9,7 +9,8 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
-import { fetchUserFavorites } from '../lib/firebase';
+import { useToastStore } from '../stores/toastStore';
+import { fetchUserFavorites, fetchUserGames, saveUserGame, deleteUserGame } from '../lib/firebase';
 import { fetchCommunityUserStats } from '../lib/tursoCache';
 import { estimateRating } from '../lib/community';
 import type { CommunityUserStats } from '../lib/community';
@@ -69,6 +70,7 @@ type SavedGame = {
   result?: string;
   accuracy?: { white?: number; black?: number };
   userSaved?: boolean;
+  analyzedAt?: string;
 };
 
 export default function Profile(): React.ReactElement {
@@ -85,10 +87,14 @@ export default function Profile(): React.ReactElement {
   const [colorPickerTarget, setColorPickerTarget] = useState<'site' | 'board' | null>(null);
   const [savedGames, setSavedGames] = useState<SavedGame[]>([]);
   const [loadingSaved, setLoadingSaved] = useState(false);
+  const [recentGames, setRecentGames] = useState<SavedGame[]>([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
   const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
 
-  useEffect(() => {
-    if (user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous')) {
+  const canSave = user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous');
+
+  const loadFavorites = useCallback(() => {
+    if (canSave) {
       setLoadingSaved(true);
       fetchUserFavorites(user.id).then(games => {
         setSavedGames((games as SavedGame[]).filter(g => g.userSaved === true));
@@ -97,7 +103,58 @@ export default function Profile(): React.ReactElement {
     } else {
       setSavedGames([]);
     }
-  }, [user?.id, user?.authProvider]);
+  }, [canSave, user?.id]);
+
+  const loadRecentGames = useCallback(() => {
+    if (canSave) {
+      setLoadingRecent(true);
+      fetchUserGames(user.id).then(games => {
+        setRecentGames((games as SavedGame[]).slice(0, 20));
+        setLoadingRecent(false);
+      }).catch(() => { setLoadingRecent(false); });
+    } else {
+      setRecentGames([]);
+    }
+  }, [canSave, user?.id]);
+
+  // Load games once on mount / user change
+  useEffect(() => {
+    loadFavorites();
+    loadRecentGames();
+  }, [loadFavorites, loadRecentGames]);
+
+  // Refresh games when the tab becomes visible (user returns from another tab)
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        loadFavorites();
+        loadRecentGames();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => { document.removeEventListener('visibilitychange', onVisible); };
+  }, [loadFavorites, loadRecentGames]);
+
+  const toggleFavorite = (g: SavedGame): void => {
+    if (!canSave || user == null) return;
+    const id = g.id;
+    const isFav = g.userSaved === true;
+    const revert = () => {
+      // Undo the optimistic updates so the UI reflects reality again.
+      setRecentGames(prev => prev.map(x => x.id === id ? { ...x, userSaved: isFav } : x));
+      setSavedGames(prev => isFav ? [{ ...g, userSaved: true }, ...prev] : prev.filter(x => x.id !== id));
+      useToastStore.getState().addToast({ type: 'error', message: isFav ? 'Could not remove from favorites' : 'Could not add to favorites' });
+    };
+    // Optimistic: flip the flag instantly and persist in the background.
+    setRecentGames(prev => prev.map(x => x.id === id ? { ...x, userSaved: !isFav } : x));
+    setSavedGames(prev => isFav ? prev.filter(x => x.id !== id) : [{ ...g, userSaved: true }, ...prev]);
+    const op = isFav
+      ? deleteUserGame(user.id, id)
+      : saveUserGame(user.id, id, { ...g, userSaved: true });
+    op.then(() => {
+      useToastStore.getState().addToast({ type: 'success', message: isFav ? 'Removed from favorites' : 'Added to favorites' });
+    }).catch(() => { revert(); });
+  };
 
   useEffect(() => {
     if (user?.id == null) return;
@@ -355,6 +412,67 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                 ))}
               </div>
             ) : savedGamesContent}
+          </div>
+        )}
+
+        {(user.authProvider === 'google' || user.authProvider === 'anonymous') && (
+          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
+            <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
+              <Clock className="w-3 h-3" />
+              Recent Games
+            </span>
+            {loadingRecent ? (
+              <div className="space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="animate-pulse bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3 space-y-2">
+                    <div className="h-3 w-20 bg-[var(--color-border)] rounded" />
+                    <div className="h-3 w-3/4 bg-[var(--color-border)] rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : recentGames.length === 0 ? (
+              <p className="text-[10px] text-[var(--color-text-muted)]">
+                No saved games yet. Analyze a game and it will show up here.
+              </p>
+            ) : (
+              <div className="space-y-2 max-h-[260px] overflow-y-auto scrollbar-thin">
+                {recentGames.map((g: SavedGame) => (
+                  <div key={g.id} className="flex items-center gap-2 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3">
+                    <button
+                      onClick={() => {
+                        const shortId = g.shortId ?? g.id;
+                        void navigate(`/game/${shortId}`);
+                      }}
+                      className="text-left flex-1 min-w-0"
+                    >
+                      <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5 flex items-center gap-2">
+                        <span className="truncate">{g.date}</span>
+                        {g.analyzedAt != null && (
+                          <span className="text-[9px] text-green-500 font-bold shrink-0">&#x2713; Analyzed</span>
+                        )}
+                      </div>
+                      <div className="text-xs font-bold text-white truncate">
+                        {g.white?.username} vs {g.black?.username}
+                      </div>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-mono text-white bg-[var(--color-surface)] px-1.5 py-0.5 rounded">{g.result}</span>
+                        {g.accuracy != null && (
+                          <span className="text-[10px] text-green-500">W: {g.accuracy.white}% B: {g.accuracy.black}%</span>
+                        )}
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => { toggleFavorite(g); }}
+                      className="shrink-0 p-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all"
+                      title={g.userSaved === true ? 'Remove from favorites' : 'Add to favorites'}
+                      aria-label={g.userSaved === true ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart className={`w-4 h-4 ${g.userSaved === true ? 'fill-current text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

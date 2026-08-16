@@ -77,19 +77,19 @@
 }
 
 .board-badge {
-  /* Responsive size: caps at 31px on desktop boards (≈20% bigger than the
-     previous 26px) and shrinks on small boards, so the badge always fits
-     fully inside its square's top-right corner (the 3px inset comes from the
-     inline style). Keeping it inside the square is what guarantees full
-     visibility on edge squares — the board (overflow:visible) and the
-     page-level overflow-x:hidden on #root/html/body can only crop content
-     that pokes OUTSIDE the board bounds, which the badge now never does at
-     rest. The pop animation still reads as a corner pop: with
-     transform-origin top right it scales up and inward (never right/down
-     past the square), so even its overshoot frame can't exceed the square's
-     right or bottom edges. */
-  width: min(31px, 43%);
-  height: min(31px, 43%);
+  /* Sits PARALLEL to the piece: sized to fit the square's top-right corner
+     beside the piece (the 3px inset comes from the inline style), so it
+     never covers the piece's body at rest and never hides behind it. It
+     shrinks on small boards via the % cap, staying fully inside the square —
+     which is what guarantees visibility on edge squares (the board is
+     overflow:visible, and the page-level overflow-x:hidden on
+     #root/html/body can only crop content poking OUTSIDE the board bounds).
+     The pop animation reads as a corner pop: with transform-origin top
+     right it scales up and inward (never right/down past the square), so
+     even its overshoot frame can't exceed the square's right or bottom
+     edges. */
+  width: min(26px, 36%);
+  height: min(26px, 36%);
   transform-origin: top right;
   animation: board-badge-pop 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
