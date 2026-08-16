@@ -302,8 +302,19 @@ function renderClassificationBadge(cls: MoveClassification): React.JSX.Element |
       alt={cls}
       className="board-badge"
       style={{
-        position: 'absolute', top: '-8px', right: '-8px',
-        width: '28px', height: '28px', zIndex: 10,
+        position: 'absolute',
+        // Anchored to the square's top-right corner but fully INSIDE the
+        // square. Anything that pokes outside the board gets cropped — by
+        // react-chessboard's overflow:hidden (already overridden to visible)
+        // and, on edge squares, by the page-level overflow-x:hidden on
+        // #root/html/body when the board hugs the viewport edge on phones.
+        // Inset 3px into the corner, the badge can never be cut on any edge
+        // square (top row, right column, corners), stays clear of the board's
+        // 4px border rounding, and the pop-in animation is untouched. Size is
+        // set responsively in .board-badge (min(26px, 36%)).
+        top: '3px',
+        right: '3px',
+        zIndex: 10,
       }}
       title={`Move classified as ${cls}`}
     />

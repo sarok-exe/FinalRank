@@ -233,9 +233,9 @@ export default function Analysis() {
   const [hypViewIndex, setHypViewIndex] = useState(-1);
   // Two-tab split of the analyzing page. The board column (opening, player bars,
   // board, controls) is shared by both tabs so the Chessboard mounts exactly once;
-  // only the right-hand panel switches. What-if state lives in the Zustand store,
-  // so switching tabs never loses the hypothesis line.
-  const [analysisTab, setAnalysisTab] = useState<'analysis' | 'whatif'>('analysis');
+  // only the right-hand panel switches — 'analysis' = coach/diagnosis, 'details'
+  // = report + favorites.
+  const [analysisTab, setAnalysisTab] = useState<'analysis' | 'details'>('analysis');
   // Regular vs Advanced split of the page chrome. Regular strips the page to a
   // bare analysis surface (board, engine picker, move log); Advanced keeps all
   // the extras (tabs, coach, what-if, report, favorites, opening name, banner).
@@ -465,27 +465,41 @@ function formatDuration(ms: number | undefined): string {
 
   const handleSaveGame = React.useCallback(() => {
     if (!selectedGame || !authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
-    const isSaved = savedGameIds.has(selectedGame.id);
-    import('../lib/firebase').then(({ saveUserGame, deleteUserGame }) => {
-      if (isSaved) {
-        void deleteUserGame(authUser.id, selectedGame.id).then(() => {
-          setSavedGameIds(prev => { const next = new Set(prev); next.delete(selectedGame.id); return next; });
-          refreshFavorites();
-        });
-        useToastStore.getState().addToast({ type: 'success', message: 'Removed from favorites' });
-      } else {
-        const gameForFirestore = {
-          ...selectedGame,
-          moves: JSON.parse(JSON.stringify(selectedGame.moves)),
-          userSaved: true,
-        };
-        void saveUserGame(authUser.id, selectedGame.id, gameForFirestore).then(() => {
-          setSavedGameIds(prev => { const next = new Set(prev); next.add(selectedGame.id); return next; });
-          refreshFavorites();
-        });
-        useToastStore.getState().addToast({ type: 'success', message: 'Added to favorites' });
-      }
+    const gameId = selectedGame.id;
+    const isSaved = savedGameIds.has(gameId);
+    const revert = () => {
+      // Undo the optimistic flip so the button reflects reality again.
+      setSavedGameIds(prev => {
+        const next = new Set(prev);
+        if (isSaved) next.add(gameId); else next.delete(gameId);
+        return next;
+      });
+      useToastStore.getState().addToast({
+        type: 'error',
+        message: isSaved ? 'Could not remove from favorites' : 'Could not save to favorites',
+      });
+    };
+    // Optimistic: flip the button color instantly and persist in the background.
+    // refreshFavorites() only refreshes the list — it never gates the button UI.
+    setSavedGameIds(prev => {
+      const next = new Set(prev);
+      if (isSaved) next.delete(gameId); else next.add(gameId);
+      return next;
     });
+    useToastStore.getState().addToast({ type: 'success', message: isSaved ? 'Removed from favorites' : 'Added to favorites' });
+    import('../lib/firebase').then(({ saveUserGame, deleteUserGame }) => {
+      const gameForFirestore = {
+        ...selectedGame,
+        moves: JSON.parse(JSON.stringify(selectedGame.moves)),
+        userSaved: true,
+      };
+      const op = isSaved
+        ? deleteUserGame(authUser.id, gameId)
+        : saveUserGame(authUser.id, gameId, gameForFirestore);
+      return op
+        .then(() => { refreshFavorites(); })
+        .catch(() => { revert(); });
+    }).catch(() => { revert(); });
   }, [selectedGame, authUser, savedGameIds, refreshFavorites]);
 
   React.useEffect(() => {
@@ -638,11 +652,14 @@ function formatDuration(ms: number | undefined): string {
   const handleAnalyzePress = React.useCallback(() => {
     const fresh = useGameStore.getState();
     const game = fresh.selectedGame;
-    if (!game || game.moves.length === 0 || fresh.analyzing || fresh.hypothesisActive) return;
+    if (!game || game.moves.length === 0 || fresh.analyzing) return;
+    // In Regular, analyzing while exploring a deviation would be refused by the
+    // pipeline guard anyway — exit cleanly first so the run proceeds normally.
+    if (fresh.hypothesisActive) exitHypothesisMode();
     rewindArmedRef.current = fresh.currentMoveIndex === game.moves.length - 1;
     if (rewindArmedRef.current) setAutoplay(false);
     triggerEvaluationPipeline(settings.engineDepth);
-  }, [settings.engineDepth, triggerEvaluationPipeline, setAutoplay]);
+  }, [settings.engineDepth, triggerEvaluationPipeline, setAutoplay, exitHypothesisMode]);
 
   // Replay the engine's recommendation for a flagged move: jump to the position
   // before it, enter what-if mode, and play the engine's best move there so the
@@ -1079,10 +1096,38 @@ function formatDuration(ms: number | undefined): string {
   const boardEl = (
     <Chessboard
       fen={getCurrentFen()}
-      playable={hypothesisActive}
-      premoveEnabled={!hypothesisActive && !!selectedGame}
+      playable={analysisMode === 'regular'
+        ? !!selectedGame && !(analyzing && rewindArmedRef.current)
+        : hypothesisActive}
+      premoveEnabled={false}
       onMove={(from, to) => {
-        if (hypothesisActive) {
+        // Advanced: the what-if flow is gone, so the board is read-only there.
+        if (analysisMode === 'advanced') return false;
+        const fresh = useGameStore.getState();
+        // Already exploring a deviation → keep extending that line.
+        if (fresh.hypothesisActive) {
+          const ok = playHypothesisMove(from, to);
+          if (ok) {
+            const moves = useGameStore.getState().hypothesisMoves;
+            if (moves.length > 0) playFromSan(moves[moves.length - 1].san);
+          }
+          return ok;
+        }
+        const game = fresh.selectedGame;
+        if (!game) return false;
+        // On the real game line: if the dragged move IS the game's next ply it's
+        // plain navigation — advance the index, no hypothesis, no analysis.
+        const idx = fresh.currentMoveIndex;
+        const nextReal = game.moves[idx + 1];
+        if (nextReal && nextReal.from === from && nextReal.to === to) {
+          setCurrentMoveIndex(idx + 1);
+          return true;
+        }
+        // Deviation → silently start exploring this position. The store refuses
+        // while a main analysis is running, so during a run only real-line moves
+        // are accepted.
+        if (!fresh.analyzing) {
+          enterHypothesisMode();
           const ok = playHypothesisMove(from, to);
           if (ok) {
             const moves = useGameStore.getState().hypothesisMoves;
@@ -1159,6 +1204,202 @@ function formatDuration(ms: number | undefined): string {
   const bottomPlayer = boardOrientation === 'white' ? selectedGame.white : selectedGame.black;
   const bottomSide: 'w' | 'b' = boardOrientation === 'white' ? 'w' : 'b';
 
+  // Navigation console — board controls. Rendered below the board in Advanced
+  // and below the move log in Regular (defined once, placed twice). The favorite
+  // heart here is Advanced-only; Regular keeps a single heart in the utility row.
+  const navConsole = (
+    <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
+        <div className="flex items-center space-x-1">
+          <button onClick={handleBackToStart} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
+            <ChevronsLeft className="w-5 h-5" />
+          </button>
+          <button onClick={handlePrevMove} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => { setAutoplay(!autoplay); }}
+            disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked}
+            className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
+            title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
+            aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
+          >
+            {autoplay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+          </button>
+          <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+          <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
+            <ChevronsRight className="w-5 h-5" />
+          </button>
+        </div>
+        <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
+          {currentMoveIndex + 1}/{selectedGame.moves.length}
+        </span>
+        <div className="flex items-center gap-1 flex-wrap">
+          {analysisMode === 'advanced' && authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
+            <button
+              onClick={handleSaveGame}
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                savedGameIds.has(selectedGame.id)
+                  ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
+                  : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
+              }`}
+              title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              <Heart className={`w-3.5 h-3.5 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
+              <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Favorited' : 'Favorite'}</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+            title="Download PGN"
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">PGN</span>
+          </button>
+          <button
+            onClick={() => { setShowShare(true); }}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
+            title="Share game"
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">Share</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Utility strip — Flip / Shortcuts / Focus / Fullscreen. In Regular this is the
+  // home of the single favorite heart (Advanced keeps its heart in the console).
+  const utilityRow = (
+    <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
+      <button
+        onClick={toggleOrientation}
+        className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
+        title="Flip board (F)"
+      >
+        <RotateCcw className="w-3.5 h-3.5" />
+        <span className="hidden xs:inline">Flip</span>
+      </button>
+      <div className="flex-1" />
+      <button
+        onClick={() => window.dispatchEvent(new CustomEvent('open-shortcuts'))}
+        className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
+        title="Keyboard shortcuts (?)"
+      >
+        <Keyboard className="w-3.5 h-3.5" />
+        <span className="hidden sm:inline">Shortcuts</span>
+      </button>
+      <button
+        onClick={toggleFocusMode}
+        className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border ${
+          focusMode
+            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+            : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+        }`}
+        title="Toggle focus mode (Z)"
+      >
+        <Focus className="w-3.5 h-3.5" />
+        <span className="hidden xs:inline">Focus</span>
+      </button>
+      <button
+        onClick={toggleFullscreen}
+        className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
+        title="Toggle fullscreen (F11)"
+      >
+        <Maximize className="w-3.5 h-3.5" />
+      </button>
+      {analysisMode === 'regular' && authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
+        <button
+          onClick={handleSaveGame}
+          className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+            savedGameIds.has(selectedGame.id)
+              ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
+              : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
+          }`}
+          title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          <Heart className={`w-3.5 h-3.5 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
+          <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Favorited' : 'Favorite'}</span>
+        </button>
+      )}
+    </div>
+  );
+
+  // Engine panel — depth picker, Analyze, pre-analyzed history. Rendered below
+  // the board in Advanced and below the move log in Regular. Regular also
+  // carries the "Analyzed ✓" pill here since the board strip is Advanced-only.
+  const enginePanel = (
+    <>{!(focusMode && fullscreenMode) && (
+      <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+              <Zap className="w-4 h-4 text-[var(--color-primary)]" />
+              <span>Stockfish 18 Lite</span>
+            </h3>
+            <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
+              Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
+              {analysisMode === 'regular' && selectedGame.analyzedAt && (
+                <span className="text-[10px] text-green-500 font-bold"> &middot; &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-1.5 sm:space-x-2">
+            <select
+              value={settings.engineDepth}
+              onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
+              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
+              id="depth-picker"
+            >
+              <option value={6}>Depth 6</option>
+              <option value={8}>Depth 8</option>
+              <option value={10}>Depth 10</option>
+              <option value={12}>Depth 12</option>
+              <option value={15}>Depth 15</option>
+              <option value={18}>Depth 18</option>
+            </select>
+            <button
+              onClick={handleAnalyzePress}
+              disabled={analyzing}
+              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
+                analyzing
+                  ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
+                  : 'bg-[var(--color-primary)]'
+              }`}
+              id="analyze-game-button"
+            >
+              <Activity className="w-3.5 h-3.5" />
+              <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
+            </button>
+            {priorAnalyses.length > 0 && !analyzing && (
+              <button
+                onClick={() => { setShowPriorAnalyses(true); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center space-x-1.5"
+                id="pre-analyzed-button"
+                title="This match was analyzed before. Load a saved analysis instead of re-analyzing."
+              >
+                <History className="w-3.5 h-3.5" />
+                <span>Pre-analyzed</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}</>
+  );
+
   return (
     <div className="space-y-5" id="analysis-viewport">
       {!focusMode && (
@@ -1233,16 +1474,16 @@ function formatDuration(ms: number | undefined): string {
                   <span>Analysis</span>
                 </button>
                 <button
-                  onClick={() => { setAnalysisTab('whatif'); }}
+                  onClick={() => { setAnalysisTab('details'); }}
                   className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
-                    analysisTab === 'whatif'
+                    analysisTab === 'details'
                       ? 'bg-[var(--color-accent)] text-black shadow-sm'
                       : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)]'
                   }`}
-                  aria-pressed={analysisTab === 'whatif'}
+                  aria-pressed={analysisTab === 'details'}
                 >
-                  <GitBranch className="w-3.5 h-3.5" />
-                  <span>What-if &amp; Details</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Details</span>
                 </button>
               </div>
             </div>
@@ -1302,90 +1543,10 @@ function formatDuration(ms: number | undefined): string {
             <PlayerBar player={bottomPlayer} side={bottomSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
 
-          {/* What-if banner — below the board, between the bottom player bar and
-              the navigation console. Undo/Reset/Exit live in their own
-              right-aligned segmented row so they can never collide with the move
-              chips. */}
-          {analysisMode === 'advanced' && hypothesisActive && (
-            <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl overflow-hidden fade-in" id="whatif-banner" style={{ maxWidth: boardWidth }}>
-              <div className="px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
-                <span className="flex items-center gap-1.5 text-[var(--color-accent)] text-xs font-bold shrink-0">
-                  <GitBranch className="w-3.5 h-3.5" />
-                  What-if
-                </span>
-                <span className="flex-1 min-w-0">
-                  {hypothesisMoves.length > 0 ? (
-                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                      {hypothesisMoves.map((m, i) => {
-                        const ply = hypothesisBaseIndex + i + 1;
-                        const n = Math.floor(ply / 2) + 1;
-                        const prefix = m.color === 'w' ? `${n}.` : `${n}...`;
-                        const isActive = effHypViewIndex === i;
-                        const iconSrc = m.classification ? classificationImages[m.classification] : undefined;
-                        return (
-                          <span
-                            key={m.index}
-                            className={`flex items-center gap-1 text-xs font-mono rounded ${
-                              isActive
-                                ? 'text-[var(--color-accent)] font-bold bg-[var(--color-accent)]/10 px-1 -mx-1'
-                                : 'text-white'
-                            }`}
-                          >
-                            <span className="text-[var(--color-text-muted)] shrink-0">{prefix}</span>
-                            <span>{m.san}</span>
-                            {iconSrc && (
-                              <img src={iconSrc} alt="" width={16} height={16} className="shrink-0 opacity-85" />
-                            )}
-                          </span>
-                        );
-                      })}
-                    </span>
-                  ) : (
-                    <span className="text-xs font-mono text-white">Play a move to explore</span>
-                  )}
-                </span>
-                {hypothesisSearching ? (
-                  <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
-                ) : hypothesisError && hypothesisMoves.length > 0 ? (
-                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Engine search failed" />
-                ) : null}
-              </div>
-              <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-[var(--color-accent)]/25 bg-[var(--color-background)]/40 flex-wrap">
-                <span className="text-[10px] text-[var(--color-text-muted)] font-medium hidden sm:block">
-                  Backspace undo &middot; Esc exit
-                </span>
-                <div className="flex items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden divide-x divide-[var(--color-border)] shrink-0 ml-auto">
-                  <button
-                    onClick={undoHypothesisMove}
-                    disabled={hypothesisMoves.length === 0}
-                    className="px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)] disabled:opacity-30 disabled:hover:text-[var(--color-text-muted)] disabled:hover:bg-transparent transition-colors"
-                    aria-label="Undo what-if move (Backspace)"
-                    title="Undo what-if move (Backspace)"
-                  >
-                    Undo
-                  </button>
-                  <button
-                    onClick={clearHypothesisMoves}
-                    disabled={hypothesisMoves.length === 0}
-                    className="px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)] disabled:opacity-30 disabled:hover:text-[var(--color-text-muted)] disabled:hover:bg-transparent transition-colors"
-                    title="Reset what-if line"
-                  >
-                    Reset
-                  </button>
-                  <button
-                    onClick={exitHypothesisMode}
-                    className="px-3.5 py-1.5 text-[11px] font-bold bg-[var(--color-accent)] text-black hover:brightness-110 transition-all"
-                    title="Exit what-if mode (Esc)"
-                  >
-                    Exit
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Analysis time + depth — slim, subtle strip at the bottom of the board */}
-          {selectedGame.analyzedAt && (
+          {/* Analysis time + depth — slim, subtle strip at the bottom of the board
+              (Advanced only — Regular carries it in the engine panel below the
+              move log). */}
+          {analysisMode === 'advanced' && selectedGame.analyzedAt && (
             <div className="w-full flex justify-center" style={{ maxWidth: boardWidth }}>
               <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-background)]/70 px-3 py-1 text-[10px] sm:text-[11px] font-semibold text-[var(--color-text-muted)]">
                 <span className="text-green-500 font-bold leading-none">&#x2713;</span>
@@ -1402,76 +1563,7 @@ function formatDuration(ms: number | undefined): string {
             </div>
           )}
 
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
-            <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
-              <div className="flex items-center space-x-1">
-                <button onClick={handleBackToStart} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="First Move" aria-label="Go to first move">
-                  <ChevronsLeft className="w-5 h-5" />
-                </button>
-                <button onClick={handlePrevMove} disabled={currentMoveIndex === -1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Previous Move" aria-label="Go to previous move">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                <button
-                  onClick={() => { setAutoplay(!autoplay); }}
-                  disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked}
-                  className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
-                  title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
-                  aria-label={autoplay ? 'Pause autoplay' : 'Start autoplay'}
-                >
-                  {autoplay ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                </button>
-                <button onClick={handleNextMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Next Move" aria-label="Go to next move">
-                  <ChevronRight className="w-5 h-5" />
-                </button>
-                <button onClick={handleEndMove} disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked} className="p-2 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg disabled:opacity-30" title="Last Move" aria-label="Go to last move">
-                  <ChevronsRight className="w-5 h-5" />
-                </button>
-              </div>
-              <span className="text-xs text-[var(--color-text-muted)] font-mono font-bold uppercase tracking-wider" id="nav-move-indicator">
-                {currentMoveIndex + 1}/{selectedGame.moves.length}
-              </span>
-              <div className="flex items-center gap-1 flex-wrap">
-                {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
-                  <button
-                    onClick={handleSaveGame}
-                    className={`flex items-center gap-1 px-2 sm:px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
-                      savedGameIds.has(selectedGame.id)
-                        ? 'bg-[var(--color-accent)] text-black border border-[var(--color-accent)]'
-                        : 'bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-black'
-                    }`}
-                    title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
-                  >
-                    <Heart className={`w-3.5 h-3.5 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
-                    <span className="hidden xs:inline">{savedGameIds.has(selectedGame.id) ? 'Favorited' : 'Favorite'}</span>
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    const blob = new Blob([selectedGame.pgn], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${selectedGame.white.username}-vs-${selectedGame.black.username}.pgn`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
-                  title="Download PGN"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">PGN</span>
-                </button>
-                <button
-                  onClick={() => { setShowShare(true); }}
-                  className="flex items-center gap-1 px-2 sm:px-2.5 py-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[11px] text-[var(--color-text-muted)] hover:text-white"
-                  title="Share game"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">Share</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          {(analysisMode === 'advanced' || focusMode) && (<>{navConsole}</>)}
 
           {/* Rewind-on-analyze indicator — shown while the pieces are stepping
               back to the start in lockstep with the engine's progress. */}
@@ -1484,125 +1576,9 @@ function formatDuration(ms: number | undefined): string {
             </div>
           )}
 
-          <div className="w-full flex items-center gap-1.5 sm:gap-2 flex-wrap" style={{ maxWidth: boardWidth }}>
-            <button
-              onClick={toggleOrientation}
-              className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
-              title="Flip board (F)"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Flip</span>
-            </button>
-            <div className="flex-1" />
-            <button
-              onClick={() => window.dispatchEvent(new CustomEvent('open-shortcuts'))}
-              className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
-              title="Keyboard shortcuts (?)"
-            >
-              <Keyboard className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Shortcuts</span>
-            </button>
-            <button
-              onClick={toggleFocusMode}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border ${
-                focusMode
-                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                  : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
-              }`}
-              title="Toggle focus mode (Z)"
-            >
-              <Focus className="w-3.5 h-3.5" />
-              <span className="hidden xs:inline">Focus</span>
-            </button>
-            <button
-              onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
-              title="Toggle fullscreen (F11)"
-            >
-              <Maximize className="w-3.5 h-3.5" />
-            </button>
-          </div>
+          {(analysisMode === 'advanced' || focusMode) && (<>{utilityRow}</>)}
 
-      {!(focusMode && fullscreenMode) && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-3 sm:p-3.5 space-y-2.5" id="engine-controls-panel" style={{ maxWidth: boardWidth }}>
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                  <Zap className="w-4 h-4 text-[var(--color-primary)]" />
-                  <span>Stockfish 18 Lite</span>
-                </h3>
-                <p className="text-[11px] text-[var(--color-text-muted)] leading-snug">
-                  Depth {settings.engineDepth} &middot; Non-blocking analysis{selectedGame.analysisDepth != null ? ` · Last analyzed to depth ${selectedGame.analysisDepth}` : ''}
-                  {hypothesisActive && <span className="text-[var(--color-accent)]"> · Exploring hypothetical line</span>}
-                  {analysisMode === 'regular' && selectedGame.analyzedAt && (
-                    <span className="text-[10px] text-green-500 font-bold"> &middot; &#x2713; Analyzed{formatDuration(selectedGame.analysisDurationMs) && ` (${formatDuration(selectedGame.analysisDurationMs)})`}</span>
-                  )}
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 sm:space-x-2">
-                <select
-                  value={settings.engineDepth}
-                  onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
-                  className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-xs text-white"
-                  id="depth-picker"
-                >
-                  <option value={6}>Depth 6</option>
-                  <option value={8}>Depth 8</option>
-                  <option value={10}>Depth 10</option>
-                  <option value={12}>Depth 12</option>
-                  <option value={15}>Depth 15</option>
-                  <option value={18}>Depth 18</option>
-                </select>
-                <button
-                  onClick={handleAnalyzePress}
-                  disabled={analyzing}
-                  className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-bold text-white flex items-center space-x-1.5 ${
-                    analyzing
-                      ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
-                      : 'bg-[var(--color-primary)]'
-                  }`}
-                  id="analyze-game-button"
-                >
-                  <Activity className="w-3.5 h-3.5" />
-                  <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
-                </button>
-                {analysisMode === 'advanced' && (
-                <button
-                  onClick={() => {
-                    if (hypothesisActive) {
-                      exitHypothesisMode();
-                    } else {
-                      enterHypothesisMode();
-                    }
-                  }}
-                  disabled={analyzing}
-                  className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold border ${
-                    hypothesisActive
-                      ? 'bg-[var(--color-accent)] text-black border-[var(--color-accent)]'
-                      : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
-                  } disabled:opacity-50 transition-all`}
-                  id="whatif-toggle-button"
-                  title="What-if analysis"
-                >
-                  <GitBranch className="w-3.5 h-3.5" />
-                  <span className="hidden xs:inline">What-if</span>
-                </button>
-                )}
-                {priorAnalyses.length > 0 && !analyzing && (
-                  <button
-                    onClick={() => { setShowPriorAnalyses(true); }}
-                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center space-x-1.5"
-                    id="pre-analyzed-button"
-                    title="This match was analyzed before. Load a saved analysis instead of re-analyzing."
-                  >
-                    <History className="w-3.5 h-3.5" />
-                    <span>Pre-analyzed</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-          )}
+      {(analysisMode === 'advanced' || focusMode) && (<>{enginePanel}</>)}
 
         </div>
 
@@ -1755,6 +1731,21 @@ function formatDuration(ms: number | undefined): string {
               )}
             </div>
           </div>
+          </>
+          )}
+          {analysisMode === 'regular' && (
+          <>
+          {navConsole}
+          {utilityRow}
+          {enginePanel}
+          {hypothesisActive && (
+            <div className="w-full" style={{ maxWidth: boardWidth }}>
+              <div className="flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3.5 py-2.5 text-xs font-semibold text-amber-300 fade-in" id="deviation-warning">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>You've left the game line — exploring this position.</span>
+              </div>
+            </div>
+          )}
           </>
           )}
           {analysisMode === 'advanced' && analysisTab === 'analysis' && (
@@ -1935,7 +1926,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
           </>
           )}
-          {analysisMode === 'advanced' && analysisTab === 'whatif' && (
+          {analysisMode === 'advanced' && analysisTab === 'details' && (
           <>
           {favoriteGames.length > 0 && (
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
@@ -1980,7 +1971,7 @@ function formatDuration(ms: number | undefined): string {
 
       </div>
 
-      {!focusMode && selectedGame && analysisMode === 'advanced' && analysisTab === 'whatif' && (
+      {!focusMode && selectedGame && analysisMode === 'advanced' && analysisTab === 'details' && (
         <div className="fade-in">
           <AnalysisReport game={selectedGame} />
         </div>
@@ -2122,15 +2113,15 @@ function formatDuration(ms: number | undefined): string {
                 <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">F11</span>
               </div>
               <div className="flex justify-between text-sm py-1.5 border-t border-[var(--color-border)] pt-3 mt-1">
-                <span className="text-[var(--color-accent)] font-bold text-xs">What-if</span>
+                <span className="text-[var(--color-accent)] font-bold text-xs">Exploration</span>
                 <span />
               </div>
               <div className="flex justify-between text-sm py-1.5 border-b border-[var(--color-border)]">
-                <span className="text-white">Undo what-if move</span>
+                <span className="text-white">Undo explored move</span>
                 <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Backspace</span>
               </div>
               <div className="flex justify-between text-sm py-1.5">
-                <span className="text-white">Exit what-if mode</span>
+                <span className="text-white">Exit exploration</span>
                 <span className="text-[var(--color-text-muted)] font-mono text-xs bg-[var(--color-surface)] px-2 py-0.5 rounded">Esc</span>
               </div>
             </div>
