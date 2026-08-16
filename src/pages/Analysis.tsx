@@ -136,7 +136,10 @@ function PlayerBar({ player, side, result, accuracy }: PlayerBarProps) {
       </div>
 
       {playerAcc != null && (
-        <span className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-muted)] tabular-nums" title="Accuracy">
+        <span
+          className="shrink-0 inline-flex items-center rounded-md bg-[var(--color-background)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-[var(--color-accent)]"
+          title="Accuracy"
+        >
           {playerAcc}%
         </span>
       )}
@@ -227,6 +230,11 @@ export default function Analysis() {
   // (-1 = the base position before the line). It stays pinned to the tip whenever
   // the line changes, and is stepped with the arrow keys while in what-if mode.
   const [hypViewIndex, setHypViewIndex] = useState(-1);
+  // Two-tab split of the analyzing page. The board column (opening, player bars,
+  // board, controls) is shared by both tabs so the Chessboard mounts exactly once;
+  // only the right-hand panel switches. What-if state lives in the Zustand store,
+  // so switching tabs never loses the hypothesis line.
+  const [analysisTab, setAnalysisTab] = useState<'analysis' | 'whatif'>('analysis');
   const [vpW, setVpW] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
   useEffect(() => {
     const onResize = () => { setVpW(window.innerWidth); };
@@ -1087,138 +1095,75 @@ function formatDuration(ms: number | undefined): string {
           ? 'flex flex-row justify-center items-center gap-6'
           : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}
       `.trim()} id="game-arena-grid">
-        {focusMode && selectedGame && (
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center gap-3" id="focus-players-panel">
-          <div className="flex flex-col items-center gap-1.5">
-            {selectedGame.black?.avatar ? (
-              <img src={selectedGame.black.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
-            ) : (
-              <span className="w-[34px] h-[34px] rounded-[10px] bg-[var(--color-surface)] border border-[var(--color-text-muted)] flex-shrink-0 block" />
-            )}
-            <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
-              {selectedGame.black?.username ?? 'Black'}
-              {selectedGame.black?.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.black.rating})</span>}
-            </div>
-          </div>
-          {selectedGame.accuracy && (
-            <div className="text-center -mt-1">
-              <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
-              <div className="text-xs font-bold text-white">{selectedGame.accuracy.black}%</div>
-            </div>
-          )}
-          <div className="text-xs text-[var(--color-primary)] font-bold uppercase tracking-widest">VS</div>
-          {selectedGame.accuracy && (
-            <div className="text-center -mt-1">
-              <div className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase">Accuracy</div>
-              <div className="text-xs font-bold text-white">{selectedGame.accuracy.white}%</div>
-            </div>
-          )}
-          <div className="flex flex-col items-center gap-1.5 mt-[10px]">
-            {selectedGame.white?.avatar ? (
-              <img src={selectedGame.white.avatar} alt="" className="w-[34px] h-[34px] rounded-[10px] border border-[var(--color-text-muted)] flex-shrink-0" />
-            ) : (
-              <span className="w-[34px] h-[34px] rounded-[10px] bg-white border border-[var(--color-text-muted)] flex-shrink-0 block" />
-            )}
-            <div className="text-sm font-bold text-white text-center truncate max-w-[160px] leading-tight">
-              {selectedGame.white?.username ?? 'White'}
-              {selectedGame.white?.rating && <span className="text-[var(--color-text-muted)] ml-1">({selectedGame.white.rating})</span>}
-            </div>
-          </div>
-          <div className="mt-2 pt-3 border-t border-[var(--color-border)] w-full text-center">
-            <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase">Result</div>
-            <div className="text-sm font-bold text-white font-mono">{selectedGame.result}</div>
-            <div className="text-[10px] text-[var(--color-text-muted)]">{selectedGame.date}</div>
-          </div>
-        </div>
-        )}
         <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7 xl:col-span-8'}`}>
-          {/* What-if banner */}
-          {hypothesisActive && (
-            <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl px-3 py-2.5 flex items-center gap-2.5 flex-wrap" id="whatif-banner" style={{ maxWidth: boardWidth }}>
-              <span className="flex items-center gap-1.5 text-[var(--color-accent)] text-xs font-bold shrink-0">
-                <GitBranch className="w-3.5 h-3.5" />
-                What-if
-              </span>
-              <span className="flex-1 min-w-0">
-                {hypothesisMoves.length > 0 ? (
-                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    {hypothesisMoves.map((m, i) => {
-                      const ply = hypothesisBaseIndex + i + 1;
-                      const n = Math.floor(ply / 2) + 1;
-                      const prefix = m.color === 'w' ? `${n}.` : `${n}...`;
-                      const isActive = effHypViewIndex === i;
-                      const iconSrc = m.classification ? classificationImages[m.classification] : undefined;
-                      return (
-                        <span
-                          key={m.index}
-                          className={`flex items-center gap-1 text-xs font-mono rounded ${
-                            isActive
-                              ? 'text-[var(--color-accent)] font-bold bg-[var(--color-accent)]/10 px-1 -mx-1'
-                              : 'text-white'
-                          }`}
-                        >
-                          <span className="text-[var(--color-text-muted)] shrink-0">{prefix}</span>
-                          <span>{m.san}</span>
-                          {iconSrc && (
-                            <img src={iconSrc} alt="" width={16} height={16} className="shrink-0 opacity-85" />
-                          )}
-                        </span>
-                      );
-                    })}
-                  </span>
-                ) : (
-                  <span className="text-xs font-mono text-white">Play a move to explore</span>
-                )}
-              </span>
-              {hypothesisSearching ? (
-                <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
-              ) : hypothesisError && hypothesisMoves.length > 0 ? (
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Engine search failed" />
-              ) : null}
-              <div className="flex items-center gap-1 shrink-0">
+          {/* Two-tab split: 'Analysis' vs 'What-if & Details'. The board column
+              below (opening, player bars, board, controls) is shared by both tabs
+              so the Chessboard is only ever mounted once — rendering it twice
+              throws react-chessboard's 'Square width not found'. */}
+          {!focusMode && (
+            <div className="w-full fade-in" style={{ maxWidth: boardWidth }}>
+              <div className="flex gap-1 p-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl">
                 <button
-                  onClick={undoHypothesisMove}
-                  disabled={hypothesisMoves.length === 0}
-                  className="px-2 py-1 rounded text-[10px] font-bold text-[var(--color-text-muted)] hover:text-white disabled:opacity-30 transition-colors"
-                  aria-label="Undo what-if move (Backspace)"
-                  title="Undo what-if move (Backspace)"
+                  onClick={() => { setAnalysisTab('analysis'); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                    analysisTab === 'analysis'
+                      ? 'bg-[var(--color-accent)] text-black shadow-sm'
+                      : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)]'
+                  }`}
+                  aria-pressed={analysisTab === 'analysis'}
                 >
-                  Undo
+                  <Activity className="w-3.5 h-3.5" />
+                  <span>Analysis</span>
                 </button>
                 <button
-                  onClick={clearHypothesisMoves}
-                  disabled={hypothesisMoves.length === 0}
-                  className="px-2 py-1 rounded text-[10px] font-bold text-[var(--color-text-muted)] hover:text-white disabled:opacity-30 transition-colors"
-                  title="Reset what-if line"
+                  onClick={() => { setAnalysisTab('whatif'); }}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                    analysisTab === 'whatif'
+                      ? 'bg-[var(--color-accent)] text-black shadow-sm'
+                      : 'text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)]'
+                  }`}
+                  aria-pressed={analysisTab === 'whatif'}
                 >
-                  Reset
-                </button>
-                <button
-                  onClick={exitHypothesisMode}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-[var(--color-accent)] text-black hover:brightness-110 transition-all"
-                  title="Exit what-if mode (Esc)"
-                >
-                  Exit
+                  <GitBranch className="w-3.5 h-3.5" />
+                  <span>What-if &amp; Details</span>
                 </button>
               </div>
             </div>
           )}
-          {/* Opening title — always rendered so the board never jumps */}
-          <div className="w-full text-center" style={{ maxWidth: boardWidth }}>
-            <div className="w-full bg-[color-mix(in_srgb,var(--color-surface)_90%,#facc15_10%)] border border-amber-300/30 rounded-xl px-4 py-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1.5">
-                Opening
+          {/* Opening title + big favorite heart — always rendered so the board
+              never jumps. The heart doubles as the 'favorite this game' toggle:
+              outlined when unsaved, red + filled when saved. */}
+          <div className="w-full flex items-stretch gap-2" style={{ maxWidth: boardWidth }}>
+            <div className="flex-1 min-w-0 text-center">
+              <div className="w-full h-full bg-[color-mix(in_srgb,var(--color-surface)_90%,#facc15_10%)] border border-amber-300/30 rounded-xl px-4 py-3 flex flex-col justify-center">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-amber-300 mb-1.5">
+                  Opening
+                </div>
+                {openingName ? (
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[color-mix(in_srgb,var(--color-text)_90%,#facc15)] truncate leading-tight min-h-[2.5rem]" title={openingName}>
+                    {openingName}
+                  </h2>
+                ) : (
+                  <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text-muted)] truncate leading-tight min-h-[2.5rem]">
+                    —
+                  </h2>
+                )}
               </div>
-              {openingName ? (
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[color-mix(in_srgb,var(--color-text)_90%,#facc15)] truncate leading-tight min-h-[2.5rem]" title={openingName}>
-                  {openingName}
-                </h2>
-              ) : (
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--color-text-muted)] truncate leading-tight min-h-[2.5rem]">
-                  —
-                </h2>
-              )}
             </div>
+            {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
+              <button
+                onClick={handleSaveGame}
+                className={`shrink-0 w-[52px] sm:w-[60px] flex items-center justify-center rounded-xl border transition-all ${
+                  savedGameIds.has(selectedGame.id)
+                    ? 'bg-red-600/15 border-red-500/60 text-red-500'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-red-500 hover:border-red-500/50 hover:bg-red-500/5'
+                }`}
+                aria-label={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
+                title={savedGameIds.has(selectedGame.id) ? 'Remove from favorites' : 'Add to favorites'}
+              >
+                <Heart className={`w-6 h-6 ${savedGameIds.has(selectedGame.id) ? 'fill-current' : ''}`} />
+              </button>
+            )}
           </div>
           {/* Top player bar — hugs the board, chess.com style */}
           <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-top">
@@ -1242,6 +1187,106 @@ function formatDuration(ms: number | undefined): string {
           <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-bottom">
             <PlayerBar player={bottomPlayer} side={bottomSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
+
+          {/* What-if banner — below the board, between the bottom player bar and
+              the navigation console. Undo/Reset/Exit live in their own
+              right-aligned segmented row so they can never collide with the move
+              chips. */}
+          {hypothesisActive && (
+            <div className="w-full bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl overflow-hidden fade-in" id="whatif-banner" style={{ maxWidth: boardWidth }}>
+              <div className="px-3 py-2.5 flex items-center gap-2.5 flex-wrap">
+                <span className="flex items-center gap-1.5 text-[var(--color-accent)] text-xs font-bold shrink-0">
+                  <GitBranch className="w-3.5 h-3.5" />
+                  What-if
+                </span>
+                <span className="flex-1 min-w-0">
+                  {hypothesisMoves.length > 0 ? (
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {hypothesisMoves.map((m, i) => {
+                        const ply = hypothesisBaseIndex + i + 1;
+                        const n = Math.floor(ply / 2) + 1;
+                        const prefix = m.color === 'w' ? `${n}.` : `${n}...`;
+                        const isActive = effHypViewIndex === i;
+                        const iconSrc = m.classification ? classificationImages[m.classification] : undefined;
+                        return (
+                          <span
+                            key={m.index}
+                            className={`flex items-center gap-1 text-xs font-mono rounded ${
+                              isActive
+                                ? 'text-[var(--color-accent)] font-bold bg-[var(--color-accent)]/10 px-1 -mx-1'
+                                : 'text-white'
+                            }`}
+                          >
+                            <span className="text-[var(--color-text-muted)] shrink-0">{prefix}</span>
+                            <span>{m.san}</span>
+                            {iconSrc && (
+                              <img src={iconSrc} alt="" width={16} height={16} className="shrink-0 opacity-85" />
+                            )}
+                          </span>
+                        );
+                      })}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-mono text-white">Play a move to explore</span>
+                  )}
+                </span>
+                {hypothesisSearching ? (
+                  <Activity className="w-3.5 h-3.5 text-[var(--color-accent)] animate-pulse shrink-0" />
+                ) : hypothesisError && hypothesisMoves.length > 0 ? (
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" title="Engine search failed" />
+                ) : null}
+              </div>
+              <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-[var(--color-accent)]/25 bg-[var(--color-background)]/40 flex-wrap">
+                <span className="text-[10px] text-[var(--color-text-muted)] font-medium hidden sm:block">
+                  Backspace undo &middot; Esc exit
+                </span>
+                <div className="flex items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden divide-x divide-[var(--color-border)] shrink-0 ml-auto">
+                  <button
+                    onClick={undoHypothesisMove}
+                    disabled={hypothesisMoves.length === 0}
+                    className="px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)] disabled:opacity-30 disabled:hover:text-[var(--color-text-muted)] disabled:hover:bg-transparent transition-colors"
+                    aria-label="Undo what-if move (Backspace)"
+                    title="Undo what-if move (Backspace)"
+                  >
+                    Undo
+                  </button>
+                  <button
+                    onClick={clearHypothesisMoves}
+                    disabled={hypothesisMoves.length === 0}
+                    className="px-3.5 py-1.5 text-[11px] font-bold text-[var(--color-text-muted)] hover:text-white hover:bg-[var(--color-background)] disabled:opacity-30 disabled:hover:text-[var(--color-text-muted)] disabled:hover:bg-transparent transition-colors"
+                    title="Reset what-if line"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={exitHypothesisMode}
+                    className="px-3.5 py-1.5 text-[11px] font-bold bg-[var(--color-accent)] text-black hover:brightness-110 transition-all"
+                    title="Exit what-if mode (Esc)"
+                  >
+                    Exit
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Analysis time + depth — slim, subtle strip at the bottom of the board */}
+          {selectedGame.analyzedAt && (
+            <div className="w-full flex justify-center" style={{ maxWidth: boardWidth }}>
+              <div className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-background)]/70 px-3 py-1 text-[10px] sm:text-[11px] font-semibold text-[var(--color-text-muted)]">
+                <span className="text-green-500 font-bold leading-none">&#x2713;</span>
+                <span>
+                  Analyzed{formatDuration(selectedGame.analysisDurationMs) && <> in {formatDuration(selectedGame.analysisDurationMs)}</>}
+                </span>
+                {selectedGame.analysisDepth != null && (
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[var(--color-border)]">&middot;</span>
+                    <span>Depth {selectedGame.analysisDepth}</span>
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl" id="game-controls-console" style={{ maxWidth: boardWidth }}>
             <div className="flex flex-wrap items-center justify-between gap-2 px-2.5 sm:px-3 py-2">
@@ -1433,50 +1478,8 @@ function formatDuration(ms: number | undefined): string {
 
         {!focusMode && (
         <div className="lg:col-span-5 xl:col-span-4 space-y-4 flex flex-col h-auto min-h-[400px]">
-          {authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous') && (
-          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
-            <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
-              <Heart className="w-4 h-4 text-[var(--color-accent)]" />
-              <span>Favorites</span>
-              {favoriteGames.length > 0 && (
-                <span className="text-[10px] font-bold text-[var(--color-text-muted)] ml-auto">{favoriteGames.length}</span>
-              )}
-            </h3>
-            {favoriteGames.length === 0 ? (
-              <p className="text-xs text-[var(--color-text-muted)] italic leading-relaxed">
-                No favorites yet — tap the ♥ button on a game.
-              </p>
-            ) : (
-              <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 scrollbar-thin overscroll-contain">
-                {favoriteGames.map((g) => (
-                  <button
-                    key={g.id}
-                    onClick={() => { handleSelectGame(g.id); }}
-                    className="w-full text-left p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all"
-                  >
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                      <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
-                      <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
-                    </div>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <PlayerAvatar name={g.white?.username} avatar={g.white?.avatar} size={20} />
-                      <span className="text-xs font-bold text-white truncate">{g.white?.username ?? 'White'}</span>
-                    </div>
-                    <div className="flex items-center gap-2 min-w-0 mt-1">
-                      <PlayerAvatar name={g.black?.username} avatar={g.black?.avatar} size={20} />
-                      <span className="text-xs font-bold text-white truncate">{g.black?.username ?? 'Black'}</span>
-                    </div>
-                    {g.accuracy != null && (
-                      <div className="text-[10px] text-green-500 font-semibold mt-1.5">
-                        W: {g.accuracy.white}% &middot; B: {g.accuracy.black}%
-                      </div>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          )}
+          {analysisTab === 'analysis' && (
+          <>
           {legendaryData && !notificationDismissed && (
             <div className="bg-[var(--color-surface)] border border-[var(--color-accent)] rounded-xl p-4 text-[var(--color-accent)] relative" id="legendary-achievement-banner">
               <button
@@ -1794,13 +1797,57 @@ function formatDuration(ms: number | undefined): string {
               </div>
             ) : null}
           </div>
+          </>
+          )}
+          {analysisTab === 'whatif' && (
+          <>
+          {favoriteGames.length > 0 && (
+          <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex-shrink-0" id="favorites-box">
+            <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
+              <Heart className="w-4 h-4 text-[var(--color-accent)]" />
+              <span>Favorites</span>
+              <span className="text-[10px] font-bold text-[var(--color-text-muted)] ml-auto">{favoriteGames.length}</span>
+            </h3>
+            <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1 scrollbar-thin overscroll-contain">
+              {favoriteGames.map((g) => (
+                <button
+                  key={g.id}
+                  onClick={() => { handleSelectGame(g.id); }}
+                  className="w-full text-left p-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                    <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <PlayerAvatar name={g.white?.username} avatar={g.white?.avatar} size={20} />
+                    <span className="text-xs font-bold text-white truncate">{g.white?.username ?? 'White'}</span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0 mt-1">
+                    <PlayerAvatar name={g.black?.username} avatar={g.black?.avatar} size={20} />
+                    <span className="text-xs font-bold text-white truncate">{g.black?.username ?? 'Black'}</span>
+                  </div>
+                  {g.accuracy != null && (
+                    <div className="text-[10px] text-green-500 font-semibold mt-1.5">
+                      W: {g.accuracy.white}% &middot; B: {g.accuracy.black}%
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          )}
+          </>
+          )}
         </div>
         )}
 
       </div>
 
-      {!focusMode && selectedGame && (
-        <AnalysisReport game={selectedGame} />
+      {!focusMode && selectedGame && analysisTab === 'whatif' && (
+        <div className="fade-in">
+          <AnalysisReport game={selectedGame} />
+        </div>
       )}
 
       {!focusMode && (
