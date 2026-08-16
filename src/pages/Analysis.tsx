@@ -990,6 +990,7 @@ function formatDuration(ms: number | undefined): string {
     <Chessboard
       fen={getCurrentFen()}
       playable={hypothesisActive}
+      premoveEnabled={!hypothesisActive && !!selectedGame}
       onMove={(from, to) => {
         if (hypothesisActive) {
           const ok = playHypothesisMove(from, to);

@@ -339,6 +339,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
                 <Chessboard
                   fen={fen}
                   playable={!engineThinking}
+                  premoveEnabled={engineThinking}
                   onMove={(from, to) => { void handlePlayerMove(from, to); }}
                   rightClickedSquares={rcSquares}
                   onSquareRightClick={(sq) => {
@@ -674,6 +675,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
               <Chessboard
                 fen={fen}
                 playable={gameOver == null}
+                premoveEnabled
                 onMove={handleMove}
                 orientation={autoFlip ? perspective : undefined}
                 rightClickedSquares={rcSquares2}
