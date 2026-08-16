@@ -64,6 +64,13 @@ const pendingAnalysis = new Map<string, Promise<boolean>>();
 let activeAbortController: AbortController | null = null;
 let hypothesisAbortController: AbortController | null = null;
 
+/** Minimum gap between analysis-progress store updates. The engine reports a
+ *  line for essentially every depth level searched (per MultiPV line), and the
+ *  analysis page subscribes to the whole store, so an unbounded stream of
+ *  setState calls re-renders the entire page for every engine line — long games
+ *  at high depth saturate the main thread and freeze the tab. */
+const PROGRESS_THROTTLE_MS = 150;
+
 export const useGameStore = create<GameState>((set, get) => ({
   games: [] as ChessGame[],
   selectedGame: null,
@@ -393,7 +400,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     try {
       const ok = await runEvaluationPipeline(selectedGame, evalDepth, selectedGame.id);
-      if (!ok) return; // total engine failure — state reset + error toast already handled
+      if (!ok) {
+        // Defensive: never leave the UI stuck on "Analyzing..." even if a future
+        // failure path forgets to reset the flags. runEvaluationPipeline already
+        // resets them today; this guarantees it at the call site.
+        set({ analyzing: false, autoAnalyzing: false, analysisProgress: 0 });
+        return;
+      }
 
       // runEvaluationPipeline already updated the cache and merged moves into selectedGame.
       // Pull the final analysed game from the cache (or fall back to the updated selectedGame).
@@ -678,6 +691,10 @@ async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
 async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: string): Promise<boolean> {
   const startTime = performance.now();
 
+  // Per-run throttle state for onProgress (see PROGRESS_THROTTLE_MS).
+  let lastProgressValue = -1;
+  let lastProgressEmitAt = 0;
+
   const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
   const engineVersion = getEngineVersion(cores);
   const settings = useSettingsStore.getState().settings;
@@ -711,7 +728,16 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
       engine.setLineCount(2);
     },
     onProgress: (progress) => {
-      useGameStore.setState({ analysisProgress: Math.round(progress * 90) });
+      // Only emit when the visible value actually changed and at most ~6 times
+      // per second, so analysis progress can't flood the store (and therefore
+      // the whole analysis page) with re-renders.
+      const value = Math.round(progress * 90);
+      if (value === lastProgressValue) return;
+      lastProgressValue = value;
+      const now = Date.now();
+      if (now - lastProgressEmitAt < PROGRESS_THROTTLE_MS) return;
+      lastProgressEmitAt = now;
+      useGameStore.setState({ analysisProgress: value });
     },
   });
 
