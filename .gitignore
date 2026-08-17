@@ -9,3 +9,20 @@ wintrchess/
 Thumbs.db
 Desktop.ini
 .puzzles-sync-progress
+
+# OpenCode session files
+.opencode/
+
+# Profiling / trace data
+trace_dir/
+
+# Dev/test scripts
+bench.mjs
+par.mjs
+k6.js
+
+# Misc dev files
+streak-flame-export.html
+HANDOFF
+metadata.json
+*.log
