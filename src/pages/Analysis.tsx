@@ -40,6 +40,8 @@ import type { ChessGame } from '../types';
 import { STARTING_FEN } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
+import { isValidUsername } from '../lib/validator';
+import { isValidPgn } from '../lib/validator';
 import { useFullscreen } from '../hooks/useFullscreen';
 import Chessboard from '../components/board/Chessboard';
 import EvalBar from '../components/eval/EvalBar';
@@ -689,26 +691,32 @@ function formatDuration(ms: number | undefined): string {
 
   const handleChessComSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (usernameInput.trim()) {
-      importChessComGames(usernameInput.trim());
-      setShowGameList(true);
+    if (!isValidUsername(usernameInput.trim())) {
+      useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
+      return;
     }
+    importChessComGames(usernameInput.trim());
+    setShowGameList(true);
   };
 
   const handleLichessSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (usernameInput.trim()) {
-      importLichessGames(usernameInput.trim());
-      setShowGameList(true);
+    if (!isValidUsername(usernameInput.trim())) {
+      useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
+      return;
     }
+    importLichessGames(usernameInput.trim());
+    setShowGameList(true);
   };
 
   const handlePgnImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pgnInput.trim()) {
-      importPgnDirectly(pgnInput.trim());
-      setPgnInput('');
+    if (!isValidPgn(pgnInput.trim())) {
+      useToastStore.getState().addToast({ type: 'error', message: 'Invalid PGN. Make sure it contains valid chess moves.' });
+      return;
     }
+    importPgnDirectly(pgnInput.trim());
+    setPgnInput('');
   };
 
   const handleBackToStart = () => { setCurrentMoveIndex(-1); };

@@ -16,6 +16,8 @@ import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId, shortIdFromKey } from '../lib/shortId';
 import { useToastStore } from './toastStore';
 import { getLocalGames, type FullGame } from '../lib/localStore';
+import { canMakeApiCall } from '../lib/firewall';
+import { isValidPgn } from '../lib/validator';
 
 type GameState = {
   games: ChessGame[];
@@ -238,6 +240,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   importChessComGames: async (username) => {
+    if (!canMakeApiCall('chess.com')) {
+      const msg = 'Too many requests. Please wait a moment before trying again.';
+      set({ importError: msg, loadingGames: false });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
+      return;
+    }
     set({ loadingGames: true, importError: null });
     try {
       const { fetchChessComGames, fetchAvatarsForGames } = await import('../lib/chessCom');
@@ -261,6 +269,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   importLichessGames: async (username) => {
+    if (!canMakeApiCall('lichess')) {
+      const msg = 'Too many requests. Please wait a moment before trying again.';
+      set({ importError: msg, loadingGames: false });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
+      return;
+    }
     set({ loadingGames: true, importError: null });
     try {
       const { fetchLichessGames } = await import('../lib/lichess');
@@ -284,6 +298,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   importPgnDirectly: (pgn) => {
     set({ importError: null });
+    if (!isValidPgn(pgn)) {
+      const msg = 'Invalid PGN. Make sure it contains valid chess moves.';
+      set({ importError: msg });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
+      return;
+    }
     try {
       const hydratedMoves = hydratePgnMoves(pgn);
       if (hydratedMoves.length === 0) {

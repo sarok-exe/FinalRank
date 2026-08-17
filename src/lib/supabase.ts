@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@supabase/supabase-js';
+import { isValidUsername, isValidEmail, sanitizeDisplay } from './validator';
 
 const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined) ?? '';
 const supabaseAnonKey = (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? '';
@@ -24,6 +25,9 @@ export async function syncUserProfile(userId: string, profileData: {
   analyzedCount: number;
   lastActiveDate: string | null;
 }): Promise<unknown> {
+  if (!isValidUsername(profileData.username)) throw new Error('Invalid username');
+  if (profileData.email && !isValidEmail(profileData.email)) throw new Error('Invalid email');
+
   const sb = getSupabase();
   if (!sb) return null;
 

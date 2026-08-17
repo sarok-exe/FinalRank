@@ -47,7 +47,7 @@
     "eslint": "^9.39.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-sonarjs": "^3.0.7",
+    "eslint-plugin-sonarjs": "^4.2.0",
     "fast-check": "^4.9.0",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",

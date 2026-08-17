@@ -3,6 +3,7 @@ import type { UserSettings } from '../types';
 import { updateUserProfile } from '../lib/firebase';
 import { useAuthStore } from './authStore';
 import { detectDeviceTier, recommendedWorkers } from '../lib/deviceTier';
+import { clamp } from '../lib/validator';
 
 type SettingsState = {
   settings: UserSettings;
@@ -258,6 +259,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const updated = typeof newSettings === 'function'
       ? { ...state.settings, ...newSettings(state.settings) }
       : { ...state.settings, ...newSettings };
+    // Clamp numeric settings to valid ranges
+    if (updated.engineDepth != null) updated.engineDepth = clamp(updated.engineDepth, 1, 30);
+    if (updated.audioVolume != null) updated.audioVolume = clamp(updated.audioVolume, 0, 1);
     try {
       localStorage.setItem('finalrank_settings', JSON.stringify(updated));
       applyThemeCss(updated);
