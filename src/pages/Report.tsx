@@ -4,7 +4,7 @@
  */
 
 import type React from 'react';
-import { ArrowLeft, MessageSquare, Globe, ExternalLink } from 'lucide-react';
+import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const socialLinks = [
@@ -12,14 +12,14 @@ const socialLinks = [
     name: 'Telegram',
     username: 'sarok_ibnx',
     url: 'https://t.me/sarok_ibnx',
-    icon: MessageSquare,
+    icon: '/img/icons/telegram.svg',
     color: '#0088cc',
   },
   {
     name: 'Reddit',
     username: 'sarok_ibnx',
     url: 'https://reddit.com/u/sarok_ibnx',
-    icon: Globe,
+    icon: '/img/icons/reddit.svg',
     color: '#ff4500',
   },
 ] as const;
@@ -50,7 +50,6 @@ export default function Report(): React.JSX.Element {
       {/* Social cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {socialLinks.map((link) => {
-          const Icon = link.icon;
           return (
             <a
               key={link.name}
@@ -63,7 +62,7 @@ export default function Report(): React.JSX.Element {
                 className="w-14 h-14 rounded-2xl flex items-center justify-center"
                 style={{ backgroundColor: `${link.color}20` }}
               >
-                <Icon className="w-7 h-7" style={{ color: link.color }} />
+                <img src={link.icon} alt={`${link.name} icon`} className="w-7 h-7" />
               </div>
 
               <div className="space-y-1">
