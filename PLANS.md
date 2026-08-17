@@ -10,6 +10,11 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (23b732b) 2px white inner border on legal move squares when
+  piece selected. Removed old dot/capture ring from squareRenderer.
+  Reverted puzzle opponent reply from broken 400ms setTimeout to
+  original synchronous game.move(). Removed isReplying/premoveEnabled.
+
 - 2026-08-17 (76749cf) Lichess import (new lichess.ts lib, NDJSON API,
   Analysis tab, gameStore method, CSP). Fixed puzzle engine reply bug
   (broken object reference guard in Training.tsx setTimeout → stable
