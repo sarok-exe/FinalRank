@@ -368,14 +368,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
-            <Trophy className="w-6 h-6 text-[var(--color-accent)] mb-1" />
-            <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
-            <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
-          </div>
-        </div>
-
         <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-3">
           <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
             <Sparkles className="w-3 h-3 text-[var(--color-accent)]" />
@@ -387,7 +379,12 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             </span>
             <span className="text-[10px] text-[var(--color-text-muted)]">total accepted</span>
           </div>
-          <div className="grid grid-cols-3 gap-2 border-t border-[var(--color-border)] pt-3">
+          <div className="grid grid-cols-4 gap-2 border-t border-[var(--color-border)] pt-3">
+            <div className="flex flex-col items-center text-center">
+              <Trophy className="w-4 h-4 text-[var(--color-accent)] mb-0.5" />
+              <span className="text-sm font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
+              <span className="text-[8px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzed</span>
+            </div>
             <CommunityMiniStat label="Matches" value={String(communityStats?.matches ?? 0)} />
             <CommunityMiniStat
               label="Avg. Accuracy"
