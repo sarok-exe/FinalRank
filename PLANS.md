@@ -10,6 +10,12 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (76749cf) Lichess import (new lichess.ts lib, NDJSON API,
+  Analysis tab, gameStore method, CSP). Fixed puzzle engine reply bug
+  (broken object reference guard in Training.tsx setTimeout → stable
+  puzzle ID comparison). Rewrote Report page: deleted email form, added
+  Telegram + Reddit social links.
+
 - 2026-08-17 (7325046) Removed daily analysis streak feature. Deleted
   StreakNotification, StreakCelebration, streakMilestones (3 files, 589
   lines). Kept StreakFlame for Training puzzle streak. Removed streak from
