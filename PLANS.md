@@ -10,6 +10,16 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (27d8bcd) Local-first persistence, engine caching, board cleanup,
+  exploration fix. Data: localStore.ts device cache (favorites + games in
+  localStorage), Firestore 3s probe skips when blocked by ad-blockers, saves
+  never hang/fail, Profile + Recent Games render instantly from device.
+  Engine: Cache API + blob-URL worker for stockfish (no re-download), 62
+  classification icons precached at startup. Board: black border replaced with
+  surface-matching frame, drag markers use move-trail color (no black lines).
+  Exploration: key prop on Chessboard prevents piece confusion during
+  hypothesis mode transitions. PVC premove verified working end-to-end.
+
 - 2026-08-16 (faf1a57) Post-match analysis, board unification, favorites data
   fixes. Board: classification symbol parallel to the piece (corner, visible
   during the slide, arrives together with the move; min(26px,36%)). Analysis:
