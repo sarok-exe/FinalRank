@@ -10,6 +10,12 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (7325046) Removed daily analysis streak feature. Deleted
+  StreakNotification, StreakCelebration, streakMilestones (3 files, 589
+  lines). Kept StreakFlame for Training puzzle streak. Removed streak from
+  User/UserSettings types, authStore, settingsStore, gameStore, supabase,
+  Shell badge, Profile tab/settings, App.tsx, main.tsx.
+
 - 2026-08-17 (c7818ad) Move list click fix, larger badges, what-if indicator.
   Move Log: overflow-hidden → overflow-clip so deep moves register clicks;
   scrollIntoView on click; pointer-events-none on classification images.
