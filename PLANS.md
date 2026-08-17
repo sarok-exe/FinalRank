@@ -10,6 +10,13 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (c7818ad) Move list click fix, larger badges, what-if indicator.
+  Move Log: overflow-hidden → overflow-clip so deep moves register clicks;
+  scrollIntoView on click; pointer-events-none on classification images.
+  Badges: 40% larger (min(26px,36%) → min(36px,50%)). What-if: overlay
+  on board with "Analyzing what-if…" + pulsing icon when engine searching.
+  Engine code confirmed unchanged — no modifications to engine/ directory.
+
 - 2026-08-17 (5fc55a5) Lightweight board revert + batched Firestore sync. Board:
   stripped chess.com-style animations (1042→600 lines) — removed piece
   lift/hover transforms, capture ripple, promotion pop, glow effects,
