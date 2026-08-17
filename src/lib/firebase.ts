@@ -9,8 +9,10 @@ import {
 import type { Firestore} from 'firebase/firestore';
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
-  collection, getDocs, query, orderBy, limit, terminate,
+  collection, getDocs, query, orderBy, limit,
 } from 'firebase/firestore';
+
+import { queueWrite, flushQueue } from './syncQueue';
 
 import { getTurso } from './turso';
 import { saveFavoriteTurso, fetchFavoritesTurso, deleteFavoriteTurso } from './tursoCache';
@@ -102,8 +104,13 @@ export function probeFirestore(): Promise<boolean> {
       if (app) db = getFirestore(app);
     } else {
       const hadToken = !!auth?.currentUser;
-      if (hadToken) firestoreDisabled = true;
-      firestoreProbe = null; // allow re-probe once auth is available
+      if (hadToken) {
+        firestoreDisabled = true;
+        // Do NOT reset firestoreProbe to null — permanently reject re-probing
+        // once we have a token and the probe already failed.
+      }
+      // If no token yet, leave firestoreProbe as-is so initFirestore can
+      // re-trigger the probe when the user signs in.
     }
   });
   return firestoreProbe;
@@ -113,28 +120,31 @@ function disableFirestore(reason: string): void {
   if (firestoreDisabled) return;
   firestoreDisabled = true;
   console.warn(`[Firestore] disabled: ${reason}`);
-  if (db) {
-    void terminate(db).catch(() => {});
-    db = null;
-  }
+  // Do NOT call terminate(db) — it generates blocked requests from ad-blockers.
+  // Just null out the reference.
+  db = null;
 }
 
-function noteFirestoreFailure(): void {
+export function noteFirestoreFailure(): void {
   firestoreFailStreak++;
   if (firestoreFailStreak >= FIRESTORE_FAIL_LIMIT) {
     disableFirestore('repeated request failures');
   }
 }
 
-function noteFirestoreSuccess(): void {
+export function noteFirestoreSuccess(): void {
   firestoreFailStreak = 0;
+}
+
+export function isFirestoreDisabled(): boolean {
+  return firestoreDisabled;
 }
 
 /** Firestore WebChannel can hang (e.g. ad-blockers block the channel) instead of
  *  rejecting. Race every SDK call against a timeout so callers can fall back. */
 const FIRESTORE_TIMEOUT_MS = 4000;
 
-function withTimeout<T>(promise: Promise<T>, ms: number = FIRESTORE_TIMEOUT_MS): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, ms: number = FIRESTORE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('Firestore timed out')), ms);
     promise.then(
@@ -161,7 +171,7 @@ export function getFirestoreDb() {
 
 /** Firestore rejects writes containing `undefined`. Deep-strip them so saves
  *  (e.g. a game with no avatar) don't throw. */
-function sanitizeFirestoreData<T>(value: T): T {
+export function sanitizeFirestoreData<T>(value: T): T {
   if (Array.isArray(value)) {
     return value.map(v => sanitizeFirestoreData(v)) as T;
   }
@@ -190,36 +200,34 @@ export async function fetchUserProfile(uid: string): Promise<Record<string, unkn
 }
 
 export async function saveUserProfile(uid: string, data: Record<string, unknown>) {
-  const fs = await initFirestore();
-  if (!fs) return null;
-  try {
-    const ref = doc(fs, 'users', uid);
-    const snap = await getDoc(ref);
-    const clean = sanitizeFirestoreData(data);
-    if (snap.exists()) {
-      await updateDoc(ref, { ...clean, updatedAt: serverTimestamp() });
-    } else {
-      await setDoc(ref, { ...clean, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
-    }
-    noteFirestoreSuccess();
-    return true;
-  } catch {
-    noteFirestoreFailure();
-    return null;
-  }
+  // Queue for batched Firestore sync (high priority — user profile)
+  queueWrite({
+    id: `profile:${uid}`,
+    priority: 'high',
+    collection: 'users',
+    document: uid,
+    data: { ...sanitizeFirestoreData(data) },
+    merge: true,
+    timestamp: Date.now(),
+  });
+  // Trigger async flush if it's time (non-blocking)
+  flushQueue();
+  return true;
 }
 
 export async function updateUserProfile(uid: string, data: Record<string, unknown>) {
-  const fs = await initFirestore();
-  if (!fs) return null;
-  try {
-    await updateDoc(doc(fs, 'users', uid), { ...sanitizeFirestoreData(data), updatedAt: serverTimestamp() });
-    noteFirestoreSuccess();
-    return true;
-  } catch {
-    noteFirestoreFailure();
-    return null;
-  }
+  // Queue for batched Firestore sync (high priority — user profile)
+  queueWrite({
+    id: `profile:${uid}`,
+    priority: 'high',
+    collection: 'users',
+    document: uid,
+    data: { ...sanitizeFirestoreData(data) },
+    merge: true,
+    timestamp: Date.now(),
+  });
+  flushQueue();
+  return true;
 }
 
 export function getFirebaseAuth() {
@@ -317,24 +325,29 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
     } catch (e) { console.warn('[Turso] saveSharedGame mirror failed:', e); }
   }
 
-  // 3. Firestore in background (fire-and-forget) — skip entirely when blocked.
+  // 3. Queue Firestore writes for batched sync (fire-and-forget via queue).
   if (!firestoreDisabled) {
-    void (async () => {
-      const fs = await initFirestore();
-      if (!fs) return;
-      try {
-        await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }, { merge: true }));
-        noteFirestoreSuccess();
-      } catch (e) {
-        noteFirestoreFailure();
-        console.warn('[Firestore] saveUserGame failed:', e);
-      }
-      if (shortId !== '') {
-        try {
-          await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }, { merge: true }));
-        } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
-      }
-    })().catch(() => {});
+    queueWrite({
+      id: `game:${uid}:${gameId}`,
+      priority: 'low',
+      collection: `users/${uid}/games`,
+      document: gameId,
+      data: { ...clean },
+      merge: true,
+      timestamp: Date.now(),
+    });
+    if (shortId !== '') {
+      queueWrite({
+        id: `shared:${shortId}`,
+        priority: 'low',
+        collection: 'games',
+        document: shortId,
+        data: { uid, ...clean },
+        merge: true,
+        timestamp: Date.now(),
+      });
+    }
+    flushQueue();
   }
 
   // 4. Always resolve successfully — never throw on Firestore failure.
@@ -518,18 +531,17 @@ export async function deleteUserGame(uid: string, gameId: string) {
     await deleteFavoriteTurso(uid, gameId);
   } catch (e) { console.warn('[Turso] deleteFavoriteTurso failed:', e); }
 
-  // 3. Firestore in background (fire-and-forget) — skip entirely when blocked.
+  // 3. Queue Firestore write for batched sync (medium priority — favorites).
   if (!firestoreDisabled) {
-    void (async () => {
-      const fs = await initFirestore();
-      if (!fs) return;
-      try {
-        await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { userSaved: false, updatedAt: serverTimestamp() }, { merge: true }));
-        noteFirestoreSuccess();
-      } catch (e) {
-        noteFirestoreFailure();
-        console.warn('[Firestore] deleteUserGame failed:', e);
-      }
-    })().catch(() => {});
+    queueWrite({
+      id: `fav:${uid}:${gameId}`,
+      priority: 'medium',
+      collection: `users/${uid}/games`,
+      document: gameId,
+      data: { userSaved: false },
+      merge: true,
+      timestamp: Date.now(),
+    });
+    flushQueue();
   }
 }
