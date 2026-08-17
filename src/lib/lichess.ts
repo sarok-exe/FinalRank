@@ -16,6 +16,7 @@ type LichessPlayer = {
   user?: LichessPlayerUser;
   rating?: number;
   ratingDiff?: number;
+  aiLevel?: number;
 };
 
 type LichessGameRaw = {
@@ -32,6 +33,7 @@ type LichessGameRaw = {
     increment?: number;
   };
   createdAt?: number;
+  lastMoveAt?: number;
   pgn?: string;
   status?: string;
   variant?: { key?: string };
@@ -41,9 +43,8 @@ type LichessGameRaw = {
  * Fetches recent chess games for a Lichess username via the public API.
  * Returns up to 50 games in the same ChessGame format used throughout the app.
  *
- * The Lichess API returns NDJSON (newline-delimited JSON) — each line is a
- * separate JSON game object. We request the `moves` field in UCI format and
- * reconstruct SAN + FEN locally via chess.js.
+ * Uses `pgnInJson=true` so each game includes the full PGN verbatim.
+ * We parse SAN moves from PGN via chess.js rather than reconstructing from UCI.
  */
 export async function fetchLichessGames(username: string): Promise<ChessGame[]> {
   const cleanUsername = username.trim().toLowerCase();
@@ -53,7 +54,7 @@ export async function fetchLichessGames(username: string): Promise<ChessGame[]> 
   const timeout = setTimeout(() => controller.abort(), 10_000);
 
   try {
-    const url = `https://lichess.org/api/games/user/${encodeURIComponent(cleanUsername)}?max=50&pgnInJson=false`;
+    const url = `https://lichess.org/api/games/user/${encodeURIComponent(cleanUsername)}?max=50&pgnInJson=true`;
     const response = await fetch(url, {
       headers: {
         'Accept': 'application/x-ndjson',
@@ -85,19 +86,41 @@ export async function fetchLichessGames(username: string): Promise<ChessGame[]> 
 
 function parseLichessGame(g: LichessGameRaw, cleanUsername: string, index: number): ChessGame {
   const id = g.id ?? `lichess-${cleanUsername}-${index}`;
-  const dateRaw = g.createdAt != null ? new Date(g.createdAt) : new Date();
+  const dateRaw = g.lastMoveAt ? new Date(g.lastMoveAt) : (g.createdAt ? new Date(g.createdAt) : new Date());
 
-  const whiteName = g.players?.white?.user?.name ?? 'White';
-  const blackName = g.players?.black?.user?.name ?? 'Black';
+  // Handle AI opponents — Lichess returns aiLevel instead of a user for bots
+  const whiteName = g.players?.white?.aiLevel != null
+    ? `AI Level ${g.players.white.aiLevel}`
+    : g.players?.white?.user?.name ?? 'White';
+  const blackName = g.players?.black?.aiLevel != null
+    ? `AI Level ${g.players.black.aiLevel}`
+    : g.players?.black?.user?.name ?? 'Black';
   const whiteRating = g.players?.white?.rating;
   const blackRating = g.players?.black?.rating;
 
   const result = resolveResult(g);
 
-  // Lichess gives us UCI moves as a space-separated string — convert to SAN + FEN via chess.js
-  const uciMoves = g.moves ?? '';
-  const moves = parseUciMoves(uciMoves, g.initialFen);
-  const pgn = buildPgn(whiteName, blackName, whiteRating, blackRating, dateRaw, result, moves);
+  // Use the real PGN from Lichess (populated because pgnInJson=true)
+  const pgn = g.pgn ?? buildPgn(whiteName, blackName, whiteRating, blackRating, dateRaw, result, []);
+
+  // Parse moves from PGN via chess.js instead of reconstructing from UCI
+  const chess = new Chess(g.initialFen || undefined);
+  chess.loadPgn(pgn);
+  const history = chess.history({ verbose: true });
+
+  // Replay to capture the FEN after each move
+  const chess2 = new Chess(g.initialFen || undefined);
+  const moves: AnalyzedMove[] = history.map((m, i) => {
+    chess2.move(m.san);
+    return {
+      index: i,
+      san: m.san,
+      from: m.from,
+      to: m.to,
+      fen: chess2.fen(),
+      color: m.color,
+    };
+  });
 
   return {
     id,
@@ -119,47 +142,8 @@ function resolveResult(g: LichessGameRaw): string {
 }
 
 /**
- * Parse a UCI move string (e.g. "e2e4 g8f6") into AnalyzedMove[] by
- * replaying each move through chess.js to get SAN, from, to, and FEN.
- */
-function parseUciMoves(uciString: string, initialFen?: string): AnalyzedMove[] {
-  if (uciString === '') return [];
-  const chess = new Chess(initialFen || undefined);
-  const tokens = uciString.split(/\s+/).filter(t => t.length >= 4);
-  const moves: AnalyzedMove[] = [];
-
-  for (let i = 0; i < tokens.length; i++) {
-    const uci = tokens[i];
-    const from = uci.slice(0, 2);
-    const to = uci.slice(2, 4);
-    const promotion = uci.length > 4 ? uci[4] : undefined;
-
-    try {
-      const moveResult = chess.move({
-        from,
-        to,
-        promotion,
-      });
-      if (!moveResult) break;
-
-      moves.push({
-        index: i,
-        san: moveResult.san,
-        from: moveResult.from,
-        to: moveResult.to,
-        fen: chess.fen(),
-        color: moveResult.color,
-      });
-    } catch {
-      break;
-    }
-  }
-  return moves;
-}
-
-/**
- * Build a minimal PGN string from parsed data so the rest of the app can
- * display and hash it identically to Chess.com or pasted PGNs.
+ * Fallback: Build a minimal PGN string from parsed data when Lichess doesn't
+ * return a PGN (should rarely happen with pgnInJson=true).
  */
 function buildPgn(
   whiteName: string,

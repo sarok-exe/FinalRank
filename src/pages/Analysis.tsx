@@ -13,7 +13,6 @@ import {
   History,
   Activity,
   Award,
-  Search,
   FileText,
   ArrowLeft,
   Trophy,
@@ -924,7 +923,7 @@ function formatDuration(ms: number | undefined): string {
                   : 'border-transparent text-[var(--color-text-muted)]'
               }`}
             >
-              <Search className="w-4 h-4 inline mr-1" />
+              <img src="/img/icons/chesscom.svg" alt="" className="w-5 h-5 inline mr-1" />
               Chess.com Username
             </button>
             <button
@@ -935,7 +934,7 @@ function formatDuration(ms: number | undefined): string {
                   : 'border-transparent text-[var(--color-text-muted)]'
               }`}
             >
-              <Search className="w-4 h-4 inline mr-1" />
+              <img src="/img/icons/lichess.svg" alt="" className="w-5 h-5 inline mr-1" />
               Lichess Username
             </button>
             <button
