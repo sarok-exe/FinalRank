@@ -46,7 +46,7 @@ type LichessGameRaw = {
  * reconstruct SAN + FEN locally via chess.js.
  */
 export async function fetchLichessGames(username: string): Promise<ChessGame[]> {
-  const cleanUsername = username.trim();
+  const cleanUsername = username.trim().toLowerCase();
   if (cleanUsername === '') return [];
 
   const controller = new AbortController();

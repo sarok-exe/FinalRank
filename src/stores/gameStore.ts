@@ -566,8 +566,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const state = get();
     const existing = state.games.find(g => g.shortId === shortId || g.id === shortId);
     if (existing) {
-      set({ selectedGame: existing, currentMoveIndex: -1 });
-      return existing;
+      const hydratedMoves = existing.moves.length > 0 ? existing.moves : hydratePgnMoves(existing.pgn);
+      const updatedGame = { ...existing, moves: hydratedMoves };
+      set({ selectedGame: updatedGame, currentMoveIndex: -1 });
+      return updatedGame;
     }
     let data: Record<string, unknown> | null = null;
     try {
