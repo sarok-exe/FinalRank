@@ -184,6 +184,7 @@ export default function Analysis() {
     hypothesisDepth,
     hypothesisClassification,
     importChessComGames,
+    importLichessGames,
     selectGame,
     setCurrentMoveIndex,
     importPgnDirectly,
@@ -217,7 +218,7 @@ export default function Analysis() {
 
   const [usernameInput, setUsernameInput] = useState('');
   const [pgnInput, setPgnInput] = useState('');
-  const [importMode, setImportMode] = useState<'chesscom' | 'pgn'>('chesscom');
+  const [importMode, setImportMode] = useState<'chesscom' | 'lichess' | 'pgn'>('chesscom');
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   const [showGameList, setShowGameList] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -695,6 +696,14 @@ function formatDuration(ms: number | undefined): string {
     }
   };
 
+  const handleLichessSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (usernameInput.trim()) {
+      importLichessGames(usernameInput.trim());
+      setShowGameList(true);
+    }
+  };
+
   const handlePgnImportSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pgnInput.trim()) {
@@ -919,6 +928,17 @@ function formatDuration(ms: number | undefined): string {
               Chess.com Username
             </button>
             <button
+              onClick={() => { setImportMode('lichess'); }}
+              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
+                importMode === 'lichess'
+                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                  : 'border-transparent text-[var(--color-text-muted)]'
+              }`}
+            >
+              <Search className="w-4 h-4 inline mr-1" />
+              Lichess Username
+            </button>
+            <button
               onClick={() => { setImportMode('pgn'); }}
               className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
                 importMode === 'pgn'
@@ -931,13 +951,13 @@ function formatDuration(ms: number | undefined): string {
             </button>
           </div>
 
-          {importMode === 'chesscom' ? (
-            <form onSubmit={handleChessComSubmit} className="flex flex-col sm:flex-row gap-2">
+          {importMode === 'chesscom' || importMode === 'lichess' ? (
+            <form onSubmit={importMode === 'lichess' ? handleLichessSubmit : handleChessComSubmit} className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={usernameInput}
                 onChange={(e) => { setUsernameInput(e.target.value); }}
-                placeholder="e.g. Hikaru"
+                placeholder={importMode === 'lichess' ? 'e.g. DrNykterstein' : 'e.g. Hikaru'}
                 className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0"
                 id="chesscom-user-input"
               />

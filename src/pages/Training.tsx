@@ -280,7 +280,7 @@ export default function Training() {
     // Apply the user's move immediately, then delay the opponent's reply so
     // the player has a beat to premove their next move (chess.com-style).
     const replyIdx = moveIdx;
-    const puzzleAtMove = active;
+    const puzzleIdAtMove = active.puzzle.id;
     setActive({
       ...active,
       game,
@@ -292,7 +292,7 @@ export default function Training() {
     replyTimerRef.current = window.setTimeout(() => {
       replyTimerRef.current = null;
       // A new puzzle may have started while the reply was pending.
-      if (activeRef.current !== puzzleAtMove) return;
+      if (activeRef.current?.puzzle.id !== puzzleIdAtMove) return;
       let nextMoveIdx = replyIdx;
       try {
         const reply = game.move(uciToMove(moves[replyIdx]));
@@ -302,7 +302,7 @@ export default function Training() {
         /* ignore opponent reply errors */
       }
       setIsReplying(false);
-      setActive(prev => (prev === puzzleAtMove ? { ...prev, game, moveIdx: nextMoveIdx } : prev));
+      setActive(prev => (prev?.puzzle.id === puzzleIdAtMove ? { ...prev, game, moveIdx: nextMoveIdx } : prev));
     }, 400);
     return true;
   }, [active, markSolved, play, playFromSan]);

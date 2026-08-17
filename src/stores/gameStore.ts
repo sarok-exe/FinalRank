@@ -43,6 +43,7 @@ type GameState = {
   hypothesisClassification: string | null;
 
   importChessComGames(username: string): Promise<void>;
+  importLichessGames(username: string): Promise<void>;
   selectGame(gameId: string): void;
   setCurrentMoveIndex(index: number): void;
   importPgnDirectly(pgn: string): void;
@@ -247,6 +248,28 @@ export const useGameStore = create<GameState>((set, get) => ({
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
         const tursoStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
+        set({ analyzedPgnHashes: tursoStatus });
+        get().selectGame(loaded[0].id);
+        void get().autoAnalyzeGame(loaded[0].id);
+        set({ importJustCompleted: true });
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to fetch games.';
+      set({ importError: msg, loadingGames: false });
+      useToastStore.getState().addToast({ type: 'error', message: msg });
+    }
+  },
+
+  importLichessGames: async (username) => {
+    set({ loadingGames: true, importError: null });
+    try {
+      const { fetchLichessGames } = await import('../lib/lichess');
+      const loaded = await fetchLichessGames(username);
+      if (loaded.length === 0) {
+        set({ importError: 'No recent games found for this user.', loadingGames: false });
+      } else {
+        set({ games: loaded, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
+        const tursoStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth);
         set({ analyzedPgnHashes: tursoStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
