@@ -125,10 +125,6 @@ export default function Training() {
 
   /* Hint state — one hint per puzzle */
   const [hint, setHint] = useState<{ from: string; to: string } | null>(null);
-  // Brief window after a correct user move while the opponent's reply is
-  // delayed, letting the player premove their next move (chess.com-style).
-  const [isReplying, setIsReplying] = useState(false);
-  const replyTimerRef = useRef<number | null>(null);
 
   const queueRef = useRef(queue);
   queueRef.current = queue;
@@ -277,40 +273,25 @@ export default function Training() {
       return true;
     }
 
-    // Apply the user's move immediately, then delay the opponent's reply so
-    // the player has a beat to premove their next move (chess.com-style).
-    const replyIdx = moveIdx;
-    const puzzleIdAtMove = active.puzzle.id;
+    // Apply opponent reply IMMEDIATELY
+    try {
+      const reply = game.move(uciToMove(moves[moveIdx]));
+      playFromSan(reply.san);
+      moveIdx += 1;
+    } catch {
+      // ignore opponent reply errors
+    }
+
     setActive({
       ...active,
       game,
-      moveIdx: replyIdx,
+      moveIdx,
       lastMove: { from: expected.slice(0, 2), to: expected.slice(2, 4) },
     });
     setHint(null);
-    setIsReplying(true);
-    replyTimerRef.current = window.setTimeout(() => {
-      replyTimerRef.current = null;
-      // A new puzzle may have started while the reply was pending.
-      if (activeRef.current?.puzzle.id !== puzzleIdAtMove) return;
-      let nextMoveIdx = replyIdx;
-      try {
-        const reply = game.move(uciToMove(moves[replyIdx]));
-        playFromSan(reply.san);
-        nextMoveIdx += 1;
-      } catch {
-        /* ignore opponent reply errors */
-      }
-      setIsReplying(false);
-      setActive(prev => (prev?.puzzle.id === puzzleIdAtMove ? { ...prev, game, moveIdx: nextMoveIdx } : prev));
-    }, 400);
     return true;
   }, [active, markSolved, play, playFromSan]);
 
-  // Clear any pending reply timer on unmount.
-  useEffect(() => () => {
-    if (replyTimerRef.current != null) window.clearTimeout(replyTimerRef.current);
-  }, []);
 
   /* -------------------------------------------------------------------------- */
   /*  Retry / skip / fresh batch / range                                         */
@@ -467,8 +448,7 @@ export default function Training() {
             <Chessboard
               fen={active.game.fen()}
               onMove={handleMove}
-              playable={active.status === 'playing' && !isReplying}
-              premoveEnabled={isReplying}
+              playable={active.status === 'playing'}
               orientation={active.playerColor === 'w' ? 'white' : 'black'}
               highlightSquares={active.lastMove}
               hintSquare={hint?.from}

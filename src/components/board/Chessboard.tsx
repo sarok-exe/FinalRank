@@ -285,8 +285,16 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     for (const sq of rightClickedSquares) {
       setBg(sq, hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
     }
+    // 2px inner border on every legal-move square when a piece is selected.
+    for (const sq of validMoves) {
+      if (!styles[sq]) styles[sq] = {};
+      styles[sq] = {
+        ...styles[sq],
+        boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.8)',
+      };
+    }
     return styles;
-  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor]);
+  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor, validMoves]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];
@@ -469,11 +477,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   const squareRenderer = useCallback(
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
-      const isDot = validMoves.includes(square);
       const isTo = highlightSquares?.to === square;
       const isBadge = lastBadge?.square === square;
       const isHint = hintSquare === square;
-      if (!isDot && !isBadge && !isHint && !isTo) return <>{children}</>;
+      if (!isBadge && !isHint && !isTo) return <>{children}</>;
 
       return (
         <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
@@ -490,28 +497,10 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
               pointerEvents: 'none', zIndex: 12,
             }} />
           )}
-          {isDot && !children && (
-            <div style={{
-              width: '28%', height: '28%', borderRadius: '50%',
-              backgroundColor: 'rgba(0,0,0,0.25)',
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              pointerEvents: 'none', zIndex: 10,
-            }} />
-          )}
-          {isDot && children && (
-            <div style={{
-              width: '82%', height: '82%', borderRadius: '50%',
-              border: '4px solid rgba(0,0,0,0.2)',
-              position: 'absolute', top: '50%', left: '50%',
-              transform: 'translate(-50%, -50%)',
-              pointerEvents: 'none', zIndex: 10,
-            }} />
-          )}
         </div>
       );
     },
-    [validMoves, highlightSquares, hintSquare, squareStyles, lastBadge],
+    [highlightSquares, hintSquare, squareStyles, lastBadge],
   );
 
   const renderSquareOverlay = (kingSquare: string, icon: string): React.JSX.Element => {
