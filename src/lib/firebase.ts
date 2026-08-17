@@ -14,6 +14,11 @@ import {
 
 import { getTurso } from './turso';
 import { saveFavoriteTurso, fetchFavoritesTurso, deleteFavoriteTurso } from './tursoCache';
+import {
+  setLocalGame, setLocalGameMeta, markGameUnsavedById,
+  getLocalFavorites, getLocalGames, setLocalFavorites,
+  type FavoriteMeta, type FullGame,
+} from './localStore';
 
 type AuthCallback = (user: FirebaseUser | null) => void;
 
@@ -68,10 +73,17 @@ export function probeFirestore(): Promise<boolean> {
       const body = JSON.stringify({
         structuredQuery: { from: [{ collectionId: 'games' }], limit: 1 },
       });
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${current.uid}:runQuery`,
-        { method: 'POST', headers, body }
-      );
+      const probeController = new AbortController();
+      const probeTimer = setTimeout(() => probeController.abort(), 3000);
+      let res: Response;
+      try {
+        res = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${current.uid}:runQuery`,
+          { method: 'POST', headers, body, signal: probeController.signal }
+        );
+      } finally {
+        clearTimeout(probeTimer);
+      }
       if (res.ok) return true;
       console.warn(
         `[Firestore] probe ${res.status}`,
@@ -261,28 +273,29 @@ export function isFirebaseConfigured(): boolean {
 export async function saveUserGame(uid: string, gameId: string, data: Record<string, unknown>) {
   const clean = sanitizeFirestoreData(data);
   const shortId = (data.shortId as string | undefined) ?? gameId;
-  const fs = await initFirestore();
-  if (fs) {
-    // merge: true — writers only touch the fields they carry, so a partial save
-    // (analysis completion, shared-link load, select) can never strip fields it
-    // doesn't know about — critically `userSaved` (the favorite flag).
-    try {
-      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }, { merge: true }));
-      noteFirestoreSuccess();
-    } catch (e) {
-      noteFirestoreFailure();
-      console.warn('[Firestore] saveUserGame failed:', e);
-      // Propagate so caller .catch paths fire (revert + error toast) instead of
-      // swallowing the failure and reporting a false success.
-      throw e;
-    }
-    if (shortId !== '') {
-      try {
-        await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }, { merge: true }));
-      } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
-    }
-  }
-  // Mirror favorites to Turso so they survive Firestore being unavailable
+
+  // 1. Write to device cache immediately — the UI can read this synchronously.
+  const localGame: FullGame = {
+    id: gameId,
+    shortId: shortId || gameId,
+    white: (data.white as FullGame['white']) ?? { username: 'White' },
+    black: (data.black as FullGame['black']) ?? { username: 'Black' },
+    result: (data.result as string) ?? '*',
+    date: (data.date as string) ?? '',
+    pgn: (data.pgn as string) ?? '',
+    moves: (data.moves as unknown[]) ?? [],
+    initialPosition: data.initialPosition as string | undefined,
+    classificationCounts: data.classificationCounts as FullGame['classificationCounts'],
+    accuracy: data.accuracy as FullGame['accuracy'],
+    userSaved: data.userSaved as boolean | undefined,
+    analyzedAt: data.analyzedAt as string | undefined,
+    analysisDurationMs: data.analysisDurationMs as number | undefined,
+    analysisDepth: data.analysisDepth as number | undefined,
+  };
+  setLocalGame(localGame);
+  setLocalGameMeta({ id: gameId, shortId: shortId || gameId, userSaved: data.userSaved as boolean | undefined });
+
+  // 2. Write to Turso (existing mirroring code).
   if (clean.userSaved === true) {
     try {
       await saveFavoriteTurso(uid, gameId, JSON.stringify(clean));
@@ -303,48 +316,163 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
       });
     } catch (e) { console.warn('[Turso] saveSharedGame mirror failed:', e); }
   }
+
+  // 3. Firestore in background (fire-and-forget) — skip entirely when blocked.
+  if (!firestoreDisabled) {
+    void (async () => {
+      const fs = await initFirestore();
+      if (!fs) return;
+      try {
+        await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { ...clean, updatedAt: serverTimestamp() }, { merge: true }));
+        noteFirestoreSuccess();
+      } catch (e) {
+        noteFirestoreFailure();
+        console.warn('[Firestore] saveUserGame failed:', e);
+      }
+      if (shortId !== '') {
+        try {
+          await withTimeout(setDoc(doc(fs, 'games', shortId), { uid, ...clean, updatedAt: serverTimestamp() }, { merge: true }));
+        } catch (e) { console.warn('[Firestore] saveSharedGame failed:', e); }
+      }
+    })().catch(() => {});
+  }
+
+  // 4. Always resolve successfully — never throw on Firestore failure.
 }
 
-/** Favorite games: Firestore first, Turso fallback (mirrored on save). */
+/** Convert a raw Firestore/Turso game record to a FavoriteMeta for the local cache. */
+function rawToFavMeta(raw: Record<string, unknown>): FavoriteMeta {
+  return {
+    id: raw.id as string,
+    shortId: (raw.shortId as string) ?? (raw.id as string),
+    white: (raw.white as FavoriteMeta['white']) ?? { username: 'White' },
+    black: (raw.black as FavoriteMeta['black']) ?? { username: 'Black' },
+    result: (raw.result as string) ?? '*',
+    date: (raw.date as string) ?? '',
+    classificationCounts: raw.classificationCounts as FavoriteMeta['classificationCounts'],
+    accuracy: raw.accuracy as FavoriteMeta['accuracy'],
+    userSaved: raw.userSaved as boolean | undefined,
+    analyzedAt: raw.analyzedAt as string | undefined,
+  };
+}
+
+/** Favorite games: device cache first (instant), Turso background, Firestore last. */
 export async function fetchUserFavorites(uid: string): Promise<Record<string, unknown>[]> {
-  const fs = await initFirestore();
-  if (fs) {
-    try {
-      const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
-      const snap = await withTimeout(getDocs(q));
-      noteFirestoreSuccess();
-      const favs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((g: Record<string, unknown>) => g.userSaved === true);
-      if (favs.length > 0) return favs;
-    } catch {
-      noteFirestoreFailure();
+  // 1. Read device cache first — return immediately if present.
+  const cached = getLocalFavorites();
+  if (cached.length > 0) {
+    // Kick off a background Turso refresh so the cache stays fresh for next time.
+    void (async () => {
+      try {
+        const tursoFavs = await fetchFavoritesTurso(uid);
+        const metas = tursoFavs
+          .filter((g: Record<string, unknown>) => g.userSaved === true)
+          .map(rawToFavMeta);
+        setLocalFavorites(metas);
+      } catch { /* silent — cache is already returned */ }
+    })();
+    return cached as unknown as Record<string, unknown>[];
+  }
+
+  // 2. Cache empty — fetch from Turso (primary remote store).
+  try {
+    const tursoFavs = await fetchFavoritesTurso(uid);
+    const metas = tursoFavs
+      .filter((g: Record<string, unknown>) => g.userSaved === true)
+      .map(rawToFavMeta);
+    if (metas.length > 0) setLocalFavorites(metas);
+    if (tursoFavs.length > 0) return tursoFavs;
+  } catch { /* fall through to Firestore */ }
+
+  // 3. Firestore last (skip if unavailable).
+  if (!firestoreDisabled) {
+    const fs = await initFirestore();
+    if (fs) {
+      try {
+        const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+        const snap = await withTimeout(getDocs(q));
+        noteFirestoreSuccess();
+        const favs = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((g: Record<string, unknown>) => g.userSaved === true);
+        if (favs.length > 0) {
+          setLocalFavorites(favs.map(rawToFavMeta));
+          return favs;
+        }
+      } catch {
+        noteFirestoreFailure();
+      }
     }
   }
-  try {
-    return await fetchFavoritesTurso(uid);
-  } catch {
-    return [];
-  }
+  return [];
 }
 
+/** Convert a raw Firestore/Turso game record to a FullGame for the local cache. */
+function rawToFullGame(raw: Record<string, unknown>): FullGame {
+  return {
+    id: raw.id as string,
+    shortId: (raw.shortId as string) ?? (raw.id as string),
+    white: (raw.white as FullGame['white']) ?? { username: 'White' },
+    black: (raw.black as FullGame['black']) ?? { username: 'Black' },
+    result: (raw.result as string) ?? '*',
+    date: (raw.date as string) ?? '',
+    pgn: (raw.pgn as string) ?? '',
+    moves: (raw.moves as unknown[]) ?? [],
+    initialPosition: raw.initialPosition as string | undefined,
+    classificationCounts: raw.classificationCounts as FullGame['classificationCounts'],
+    accuracy: raw.accuracy as FullGame['accuracy'],
+    userSaved: raw.userSaved as boolean | undefined,
+    analyzedAt: raw.analyzedAt as string | undefined,
+    analysisDurationMs: raw.analysisDurationMs as number | undefined,
+    analysisDepth: raw.analysisDepth as number | undefined,
+  };
+}
+
+/** All saved games: device cache first (instant), Turso background, Firestore last. */
 export async function fetchUserGames(uid: string): Promise<Record<string, unknown>[]> {
-  const fs = await initFirestore();
-  if (fs) {
-    try {
-      const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
-      const snap = await withTimeout(getDocs(q));
-      noteFirestoreSuccess();
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    } catch {
-      noteFirestoreFailure();
+  // 1. Read device cache first — return immediately if present.
+  const cached = getLocalGames();
+  if (cached.length > 0) {
+    // Kick off a background Turso refresh so the cache stays fresh for next time.
+    void (async () => {
+      try {
+        const tursoGames = await fetchFavoritesTurso(uid);
+        for (const g of tursoGames) {
+          setLocalGame(rawToFullGame(g));
+        }
+      } catch { /* silent — cache is already returned */ }
+    })();
+    return cached as unknown as Record<string, unknown>[];
+  }
+
+  // 2. Cache empty — fetch from Turso (primary remote store).
+  try {
+    const tursoGames = await fetchFavoritesTurso(uid);
+    if (tursoGames.length > 0) {
+      for (const g of tursoGames) {
+        setLocalGame(rawToFullGame(g));
+      }
+      return tursoGames;
+    }
+  } catch { /* fall through to Firestore */ }
+
+  // 3. Firestore last (skip if unavailable).
+  if (!firestoreDisabled) {
+    const fs = await initFirestore();
+    if (fs) {
+      try {
+        const q = query(collection(fs, 'users', uid, 'games'), orderBy('updatedAt', 'desc'), limit(50));
+        const snap = await withTimeout(getDocs(q));
+        noteFirestoreSuccess();
+        const games = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        for (const g of games) {
+          setLocalGame(rawToFullGame(g));
+        }
+        return games;
+      } catch {
+        noteFirestoreFailure();
+      }
     }
   }
-  // Fallback to Turso (mirrored on save) when Firestore is unavailable so the
-  // games list is never empty just because the primary store is down.
-  try {
-    return await fetchFavoritesTurso(uid);
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 export async function fetchPublishedGame(shortId: string): Promise<Record<string, unknown> | null> {
@@ -379,24 +507,29 @@ export async function fetchPublishedGame(shortId: string): Promise<Record<string
   return null;
 }
 
-/** Unfavorite a game. Keeps the game in the user's library (just flips the flag
- *  with a merge) and does NOT touch the public games/{shortId} doc — an
- *  unfavorite must not unpublish a share. Name/signature kept so callers (e.g.
- *  Analysis.tsx) don't need to change. */
+/** Unfavorite a game. Updates device cache + Turso immediately; Firestore in
+ *  background if available. Never throws — callers never need to revert. */
 export async function deleteUserGame(uid: string, gameId: string) {
-  const fs = await initFirestore();
-  if (fs) {
-    try {
-      await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { userSaved: false, updatedAt: serverTimestamp() }, { merge: true }));
-      noteFirestoreSuccess();
-    } catch (e) {
-      noteFirestoreFailure();
-      console.warn('[Firestore] deleteUserGame failed:', e);
-      // Propagate so caller .catch paths fire (revert + error toast).
-      throw e;
-    }
-  }
+  // 1. Update device cache immediately — mark userSaved:false / remove from favorites.
+  markGameUnsavedById(gameId);
+
+  // 2. Turso — delete the favorites row.
   try {
     await deleteFavoriteTurso(uid, gameId);
   } catch (e) { console.warn('[Turso] deleteFavoriteTurso failed:', e); }
+
+  // 3. Firestore in background (fire-and-forget) — skip entirely when blocked.
+  if (!firestoreDisabled) {
+    void (async () => {
+      const fs = await initFirestore();
+      if (!fs) return;
+      try {
+        await withTimeout(setDoc(doc(fs, 'users', uid, 'games', gameId), { userSaved: false, updatedAt: serverTimestamp() }, { merge: true }));
+        noteFirestoreSuccess();
+      } catch (e) {
+        noteFirestoreFailure();
+        console.warn('[Firestore] deleteUserGame failed:', e);
+      }
+    })().catch(() => {});
+  }
 }

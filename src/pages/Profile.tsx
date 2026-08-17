@@ -11,6 +11,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
 import { useToastStore } from '../stores/toastStore';
 import { fetchUserFavorites, fetchUserGames, saveUserGame, deleteUserGame } from '../lib/firebase';
+import { getLocalFavorites } from '../lib/localStore';
 import { fetchCommunityUserStats } from '../lib/tursoCache';
 import { estimateRating } from '../lib/community';
 import type { CommunityUserStats } from '../lib/community';
@@ -95,7 +96,15 @@ export default function Profile(): React.ReactElement {
 
   const loadFavorites = useCallback(() => {
     if (canSave) {
-      setLoadingSaved(true);
+      // 1. Instant render from device cache — no loading spinner needed.
+      const local = getLocalFavorites();
+      if (local.length > 0) {
+        setSavedGames(local.filter(g => g.userSaved === true) as SavedGame[]);
+        setLoadingSaved(false);
+      } else {
+        setLoadingSaved(true);
+      }
+      // 2. Background refresh from Turso/Firestore updates the list.
       fetchUserFavorites(user.id).then(games => {
         setSavedGames((games as SavedGame[]).filter(g => g.userSaved === true));
         setLoadingSaved(false);
@@ -107,7 +116,15 @@ export default function Profile(): React.ReactElement {
 
   const loadRecentGames = useCallback(() => {
     if (canSave) {
-      setLoadingRecent(true);
+      // 1. Instant render from device cache.
+      const local = getLocalFavorites();
+      if (local.length > 0) {
+        setRecentGames(local as SavedGame[]);
+        setLoadingRecent(false);
+      } else {
+        setLoadingRecent(true);
+      }
+      // 2. Background refresh from Turso/Firestore.
       fetchUserGames(user.id).then(games => {
         setRecentGames((games as SavedGame[]).slice(0, 20));
         setLoadingRecent(false);

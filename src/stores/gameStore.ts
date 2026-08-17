@@ -15,6 +15,7 @@ import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebas
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId, shortIdFromKey } from '../lib/shortId';
 import { useToastStore } from './toastStore';
+import { getLocalGames, type FullGame } from '../lib/localStore';
 
 type GameState = {
   games: ChessGame[];
@@ -493,40 +494,55 @@ export const useGameStore = create<GameState>((set, get) => ({
   loadUserGames: async () => {
     const authUser = useAuthStore.getState().user;
     if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) return;
+
+    /** Parse raw records into ChessGame objects. */
+    const parseGames = (raw: Record<string, unknown>[]): ChessGame[] =>
+      raw.map((r: Record<string, unknown>) => {
+        const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) as AnalyzedMove[] : (r.moves as AnalyzedMove[] | undefined) ?? [];
+        return {
+          id: r.id as string,
+          shortId: r.shortId as string | undefined,
+          white: r.white as ChessGame['white'],
+          black: r.black as ChessGame['black'],
+          result: r.result as string,
+          date: r.date as string,
+          pgn: r.pgn as string,
+          moves,
+          accuracy: r.accuracy as ChessGame['accuracy'] ?? undefined,
+          classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
+          analyzedAt: r.analyzedAt as string | undefined,
+          analysisDurationMs: r.analysisDurationMs as number | undefined,
+          analysisDepth: r.analysisDepth as number | undefined,
+          initialPosition: r.initialPosition as string | undefined,
+        };
+      });
+
+    const applyParsed = (parsed: ChessGame[]) => {
+      const cache: Record<string, ChessGame> = {};
+      const pgnMap: Record<string, boolean> = {};
+      parsed.forEach(g => {
+        if (g.analyzedAt != null) {
+          cache[g.id] = g;
+        }
+        if (g.pgn !== '') pgnMap[hashPgn(g.pgn)] = true;
+      });
+      set(state => ({
+        games: [...parsed, ...state.games.filter(g => g.id.startsWith('legend-'))],
+        analysisCache: { ...state.analysisCache, ...cache },
+        analyzedPgnHashes: { ...state.analyzedPgnHashes, ...pgnMap },
+      }));
+    };
+
+    // 1. Read device cache first so the UI renders instantly.
+    const localGames: FullGame[] = getLocalGames();
+    if (localGames.length > 0) {
+      applyParsed(parseGames(localGames as unknown as Record<string, unknown>[]));
+    }
+
+    // 2. Reconcile with Turso/Firestore in the background.
     const raw = await fetchUserGames(authUser.id);
     if (raw.length === 0) return;
-    const parsed: ChessGame[] = raw.map((r: Record<string, unknown>) => {
-      const moves = typeof r.moves === 'string' ? JSON.parse(r.moves) as AnalyzedMove[] : (r.moves as AnalyzedMove[] | undefined) ?? [];
-      return {
-        id: r.id as string,
-        shortId: r.shortId as string | undefined,
-        white: r.white as ChessGame['white'],
-        black: r.black as ChessGame['black'],
-        result: r.result as string,
-        date: r.date as string,
-        pgn: r.pgn as string,
-        moves,
-        accuracy: r.accuracy as ChessGame['accuracy'] ?? undefined,
-        classificationCounts: r.classificationCounts as ChessGame['classificationCounts'] ?? undefined,
-        analyzedAt: r.analyzedAt as string | undefined,
-        analysisDurationMs: r.analysisDurationMs as number | undefined,
-        analysisDepth: r.analysisDepth as number | undefined,
-        initialPosition: r.initialPosition as string | undefined,
-      };
-    });
-    const cache: Record<string, ChessGame> = {};
-    const pgnMap: Record<string, boolean> = {};
-    parsed.forEach(g => {
-      if (g.analyzedAt != null) {
-        cache[g.id] = g;
-      }
-      if (g.pgn !== '') pgnMap[hashPgn(g.pgn)] = true;
-    });
-    set(state => ({
-      games: [...parsed, ...state.games.filter(g => g.id.startsWith('legend-'))],
-      analysisCache: { ...state.analysisCache, ...cache },
-      analyzedPgnHashes: { ...state.analyzedPgnHashes, ...pgnMap },
-    }));
+    applyParsed(parseGames(raw));
   },
 
   loadGameByShortId: async (shortId: string) => {

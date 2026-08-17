@@ -6,7 +6,7 @@ is the single source of truth for what we want and what we have.
 
 ## In Progress (current batch)
 
-- (none — the batch below shipped; next ideas land here first.)
+- (batch shipped; next ideas land here first.)
 
 ## Implemented
 

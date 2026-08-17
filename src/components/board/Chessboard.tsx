@@ -866,7 +866,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           {isDot && !hasPiece && (
             <div style={{
               width: '28%', height: '28%', borderRadius: '50%',
-              backgroundColor: 'rgba(0,0,0,0.25)',
+              backgroundColor: hexToRgba(mtColor, 0.5),
               position: 'absolute', top: '50%', left: '50%',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none', zIndex: 10,
@@ -875,7 +875,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           {isDot && hasPiece && (
             <div style={{
               width: '82%', height: '82%', borderRadius: '50%',
-              border: '4px solid rgba(0,0,0,0.2)',
+              border: `4px solid ${hexToRgba(mtColor, 0.55)}`,
               position: 'absolute', top: '50%', left: '50%',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none', zIndex: 10,
@@ -986,11 +986,14 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           // instead of showing a ghost — the lifted clone replaces it.
           draggingPieceGhostStyle: { opacity: 0 },
           boardStyle: {
-            border: '4px solid #2a2a2a',
+            // Blend the frame into the surrounding panel instead of drawing a
+            // dark line around the board. The opaque border still follows the
+            // rounded corner and masks the squares' corners.
+            border: '4px solid var(--color-surface)',
             borderRadius: '8px',
             // RCChessboard defaults to overflow:hidden, which chops anything
             // poking out of a square (classification badge, edge FX) flat at
-            // the board edge. The opaque 4px border follows the rounded
+            // the board edge. The opaque border above follows the rounded
             // corner and masks the squares' corners, so overflow:visible
             // keeps the rounded board look while badges pop out in full.
             overflow: 'visible',

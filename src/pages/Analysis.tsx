@@ -1159,6 +1159,11 @@ function formatDuration(ms: number | undefined): string {
 
   const boardEl = (
     <Chessboard
+      // Force a clean remount when toggling hypothesis mode so the internal
+      // piece map resets — without this, react-chessboard can confuse pieces
+      // across unrelated fen jumps (entering/exiting what-if) and leave them
+      // at opacity 0 mid-slide.
+      key={hypothesisActive ? `hyp-${hypothesisBaseIndex}` : undefined}
       fen={getCurrentFen()}
       playable={analysisMode === 'regular'
         ? !!selectedGame && !(analyzing && rewindArmedRef.current)
