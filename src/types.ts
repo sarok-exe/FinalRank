@@ -4,7 +4,6 @@ export type User = {
   email: string;
   avatar: string;
   authProvider: 'google' | 'guest' | 'anonymous';
-  streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
   chessComUsername?: string;
@@ -59,9 +58,6 @@ export type UserSettings = {
     rightClick: string;
   };
   rightClickHighlightColor: string;
-  streakSoundEnabled: boolean;
-  streakSoundVolume: number;
-  streakFlameColorMode: 'heat' | 'gold' | 'white';
   parallelWorkers: number;
   autoDepth: boolean;
   featureToggles: {

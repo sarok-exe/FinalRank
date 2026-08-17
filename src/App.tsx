@@ -8,8 +8,6 @@ import type React from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import Shell from './components/layout/Shell';
-import StreakNotification from './components/StreakNotification';
-import StreakCelebration from './components/StreakCelebration';
 import ToastContainer from './components/ToastContainer';
 import AnalysisOverlay from './components/AnalysisOverlay';
 
@@ -88,8 +86,6 @@ export default function App(): React.ReactElement {
       <Shell>
         <AnimatedRoutes />
       </Shell>
-      <StreakNotification />
-      <StreakCelebration />
       <AnalysisOverlay />
       <ToastContainer />
     </BrowserRouter>

@@ -2,7 +2,7 @@ import type React from 'react';
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  User as UserIcon, Flame, Trophy, Volume2,
+  User as UserIcon, Trophy, Volume2,
   Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
   Heart, Sparkles,
@@ -16,18 +16,16 @@ import { fetchCommunityUserStats } from '../lib/tursoCache';
 import { estimateRating } from '../lib/community';
 import type { CommunityUserStats } from '../lib/community';
 import ColorPicker from '../components/ColorPicker';
-import StreakFlame, { getStreakTier } from '../components/StreakFlame';
 import { Search } from 'lucide-react';
 import type { UserSettings } from '../types';
 
-type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors' | 'streak';
+type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'account', label: 'Account', icon: UserIcon },
   { id: 'engine', label: 'Engine', icon: Zap },
   { id: 'board', label: 'Board', icon: Monitor },
   { id: 'audio', label: 'Audio', icon: Volume2 },
-  { id: 'streak', label: 'Streak', icon: Flame },
   { id: 'clock', label: 'Clock', icon: Clock },
   { id: 'colors', label: 'Colors', icon: Paintbrush },
 ];
@@ -252,7 +250,7 @@ export default function Profile(): React.ReactElement {
         <div className="space-y-5">
           <div className="text-center space-y-2 mb-2">
             <h2 className="text-lg font-extrabold text-[var(--color-text)]">Welcome to FinalRank</h2>
-            <p className="text-sm text-[var(--color-text-muted)]">Sign in to save games, track your streak, and customize your experience.</p>
+            <p className="text-sm text-[var(--color-text-muted)]">Sign in to save games and customize your experience.</p>
           </div>
 
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 space-y-5">
@@ -371,13 +369,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 flex flex-col items-center text-center relative overflow-hidden">
-            <StreakFlame days={user.streak} size={28} />
-            <span className="text-xl font-mono font-black mt-1" style={{ color: getStreakTier(user.streak).color }}>
-              {user.streak}
-            </span>
-            <span className="text-[9px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Day Streak</span>
-          </div>
           <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-3 flex flex-col items-center text-center">
             <Trophy className="w-6 h-6 text-[var(--color-accent)] mb-1" />
             <span className="text-xl font-mono font-black text-[var(--color-accent)]">{user.analyzedCount}</span>
@@ -888,72 +879,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     </div>
   );
 
-  const renderStreakTab = (): React.ReactElement => (
-    <div className="space-y-5">
-      {/* streak preview */}
-      <div className="flex flex-col items-center py-6 bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl">
-        <StreakFlame days={user?.streak ?? 0} size={64} showCount />
-        <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mt-2">
-          Current streak: {user?.streak ?? 0} days
-        </span>
-      </div>
-
-      {/* victory sound */}
-      <div className="space-y-3">
-        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
-          <Volume2 className="w-4 h-4 text-[var(--color-accent)]" />
-          Victory Sound
-        </span>
-        <SettingToggle
-          label="Play Sound"
-          desc="Celebration chime when streak increases"
-          checked={settings.streakSoundEnabled}
-          onChange={v => { updateSettings({ streakSoundEnabled: v }); }}
-        />
-        <div className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)]">
-          <div>
-            <div className="text-xs font-semibold text-[var(--color-text)]">Volume</div>
-            <div className="text-[10px] text-[var(--color-text-muted)]">{Math.round(settings.streakSoundVolume * 100)}%</div>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            value={Math.round(settings.streakSoundVolume * 100)}
-            onChange={e => { updateSettings({ streakSoundVolume: parseInt(e.target.value, 10) / 100 }); }}
-            className="w-24 accent-[var(--color-primary)] h-1 bg-[var(--color-border)] rounded-lg cursor-pointer"
-          />
-        </div>
-      </div>
-
-      {/* flame style */}
-      <div className="space-y-3 pt-3 border-t border-[var(--color-border)]">
-        <span className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider flex items-center gap-1.5">
-          <Flame className="w-4 h-4 text-[var(--color-accent)]" />
-          Flame Appearance
-        </span>
-        <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3.5 py-3">
-          <div className="text-xs font-semibold text-[var(--color-text)] mb-2">Color Mode</div>
-          <div className="flex gap-2">
-            {(['heat', 'gold', 'white'] as const).map(mode => (
-              <button
-                key={mode}
-                onClick={() => { updateSettings({ streakFlameColorMode: mode }); }}
-                className={`flex-1 text-[11px] font-bold py-2 rounded-lg capitalize transition-all ${
-                  settings.streakFlameColorMode === mode
-                    ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
-                    : 'bg-[var(--color-surface)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
-                }`}
-              >
-                {mode}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   const renderColorsTab = (): React.ReactElement => {
     const themeKeys = Object.keys(THEME_PRESETS) as UserSettings['themePreset'][];
 
@@ -1068,7 +993,6 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       case 'audio': return renderAudioTab();
       case 'clock': return renderClockTab();
       case 'colors': return renderColorsTab();
-      case 'streak': return renderStreakTab();
     }
   };
 

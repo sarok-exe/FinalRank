@@ -423,12 +423,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       const authStore = useAuthStore.getState();
       if (authStore.user) {
         await authStore.incrementAnalyzedGames();
-        const streakResult = await authStore.updateStreakOnAnalysis();
-        if (streakResult.streakIncremented) {
-          useAuthStore.setState({
-            streakToast: { show: true, newStreak: streakResult.newStreak, prevStreak: streakResult.prevStreak },
-          });
-        }
       }
     } catch (err: unknown) {
       if (err instanceof Error && (err.message === 'aborted' || err.message === 'abort')) {

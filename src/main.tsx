@@ -11,10 +11,8 @@ import { shouldFlush, flushQueue } from './lib/syncQueue';
 import './index.css';
 
 initAuth();
-// Check streak for any user already in localStorage (guest users without Firebase)
+// Flush any queued writes after sign-in (non-blocking, short delay)
 if (useAuthStore.getState().user) {
-  useAuthStore.getState().checkStreakOnLogin();
-  // Flush any queued writes after sign-in (non-blocking, short delay)
   setTimeout(() => { flushQueue(); }, 2000);
 }
 // Also flush on auth state changes (user signs in)

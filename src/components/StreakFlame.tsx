@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { Flame } from 'lucide-react';
-import { useSettingsStore } from '../stores/settingsStore';
 
 const MAX = 365;
 
@@ -89,13 +88,9 @@ type Props = {
 }
 
 export default function StreakFlame({ days, size = 24, showCount, className = '' }: Props): React.JSX.Element {
-  const { streakFlameColorMode } = useSettingsStore(s => s.settings);
-
   const c = useMemo(() => {
-    if (streakFlameColorMode === 'gold') return fixedColor('#ffd700');
-    if (streakFlameColorMode === 'white') return fixedColor('#ffffff');
     return C(days);
-  }, [days, streakFlameColorMode]);
+  }, [days]);
   const dayFactor = Math.min(days / 365, 1);
 
   return (

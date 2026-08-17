@@ -21,7 +21,6 @@ export async function syncUserProfile(userId: string, profileData: {
   username: string;
   email: string;
   avatar: string;
-  streak: number;
   analyzedCount: number;
   lastActiveDate: string | null;
 }): Promise<unknown> {
@@ -41,7 +40,6 @@ export async function syncUserProfile(userId: string, profileData: {
         username: profileData.username,
         email: profileData.email,
         avatar: profileData.avatar,
-        streak: profileData.streak,
         analyzed_count: profileData.analyzedCount,
         last_active_date: profileData.lastActiveDate,
         updated_at: new Date().toISOString(),
@@ -58,7 +56,6 @@ export async function syncUserProfile(userId: string, profileData: {
         username: profileData.username,
         email: profileData.email,
         avatar: profileData.avatar,
-        streak: profileData.streak,
         analyzed_count: profileData.analyzedCount,
         last_active_date: profileData.lastActiveDate,
       })

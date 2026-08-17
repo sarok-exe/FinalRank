@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
-import StreakFlame from '../StreakFlame';
+
 
 type ShellProps = {
   readonly children: React.ReactNode;
@@ -106,17 +106,6 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
 
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 flex-shrink-0">
           {user && (
-            <div
-              className="hidden sm:flex items-center space-x-1 sm:space-x-1.5 bg-[var(--color-surface)] px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-semibold text-[var(--color-text-muted)] flex-shrink-0"
-              title="Daily analysis streak"
-              id="streak-badge"
-            >
-              <StreakFlame days={user.streak} size={14} />
-              <span className="whitespace-nowrap">{user.streak} day{user.streak !== 1 ? 's' : ''}</span>
-            </div>
-          )}
-
-          {user && (
             <Link
               to="/profile"
               className={`hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
@@ -201,13 +190,9 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           {user && (
             <div className="flex items-center space-x-3 p-2 bg-[var(--color-surface)] rounded-xl mb-2 min-w-0">
               <img src={user.avatar} className="w-10 h-10 rounded-full flex-shrink-0" alt="Avatar" />
-              <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1">
                 <h4 className="font-bold text-sm text-white truncate">{user.username}</h4>
                 <p className="text-xs text-[var(--color-text-muted)] truncate">{user.email ? `${user.email.slice(0, 3)}...${user.email.split('@')[1] || ''}` : ''}</p>
-                <div className="flex items-center space-x-1.5 mt-1">
-                  <StreakFlame days={user.streak} size={12} />
-                  <span className="text-[10px] text-[var(--color-text-muted)] font-semibold">{user.streak} day{user.streak !== 1 ? 's' : ''} streak</span>
-                </div>
               </div>
             </div>
           )}

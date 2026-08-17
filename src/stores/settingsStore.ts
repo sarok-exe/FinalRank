@@ -195,9 +195,6 @@ const DEFAULT_SETTINGS: UserSettings = {
     rightClick: '#e53935',
   },
   rightClickHighlightColor: '#e53935',
-  streakSoundEnabled: true,
-  streakSoundVolume: 0.4,
-  streakFlameColorMode: 'heat',
   parallelWorkers: recommendedWorkers(detectDeviceTier()),
   autoDepth: true,
   featureToggles: {
