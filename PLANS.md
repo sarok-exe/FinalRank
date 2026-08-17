@@ -10,6 +10,12 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (fccfb6f) Engine fix: reverted blob-URL caching for engine Worker —
+  Stockfish loads .wasm relative to Worker URL; blob URLs broke WASM resolution,
+  causing worker errors → board hangs → pieces disappearing on move.  SW already
+  caches /engines/* cache-first.  White 2px hover border on piece selection
+  (drag-target + capture ring) for visibility on both light/dark squares.
+
 - 2026-08-17 (27d8bcd) Local-first persistence, engine caching, board cleanup,
   exploration fix. Data: localStore.ts device cache (favorites + games in
   localStorage), Firestore 3s probe skips when blocked by ad-blockers, saves
