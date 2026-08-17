@@ -1,64 +1,19 @@
 import { Chess } from 'chess.js';
 import type { EngineLine, Evaluation} from '../../types';
 import { STARTING_FEN } from '../../types';
-import { getCachedAsset, cacheEngine } from '../assetCache';
 
 const STOCKFISH_SINGLE = 'stockfish-18-lite-single.js';
 const ENGINE_URL_PREFIX = '/engines/';
 
-/* ------------------------------------------------------------------ */
-/*  Blob-URL resolution for engine caching                             */
-/* ------------------------------------------------------------------ */
-
 /**
- * Resolved blob URLs keyed by engine filename.  Once `resolveEngineUrl()`
- * runs for a given version the blob URL is reused for every subsequent
- * `new Engine(version)` call without any network traffic.
+ * Return the network URL for the engine file.  The Service Worker intercepts
+ * fetches for `/engines/*` with a cache-first strategy, so no extra caching
+ * layer is needed here.  Using a direct URL (not a blob URL) is critical:
+ * Stockfish's JS loads its `.wasm` companion relative to the Worker URL, and
+ * blob URLs have no path context — WASM loading would break.
  */
-const resolvedUrls = new Map<string, string>();
-
-/**
- * Resolve the engine file to a (possibly cached) blob URL.
- *
- * 1. If already resolved → return immediately.
- * 2. Try the Cache API for a previously-stored response.
- * 3. Fall back to a normal fetch; cache in the background.
- * 4. If everything fails, return the original network URL so the app
- *    still works (degrades to normal Worker loading).
- *
- * Safe to call multiple times — only the first call per `version` does I/O.
- */
-export async function resolveEngineUrl(version: string = STOCKFISH_SINGLE): Promise<string> {
-  const existing = resolvedUrls.get(version);
-  if (existing) return existing;
-
-  const url = ENGINE_URL_PREFIX + version;
-
-  try {
-    let response: Response | null = await getCachedAsset(url);
-    if (!response) {
-      response = await fetch(url);
-      // Cache in background — don't block the caller.
-      cacheEngine(url).catch(() => {});
-    }
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    resolvedUrls.set(version, blobUrl);
-    return blobUrl;
-  } catch {
-    // Worst case: return the direct URL and let the browser fetch it.
-    resolvedUrls.set(version, url);
-    return url;
-  }
-}
-
-/**
- * Return the pre-resolved URL for `version` if one exists, otherwise the
- * original network path.  Used by the synchronous Engine constructor so it
- * can benefit from an earlier `resolveEngineUrl()` call without being async.
- */
-function getResolvedUrl(version: string): string {
-  return resolvedUrls.get(version) ?? (ENGINE_URL_PREFIX + version);
+function getEngineUrl(version: string): string {
+  return ENGINE_URL_PREFIX + version;
 }
 
 const uciEvaluationTypes: Record<string, string | undefined> = {
@@ -73,7 +28,7 @@ export class Engine {
   private evaluating = false;
 
   constructor(version: string = STOCKFISH_SINGLE) {
-    this.worker = new Worker(getResolvedUrl(version));
+    this.worker = new Worker(getEngineUrl(version));
     this.version = version;
     this.worker.postMessage('uci');
     this.setPosition(this.position);

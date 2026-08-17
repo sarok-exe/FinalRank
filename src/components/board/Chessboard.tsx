@@ -810,9 +810,9 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
               style={{
                 position: 'absolute', inset: 0,
                 // Chess.com-style move trail: faint translucent fill with a
-                // crisp ring, using the same accent as the last-move trail.
+                // crisp white ring for clear visibility on both light/dark.
                 backgroundColor: hexToRgba(mtColor, 0.28),
-                boxShadow: `inset 0 0 0 3px ${mtColor}`,
+                boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.85)',
                 pointerEvents: 'none', zIndex: -1,
               }}
             />
@@ -875,7 +875,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
           {isDot && hasPiece && (
             <div style={{
               width: '82%', height: '82%', borderRadius: '50%',
-              border: `4px solid ${hexToRgba(mtColor, 0.55)}`,
+              border: '2px solid rgba(255,255,255,0.85)',
               position: 'absolute', top: '50%', left: '50%',
               transform: 'translate(-50%, -50%)',
               pointerEvents: 'none', zIndex: 10,

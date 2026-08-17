@@ -1,4 +1,4 @@
-import { Engine, resolveEngineUrl } from './index';
+import { Engine } from './index';
 import { getEngineVersion } from './evaluate';
 
 let warmEngine: Engine | null = null;
@@ -10,15 +10,11 @@ export function warmupEngine() {
   warming = true;
   try {
     const version = getEngineVersion(4);
-    // Pre-resolve the engine to a blob URL (Cache API → blob) before
-    // constructing the Worker so the first real analysis hit is instant.
-    resolveEngineUrl(version)
-      .then(() => {
-        warmEngine = new Engine(version);
-        warmEngine.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
-        warmupPromise = warmEngine.evaluate({ depth: 1 }).then(() => {});
-      })
-      .catch(() => {});
+    // The Service Worker serves `/engines/*` from cache-first, so no extra
+    // pre-resolution is needed — just construct the Worker directly.
+    warmEngine = new Engine(version);
+    warmEngine.setPosition('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+    warmupPromise = warmEngine.evaluate({ depth: 1 }).then(() => {});
   } catch {}
 }
 
