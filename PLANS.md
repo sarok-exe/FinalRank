@@ -10,6 +10,19 @@ is the single source of truth for what we want and what we have.
 
 ## Implemented
 
+- 2026-08-17 (5fc55a5) Lightweight board revert + batched Firestore sync. Board:
+  stripped chess.com-style animations (1042→600 lines) — removed piece
+  lift/hover transforms, capture ripple, promotion pop, glow effects,
+  drag-target overlays, right-click overlays, premove CSS markers.
+  board-animations.css emptied. Right-click uses simple square background
+  tint. Preserved: premove, hypothesis key, lastBadge, badges, arrows,
+  winner/checkmate overlays. Firestore: new syncQueue.ts queues all writes
+  (profile=high, favorites=medium, games=low) with dedup + localStorage
+  persistence. New syncFlush.ts flushes every ~12h with per-user random
+  offset (0-29 min) via writeBatch, visibility-change + auth triggers.
+  Fixed probe: no re-probing after token failure, removed terminate(db)
+  that generated blocked requests.
+
 - 2026-08-17 (fccfb6f) Engine fix: reverted blob-URL caching for engine Worker —
   Stockfish loads .wasm relative to Worker URL; blob URLs broke WASM resolution,
   causing worker errors → board hangs → pieces disappearing on move.  SW already
