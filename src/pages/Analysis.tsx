@@ -1618,7 +1618,17 @@ function formatDuration(ms: number | undefined): string {
             <div className="hidden lg:flex lg:self-stretch lg:min-h-[300px]">
               <EvalBar score={displayScore} mate={displayMate} flipped={false} />
             </div>
-            <div className="w-full min-w-0">{boardEl}</div>
+            <div className="w-full min-w-0 relative">
+              {boardEl}
+              {hypothesisActive && hypothesisSearching && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30 rounded-lg backdrop-blur-[2px]">
+                  <div className="flex items-center gap-2.5 bg-[var(--color-surface)]/95 border border-[var(--color-accent)]/40 rounded-xl px-4 py-2.5 shadow-lg">
+                    <Activity className="w-4 h-4 text-[var(--color-accent)] animate-pulse" />
+                    <span className="text-xs font-bold text-[var(--color-accent)]">Analyzing what-if…</span>
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="lg:hidden w-full h-[30px]">
               <EvalBar score={displayScore} mate={displayMate} flipped={false} horizontal />
             </div>
@@ -1705,7 +1715,7 @@ function formatDuration(ms: number | undefined): string {
           />
           </>
           )}
-          <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-hidden max-h-[min(420px,55vh)] min-h-[220px]">
+          <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-clip max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
               <span>Move Log</span>
@@ -1726,8 +1736,12 @@ function formatDuration(ms: number | undefined): string {
                       <div key={rowIndex} className="col-span-2 grid grid-cols-12 py-1.5 px-2 rounded-lg bg-transparent items-center">
                         <div className="col-span-2 text-xs text-[var(--color-text-muted)] font-bold">{turnNum}.</div>
                         <button
-                          onClick={() => { if (hypothesisActive) exitHypothesisMode(); setCurrentMoveIndex(whiteMove.index); }}
-                          className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
+                          onClick={(e) => {
+                            if (hypothesisActive) exitHypothesisMode();
+                            setCurrentMoveIndex(whiteMove.index);
+                            e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                          }}
+                          className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 cursor-pointer ${
                             currentMoveIndex === whiteMove.index
                               ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                               : 'text-[var(--color-text)]'
@@ -1736,13 +1750,17 @@ function formatDuration(ms: number | undefined): string {
                         >
                           <span className="truncate min-w-0">{whiteMove.san}</span>
                           {whiteMove.classification && classificationImages[whiteMove.classification] && (
-                            <img src={classificationImages[whiteMove.classification]} alt={whiteMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85" />
+                            <img src={classificationImages[whiteMove.classification]} alt={whiteMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85 pointer-events-none" />
                           )}
                         </button>
                         {blackMove ? (
                           <button
-                            onClick={() => { if (hypothesisActive) exitHypothesisMode(); setCurrentMoveIndex(blackMove.index); }}
-                            className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 ${
+                            onClick={(e) => {
+                              if (hypothesisActive) exitHypothesisMode();
+                              setCurrentMoveIndex(blackMove.index);
+                              e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }}
+                            className={`col-span-5 text-left font-semibold px-2 py-0.5 rounded flex items-center gap-1.5 cursor-pointer ${
                               currentMoveIndex === blackMove.index
                                 ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
                                 : 'text-[var(--color-text)]'
@@ -1751,7 +1769,7 @@ function formatDuration(ms: number | undefined): string {
                           >
                             <span className="truncate min-w-0">{blackMove.san}</span>
                             {blackMove.classification && classificationImages[blackMove.classification] && (
-                              <img src={classificationImages[blackMove.classification]} alt={blackMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85" />
+                              <img src={classificationImages[blackMove.classification]} alt={blackMove.classification} width={22} height={22} className="inline-block shrink-0 opacity-85 pointer-events-none" />
                             )}
                           </button>
                         ) : (

@@ -149,8 +149,8 @@ function renderClassificationBadge(cls: MoveClassification): React.JSX.Element |
         position: 'absolute',
         top: '3px',
         right: '3px',
-        width: 'min(26px, 36%)',
-        height: 'min(26px, 36%)',
+        width: 'min(36px, 50%)',
+        height: 'min(36px, 50%)',
         zIndex: 13,
       }}
       title={`Move classified as ${cls}`}
