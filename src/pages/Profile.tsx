@@ -89,6 +89,7 @@ export default function Profile(): React.ReactElement {
   const [recentGames, setRecentGames] = useState<SavedGame[]>([]);
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
+  const [chessComInput, setChessComInput] = useState(user?.chessComUsername ?? '');
 
   const canSave = user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous');
 
@@ -149,6 +150,11 @@ export default function Profile(): React.ReactElement {
     document.addEventListener('visibilitychange', onVisible);
     return () => { document.removeEventListener('visibilitychange', onVisible); };
   }, [loadFavorites, loadRecentGames]);
+
+  // Sync chess.com input when user data loads/changes
+  useEffect(() => {
+    setChessComInput(user?.chessComUsername ?? '');
+  }, [user?.chessComUsername]);
 
   const toggleFavorite = (g: SavedGame): void => {
     if (!canSave || user == null) return;
@@ -488,18 +494,18 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           </span>
           <p className="text-[10px] text-[var(--color-text-muted)]">Auto-fetch your last 3 games on the Analysis page.</p>
           <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              defaultValue={user.chessComUsername ?? ''}
-              placeholder="Chess.com username"
-              id="chesscom-link-input"
-              className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
-            />
-            <button
-              onClick={(e) => {
-                const input = (e.target as HTMLElement).parentElement?.querySelector('input');
-                if (input != null) void useAuthStore.getState().setChessComUsername(input.value);
-              }}
+              <input
+                type="text"
+                value={chessComInput}
+                onChange={e => setChessComInput(e.target.value)}
+                placeholder="Chess.com username"
+                id="chesscom-link-input"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
+              />
+              <button
+                onClick={() => {
+                  useAuthStore.getState().setChessComUsername(chessComInput.trim());
+                }}
               className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
             >
               Save

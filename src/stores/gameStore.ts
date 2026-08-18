@@ -403,13 +403,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   triggerEvaluationPipeline: async (depth?: number) => {
-    const { selectedGame, analyzing, hypothesisActive } = get();
+    const { selectedGame, analyzing, autoAnalyzing, hypothesisActive } = get();
     // What-if (hypothesis) mode never touches the main engine pool: its search
     // runs on its own dedicated Engine instance spawned per call inside
     // createPositionEvaluator (src/lib/engine/evaluate.ts:251 spawns `new
     // Engine(...)` per call), so the main-game pipeline is blocked entirely
     // while what-if mode is active.
-    if (!selectedGame || analyzing || hypothesisActive || selectedGame.moves.length === 0) return;
+    if (!selectedGame || analyzing || autoAnalyzing || hypothesisActive || selectedGame.moves.length === 0) return;
 
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
@@ -428,6 +428,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               classificationCounts: result.classificationCounts,
               analyzedAt: result.analyzedAt,
               analysisDurationMs: result.analysisDurationMs,
+              analysisDepth: result.analysisDepth,
             },
             analysisProgress: 100,
             analyzing: false,
@@ -918,13 +919,14 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
 function hydratePgnMoves(pgn: string): AnalyzedMove[] {
   if (pgn === '') return [];
-  const chess = new Chess();
+  const fenHeader = /\[FEN "(.*?)"\]/.exec(pgn);
+  const chess = new Chess(fenHeader?.[1] ?? undefined);
   const moves: AnalyzedMove[] = [];
   let cleanPgn = '';
   let braceDepth = 0;
   for (const ch of pgn) {
     if (ch === '[' || ch === '{') braceDepth++;
-    else if (ch === ']' || ch === '}') braceDepth--;
+    else if (ch === ']' || ch === '}') braceDepth = Math.max(0, braceDepth - 1);
     else if (braceDepth === 0) cleanPgn += ch;
   }
   cleanPgn = cleanPgn.trim();

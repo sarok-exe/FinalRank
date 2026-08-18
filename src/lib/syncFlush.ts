@@ -44,7 +44,10 @@ function sortByPriority(entries: SyncEntry[]): SyncEntry[] {
 
 async function flushPendingWrites(): Promise<void> {
   // 1. If Firestore is known-disabled, don't bother.
-  if (isFirestoreDisabled()) return;
+  if (isFirestoreDisabled()) {
+    replaceQueue([]);
+    return;
+  }
 
   // 2. Ensure we have a Firestore instance (triggers probe if needed).
   const fs = await initFirestore();

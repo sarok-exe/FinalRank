@@ -131,6 +131,7 @@ export default function Training() {
   const activeRef = useRef(active);
   activeRef.current = active;
   const solvedSinceRefill = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { play, playFromSan } = useSound();
 
@@ -299,11 +300,19 @@ export default function Training() {
 
   const retry = useCallback(() => {
     if (!active) return;
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     setHint(null);
     setActive(startPuzzle(active.puzzle));
   }, [active, startPuzzle]);
 
   const skip = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     const next = { ...stats, streak: 0 };
     persistStats(next);
     setHint(null);
@@ -357,7 +366,8 @@ export default function Training() {
     if (active.status === 'failed') {
       // Retry the same puzzle instead of auto-advancing to the next one.
       const t = setTimeout(() => retry(), AUTO_ADVANCE_DELAY_MS.failed);
-      return () => clearTimeout(t);
+      retryTimerRef.current = t;
+      return () => { clearTimeout(t); retryTimerRef.current = null; };
     }
   }, [active, advance, retry]);
 
@@ -408,7 +418,7 @@ export default function Training() {
 
   const playerLabel = active.playerColor === 'w' ? 'White' : 'Black';
   const remaining = active.puzzle.moves.split(' ').filter(Boolean).length;
-  const playerMoves = Math.ceil((remaining - 1) / 2);
+  const playerMoves = Math.max(1, Math.ceil((remaining - 1) / 2));
   const playerMovesDone = active.moveIdx > 1 ? Math.ceil((active.moveIdx - 1) / 2) : 0;
   const playerSolution = active.solutionSan.filter((_, i) => i % 2 === 1);
   const progressPct = playerMoves > 0 ? Math.min((playerMovesDone / playerMoves) * 100, 100) : 0;

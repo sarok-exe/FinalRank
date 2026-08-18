@@ -274,6 +274,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
 
   const [gameStarted, setGameStarted] = useState(false);
   const [gameInstance, setGameInstance] = useState<Chess | null>(null);
+  const gameGenRef = useRef(0);
   const [fen, setFen] = useState(STARTING_FEN);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [lastEval, setLastEval] = useState<EvaluationResult | null>(null);
@@ -314,6 +315,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
   }, [sound]);
 
   const startNewGame = useCallback(() => {
+    gameGenRef.current++;
     const fresh = new Chess();
     setGameInstance(fresh);
     setFen(fresh.fen());
@@ -327,6 +329,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
 
   const handlePlayerMove = useCallback(async (from: string, to: string) => {
     if (!gameInstance || engineThinking) return;
+    const localGen = gameGenRef.current;
     if (gameInstance.turn() === 'b') {
       setEngineFeedback("It's the engine's turn.");
       return;
@@ -349,6 +352,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
         depth: effectiveDepth,
       });
       setLastEval(computedMoveResult);
+      if (gameGenRef.current !== localGen) return;
 
       const legalMoves = gameInstance.moves({ verbose: true });
       if (legalMoves.length > 0) {
@@ -690,6 +694,8 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
   // Spacebar for clock turn switching (like Chess Clock feature)
   useEffect(() => {
     const handler = (e: KeyboardEvent): void => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
       if (e.code === 'Space' || e.key === ' ') {
         e.preventDefault();
         if (winner != null) return;
@@ -752,7 +758,10 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
         else if (fresh.isDraw()) msg = 'Draw!';
         else if (fresh.isStalemate()) msg = 'Stalemate!';
         setGameOver(msg);
-        sound.playGameEnd(msg);
+        const result = fresh.isCheckmate()
+          ? (fresh.turn() === 'w' ? '0-1' : '1-0')
+          : '1/2-1/2';
+        sound.playGameEnd(result);
         movePendingRef.current = false;
         return;
       }

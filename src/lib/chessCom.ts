@@ -59,13 +59,16 @@ export async function fetchChessComGames(username: string): Promise<ChessGame[]>
       const gameData = await gameRes.json() as { games?: ChessComGameRaw[] };
       const gamesInMonth = gameData.games ?? [];
       rawGames = [...rawGames, ...[...gamesInMonth].reverse()];
+    } else if (gameRes.status === 429) {
+      // Rate limited — stop fetching more months
+      break;
     }
   }
 
   // Limit to 50 games
   const gamesToProcess = rawGames.slice(0, 50);
 
-  return gamesToProcess.map((g: ChessComGameRaw, index: number) => {
+  return gamesToProcess.filter(g => g.pgn && g.pgn.trim() !== '').map((g: ChessComGameRaw, index: number) => {
     const dateRaw = g.end_time != null ? new Date(g.end_time * 1000) : new Date();
     const pgn = g.pgn ?? '';
 
