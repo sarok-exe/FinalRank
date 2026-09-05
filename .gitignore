@@ -1,20 +1,47 @@
+# Dependencies
 node_modules
+
+# Build output
 dist
+
+# Environment & secrets — NEVER commit real values
 .env
+.env.*
+!.env.example
 *.local
+.dev.vars
+
+# OS files
 .DS_Store
-@handsoff.md
-pawn-appetit/
-wintrchess/
 Thumbs.db
 Desktop.ini
-.puzzles-sync-progress
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Private keys & certificates
+*.pem
+*.key
+*.p12
+*.p8
+*.pfx
+*.crt
 
 # OpenCode session files
 .opencode/
 
-# Cloudflare build artifacts
+# Cloudflare / Wrangler
 .wrangler/
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+
+# Turso CLI local data
+.turso/
 
 # Profiling / trace data
 trace_dir/
@@ -25,7 +52,14 @@ par.mjs
 k6.js
 
 # Misc dev files
+@handsoff.md
+pawn-appetit/
+wintrchess/
+.puzzles-sync-progress
 streak-flame-export.html
 HANDOFF
 metadata.json
 *.log
+
+# TypeScript build cache
+*.tsbuildinfo
