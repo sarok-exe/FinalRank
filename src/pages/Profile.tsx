@@ -5,7 +5,7 @@ import {
   User as UserIcon, Trophy, Volume2,
   Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
-  Heart, Sparkles,
+  Heart, Sparkles, Coffee,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
@@ -520,6 +520,17 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           <LogOut className="w-3.5 h-3.5" />
           <span>{user.authProvider === 'google' ? 'Sign Out' : 'Disconnect'}</span>
         </button>
+
+        <a
+          href="https://ko-fi.com/sarok_ibnx"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full flex items-center justify-center gap-2 text-xs font-bold text-white px-4 py-2 rounded-lg transition-all hover:brightness-110"
+          style={{ backgroundColor: '#FF5E5B' }}
+        >
+          <Coffee className="w-3.5 h-3.5" />
+          <span>Support on Ko-fi</span>
+        </a>
       </div>
     );
   };

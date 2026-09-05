@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Brain,
   Trophy,
+  Coffee,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -261,6 +262,15 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
       >
         <p>&copy; 2026 FinalRank.</p>
         <div className="flex items-center space-x-2 sm:space-x-4">
+          <a
+            href="https://ko-fi.com/sarok_ibnx"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
+          >
+            <Coffee className="w-3.5 h-3.5" />
+            <span>Support on Ko-fi</span>
+          </a>
           <span className="text-[var(--color-border)]">|</span>
           <span className="text-[var(--color-text-muted)]">Arrow keys to navigate moves</span>
         </div>

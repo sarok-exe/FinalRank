@@ -3,6 +3,7 @@
 **A completely free & open-source chess analysis platform** — deep Stockfish engine analysis, AI coaching, move-by-move classifications, training puzzles, and a full chess toolbox, all running in your browser. No subscriptions. No ads. No locked features.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
 
 ---
 
@@ -181,6 +182,26 @@ The server-side API (`/api/*`) runs as Cloudflare Pages Functions. Set the follo
 ## 📄 License
 
 [Apache License 2.0](LICENSE) — free to use, modify, and share.
+
+---
+
+## ☕ Support the Project
+
+FinalRank is 100% free and open source. If it helps you improve your chess, consider supporting the project:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
+
+Donations help cover database costs, enable server-side analysis options on Cloudflare, and fund a proper domain for the site.
+
+---
+
+## ☕ Support the Project
+
+FinalRank is 100% free and open source. If it helps you improve your chess, consider supporting the project:
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
+
+Donations help cover database costs, enable server-side analysis options on Cloudflare, and fund a proper domain for the site.
 
 ---
 
