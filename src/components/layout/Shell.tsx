@@ -12,7 +12,6 @@ import {
   ChevronDown,
   Brain,
   Trophy,
-  Coffee,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -106,6 +105,20 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
         </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 flex-shrink-0">
+          <a
+            href="https://ko-fi.com/sarok_ibnx"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hidden sm:block flex-shrink-0"
+            aria-label="Support on Ko-fi"
+          >
+            <img
+              src="https://ko-fi.com/img/githubbutton_sm.svg"
+              alt="Support me on Ko-fi"
+              className="h-7 w-auto"
+            />
+          </a>
+
           {user && (
             <Link
               to="/profile"
@@ -262,15 +275,6 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
       >
         <p>&copy; 2026 FinalRank.</p>
         <div className="flex items-center space-x-2 sm:space-x-4">
-          <a
-            href="https://ko-fi.com/sarok_ibnx"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors"
-          >
-            <Coffee className="w-3.5 h-3.5" />
-            <span>Support on Ko-fi</span>
-          </a>
           <span className="text-[var(--color-border)]">|</span>
           <span className="text-[var(--color-text-muted)]">Arrow keys to navigate moves</span>
         </div>
