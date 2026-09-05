@@ -9,11 +9,10 @@ const SUSPICIOUS_ACTIVITY_KEY = 'finalrank_suspicious';
 const MAX_SUSPICIOUS_EVENTS = 10;
 
 /** Check if an API call is allowed (rate limit) */
-export function canMakeApiCall(service: 'chess.com' | 'lichess' | 'turso' | 'engine'): boolean {
+export function canMakeApiCall(service: 'chess.com' | 'lichess' | 'engine'): boolean {
   const limits: Record<string, [number, number]> = {
     'chess.com': [10, 60_000],     // 10 req/min
     'lichess': [10, 60_000],       // 10 req/min
-    'turso': [30, 60_000],         // 30 req/min
     'engine': [5, 10_000],         // 5 req/10s
   };
   const [max, window] = limits[service] ?? [10, 60_000];

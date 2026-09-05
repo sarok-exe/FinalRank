@@ -17,7 +17,7 @@ const MAX_GAMES = 50;
 // ---------------------------------------------------------------------------
 
 export type FavoriteMeta = {
-  id: string;            // Firestore/Turso document id (gameId)
+  id: string;            // Firestore document id (gameId)
   shortId: string;
   white: { username: string; rating?: number; avatar?: string };
   black: { username: string; rating?: number; avatar?: string };

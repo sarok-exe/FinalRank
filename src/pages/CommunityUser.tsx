@@ -13,7 +13,7 @@ import {
   Sparkles,
   User as UserIcon,
 } from 'lucide-react';
-import { fetchCommunityUserStats } from '../lib/tursoCache';
+import { fetchCommunityUserStats } from '../lib/communityApi';
 import { estimateRating } from '../lib/community';
 import type { CommunityMatchSummary, CommunityUserStats } from '../lib/community';
 import CommunityAvatar from '../components/CommunityAvatar';

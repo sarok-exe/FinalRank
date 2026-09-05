@@ -33,8 +33,8 @@ import {
 import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
-import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/tursoCache';
-import type { AnalysisRunMeta } from '../lib/tursoCache';
+import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/analysisCache';
+import type { AnalysisRunMeta } from '../lib/analysisCache';
 import { shortIdFromKey } from '../lib/shortId';
 import type { ChessGame } from '../types';
 import { STARTING_FEN } from '../types';

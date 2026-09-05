@@ -14,7 +14,7 @@
  *   node scripts/sync-puzzles.mjs --limit 5000   # partial (testing)
  *   node scripts/sync-puzzles.mjs --skip-download
  *
- * Reads VITE_TURSO_DATABASE_URL / VITE_TURSO_AUTH_TOKEN from .env (dotenv).
+ * Reads TURSO_DATABASE_URL / TURSO_AUTH_TOKEN from .env (dotenv).
  */
 
 import 'dotenv/config';
@@ -174,10 +174,10 @@ async function withRetry(fn, label = 'db call') {
 }
 
 async function main() {
-  const rawUrl = process.env.VITE_TURSO_DATABASE_URL;
-  const token = process.env.VITE_TURSO_AUTH_TOKEN;
+  const rawUrl = process.env.TURSO_DATABASE_URL;
+  const token = process.env.TURSO_AUTH_TOKEN;
   if (!rawUrl || !token) {
-    fail('VITE_TURSO_DATABASE_URL / VITE_TURSO_AUTH_TOKEN missing in .env');
+    fail('TURSO_DATABASE_URL / TURSO_AUTH_TOKEN missing in .env');
   }
   const url = rawUrl.replace(/^sql:\/\//, 'https://').replace(/^libsql:\/\//, 'https://');
   const db = createClient({ url, authToken: token });

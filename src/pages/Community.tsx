@@ -7,7 +7,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trophy } from 'lucide-react';
-import { fetchCommunityLeaderboard } from '../lib/tursoCache';
+import { fetchLeaderboard } from '../lib/communityApi';
 import { estimateRating, rankLeaderboard } from '../lib/community';
 import type { LeaderboardEntry } from '../lib/community';
 import CommunityAvatar from '../components/CommunityAvatar';
@@ -72,7 +72,7 @@ export default function Community(): React.ReactElement {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    void fetchCommunityLeaderboard(50)
+    void fetchLeaderboard(50)
       .then(list => { if (!cancelled) setEntries(list); })
       .catch(() => { if (!cancelled) setEntries([]); })
       .finally(() => { if (!cancelled) setLoading(false); });

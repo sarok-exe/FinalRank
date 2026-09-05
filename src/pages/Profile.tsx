@@ -12,7 +12,7 @@ import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
 import { useToastStore } from '../stores/toastStore';
 import { fetchUserFavorites, fetchUserGames, saveUserGame, deleteUserGame } from '../lib/firebase';
 import { getLocalFavorites } from '../lib/localStore';
-import { fetchCommunityUserStats } from '../lib/tursoCache';
+import { fetchCommunityUserStats } from '../lib/communityApi';
 import { estimateRating } from '../lib/community';
 import type { CommunityUserStats } from '../lib/community';
 import ColorPicker from '../components/ColorPicker';
@@ -103,7 +103,7 @@ export default function Profile(): React.ReactElement {
       } else {
         setLoadingSaved(true);
       }
-      // 2. Background refresh from Turso/Firestore updates the list.
+      // 2. Background refresh from Firestore updates the list.
       fetchUserFavorites(user.id).then(games => {
         setSavedGames((games as SavedGame[]).filter(g => g.userSaved === true));
         setLoadingSaved(false);
@@ -123,7 +123,7 @@ export default function Profile(): React.ReactElement {
       } else {
         setLoadingRecent(true);
       }
-      // 2. Background refresh from Turso/Firestore.
+      // 2. Background refresh from Firestore.
       fetchUserGames(user.id).then(games => {
         setRecentGames((games as SavedGame[]).slice(0, 20));
         setLoadingRecent(false);

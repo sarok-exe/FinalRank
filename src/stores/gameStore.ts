@@ -8,7 +8,8 @@ import { classifyMove } from '../lib/reporter/classify';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { getCachedAnalysis, saveCachedAnalysis, getCachedAnalysisByKey, saveSharedGameToTurso, batchCheckAnalysis, hashPgn, saveUserAnalysisStats } from '../lib/tursoCache';
+import { batchCheckAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn } from '../lib/analysisCache';
+import { saveAnalysisStats } from '../lib/communityApi';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
 import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
@@ -255,8 +256,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
-        const tursoStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
-        set({ analyzedPgnHashes: tursoStatus });
+        const analysisStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
+        set({ analyzedPgnHashes: analysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
         set({ importJustCompleted: true });
@@ -283,8 +284,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ importError: 'No recent games found for this user.', loadingGames: false });
       } else {
         set({ games: loaded, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
-        const tursoStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth);
-        set({ analyzedPgnHashes: tursoStatus });
+        const analysisStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth);
+        set({ analyzedPgnHashes: analysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
         set({ importJustCompleted: true });
@@ -363,7 +364,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const clampDepth = settings.autoDepth && settings.engineEffort !== 'max';
     const effectiveDepth = clampDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
 
-    // Always run analysis from scratch (no Turso cache lookup)
+    // Always run analysis from scratch (no cache lookup)
 
     set({ autoAnalyzing: true });
 
@@ -492,7 +493,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const withAvatars = await fetchAvatarsForGames(latest);
       const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: shortIdFromKey(`linked-${g.id}`) }));
 
-        const tursoStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
+        const analysisStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => {
         const deduped = [...state.games, ...withIds].filter(
           (g, i, arr) => arr.findIndex(x => x.id === g.id) === i
@@ -500,13 +501,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         return {
           linkedGames: withIds,
           linkedLoading: false,
-          analyzedPgnHashes: { ...state.analyzedPgnHashes, ...tursoStatus },
+          analyzedPgnHashes: { ...state.analyzedPgnHashes, ...analysisStatus },
           games: deduped,
           selectedGame: state.selectedGame,
         };
       });
 
-      const uncached = withIds.filter(g => !tursoStatus[hashPgn(g.pgn)]);
+      const uncached = withIds.filter(g => !analysisStatus[hashPgn(g.pgn)]);
       if (uncached.length === 0) {
         set({ linkedAnalyzing: false });
         return;
@@ -577,7 +578,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       applyParsed(parseGames(localGames as unknown as Record<string, unknown>[]));
     }
 
-    // 2. Reconcile with Turso/Firestore in the background.
+    // 2. Reconcile with Firestore in the background.
     const raw = await fetchUserGames(authUser.id);
     if (raw.length === 0) return;
     applyParsed(parseGames(raw));
@@ -888,12 +889,11 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const authUser = useAuthStore.getState().user;
   if (authUser != null) {
-    void saveUserAnalysisStats(authUser, analysedGame, effectiveDepth)
+    void saveAnalysisStats(authUser, analysedGame, effectiveDepth)
       .catch((e: unknown) => console.warn('[Community] stats save failed:', e));
   }
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
-  void saveSharedGameToTurso(shortId, analysedGame).catch(e => console.warn('[Turso] save shared failed:', e));
   void saveGameToApi(shortId, analysedGame).catch(e => console.warn('[API] save failed:', e));
 
   const gameForFirestore = {
