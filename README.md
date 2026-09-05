@@ -195,16 +195,6 @@ Donations help cover database costs, enable server-side analysis options on Clou
 
 ---
 
-## ☕ Support the Project
-
-FinalRank is 100% free and open source. If it helps you improve your chess, consider supporting the project:
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
-
-Donations help cover database costs, enable server-side analysis options on Cloudflare, and fund a proper domain for the site.
-
----
-
 ## 🙏 Credits
 
 - [Stockfish](https://stockfishchess.org/) — the strongest open-source chess engine
