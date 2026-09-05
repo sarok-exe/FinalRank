@@ -152,9 +152,13 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                   src={user.avatar}
                   alt={user.username}
                   className="w-6 h-6 rounded-full border border-[var(--color-border)] object-cover flex-shrink-0"
-                  crossOrigin="anonymous"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.username}`;
+                    // Idempotent fallback: only swap once so a failing fallback
+                    // cannot re-trigger onError and loop forever.
+                    const img = e.target as HTMLImageElement;
+                    if (!img.src.includes('dicebear.com')) {
+                      img.src = `https://api.dicebear.com/7.x/pixel-art/svg?seed=${user.username}`;
+                    }
                   }}
                 />
                 <span className="hidden sm:inline max-w-[80px] md:max-w-[100px] truncate font-medium">{user.username}</span>
