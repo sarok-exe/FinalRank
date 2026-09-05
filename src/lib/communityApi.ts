@@ -1,6 +1,7 @@
 import type { ChessGame } from '../types';
 import type { CommunityUserStats, LeaderboardEntry } from './community';
 import { hashPgn } from './analysisCache';
+import { getFirebaseUser } from './firebase';
 
 const API_BASE = '/api';
 
@@ -77,11 +78,20 @@ export async function saveAnalysisStats(
     const shortId = game.shortId ?? game.id ?? '';
     const gameLabel = `${whiteName} vs ${blackName}`;
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const fbUser = getFirebaseUser();
+    if (fbUser) {
+      try {
+        headers['Authorization'] = `Bearer ${await fbUser.getIdToken()}`;
+      } catch { /* token unavailable — send without auth */ }
+    }
+
     await fetch(`${API_BASE}/stats/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
-        userId: user.id,
+        // userId is intentionally NOT sent — the server derives it from the
+        // verified Firebase ID token. username/avatar are display-only.
         username: user.username,
         avatar: user.avatar ?? '',
         pgnHash,

@@ -191,11 +191,36 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     rows = await fetchRandom(count);
 
     // Pool ran dry for this range — top it up straight from lichess, then retry.
+    // Guarded by a 60s cooldown so a dry pool can't hammer the lichess API.
     if (rows.length < count && context.env.LICHESS_API_TOKEN) {
       const need = count - rows.length;
       try {
-        await refillFromLichess(httpUrl, token, context.env.LICHESS_API_TOKEN, Math.max(need, 10), min, max);
-        rows = await fetchRandom(count);
+        const now = Date.now();
+        const metaResults = await pipeline(httpUrl, token, [
+          {
+            type: 'execute',
+            stmt: { sql: 'SELECT value FROM puzzles_meta WHERE key = ?', args: [toArg('last_refill_at')] },
+          },
+        ]);
+        const metaRows = (metaResults[0] as { response?: { result?: { rows?: unknown[] } } })?.response?.result?.rows ?? [];
+        const lastRefillRaw = metaRows.length > 0 ? String((metaRows[0] as Array<{ value?: unknown }>)[0]?.value ?? '') : '';
+        const lastRefill = lastRefillRaw ? Number(lastRefillRaw) : 0;
+        if (now - lastRefill >= 60_000) {
+          await refillFromLichess(httpUrl, token, context.env.LICHESS_API_TOKEN, Math.max(need, 10), min, max);
+          // Upsert the cooldown marker regardless of how many puzzles were added —
+          // the cooldown guards the lichess fetch itself.
+          await pipeline(httpUrl, token, [
+            {
+              type: 'execute',
+              stmt: {
+                sql: `INSERT INTO puzzles_meta (key, value) VALUES ('last_refill_at', ?)
+                      ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+                args: [toArg(String(now))],
+              },
+            },
+          ]);
+          rows = await fetchRandom(count);
+        }
       } catch {
         /* refill failed; serve what the pool has */
       }
@@ -234,6 +259,6 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ puzzles, count: puzzles.length }), { headers });
   } catch (err) {
     console.error('puzzles fn error:', err instanceof Error ? err.stack : err);
-    return new Response(JSON.stringify({ error: 'Puzzle query failed', detail: String(err) }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: 'Puzzle query failed' }), { status: 500, headers });
   }
 }

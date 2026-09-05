@@ -2,11 +2,8 @@
 // Caches public assets: images, audio, fonts, and engine files.
 // Never caches user data, API responses, or game PGNs.
 
-// Bumped to v3 so the service worker re-installs and re-precaches engine files
-// with their current response headers. v2 cached /engines/*.js with the OLD
-// Content-Security-Policy header (no 'wasm-unsafe-eval'), which kept blocking
-// WebAssembly in the engine worker even after the live site was fixed.
-const CACHE_NAME = 'finalrank-static-v3';
+// Bumped to v4 — engine files removed from precache (loaded lazily on analysis start).
+const CACHE_NAME = 'finalrank-static-v4';
 
 // Assets to pre-cache on install
 const PRECACHE_URLS = [
@@ -24,12 +21,6 @@ const PRECACHE_URLS = [
   '/img/classifications/sharp.svg',
   '/img/classifications/correct.svg',
   '/img/classifications/incorrect.svg',
-  '/engines/stockfish-17-lite-single.js',
-  '/engines/stockfish-17-lite-single.wasm',
-  '/engines/stockfish-18-lite-single.js',
-  '/engines/stockfish-18-lite-single.wasm',
-  '/engines/stockfish-18-lite.js',
-  '/engines/stockfish-18-lite.wasm',
 ];
 
 // Cache-first for static assets; network-only for everything else
@@ -65,7 +56,14 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const url = event.request.url;
-  const isCacheable = CACHEABLE_PREFIXES.some((prefix) => url.includes(prefix));
+  const isCacheable = CACHEABLE_PREFIXES.some((prefix) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.origin === self.location.origin && parsed.pathname.startsWith(prefix);
+    } catch {
+      return false;
+    }
+  });
 
   if (!isCacheable) {
     // For non-static requests, pass through to network — never cache user data

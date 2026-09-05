@@ -1,4 +1,5 @@
 import type { ChessGame } from '../types';
+import { getFirebaseUser } from './firebase';
 
 const API_BASE = '/api';
 
@@ -14,9 +15,16 @@ export async function fetchGameFromApi(shortId: string): Promise<ChessGame | nul
 
 export async function saveGameToApi(shortId: string, gameData: ChessGame): Promise<boolean> {
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const user = getFirebaseUser();
+    if (user) {
+      try {
+        headers['Authorization'] = `Bearer ${await user.getIdToken()}`;
+      } catch { /* token unavailable — send without auth */ }
+    }
     const res = await fetch(`${API_BASE}/game/save`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({
         shortId,
         gameData: {

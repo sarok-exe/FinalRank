@@ -9,7 +9,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import Shell from './components/layout/Shell';
 import ToastContainer from './components/ToastContainer';
-import AnalysisOverlay from './components/AnalysisOverlay';
+const AnalysisOverlay = lazy(() => import('./components/AnalysisOverlay'));
 
 const Analysis = lazy(() => import('./pages/Analysis'));
 const Tools = lazy(() => import('./pages/Tools'));
@@ -86,7 +86,9 @@ export default function App(): React.ReactElement {
       <Shell>
         <AnimatedRoutes />
       </Shell>
-      <AnalysisOverlay />
+      <Suspense fallback={null}>
+        <AnalysisOverlay />
+      </Suspense>
       <ToastContainer />
     </BrowserRouter>
   );

@@ -318,7 +318,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
         priority: 'low',
         collection: 'games',
         document: shortId,
-        data: { uid, ...clean },
+        data: { uid, ownerUid: uid, ...clean },
         merge: true,
         timestamp: Date.now(),
       });

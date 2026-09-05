@@ -184,6 +184,6 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     }), { headers });
   } catch (err) {
     console.error('community user fn error:', err instanceof Error ? err.stack : err);
-    return new Response(JSON.stringify({ error: 'User stats query failed', detail: String(err) }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: 'User stats query failed' }), { status: 500, headers });
   }
 }

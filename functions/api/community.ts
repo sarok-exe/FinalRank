@@ -136,6 +136,6 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ leaderboard }), { headers });
   } catch (err) {
     console.error('community fn error:', err instanceof Error ? err.stack : err);
-    return new Response(JSON.stringify({ error: 'Leaderboard query failed', detail: String(err) }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: 'Leaderboard query failed' }), { status: 500, headers });
   }
 }

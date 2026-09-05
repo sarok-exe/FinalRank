@@ -40,48 +40,122 @@ type LichessGameRaw = {
 };
 
 /**
- * Fetches recent chess games for a Lichess username via the public API.
- * Returns up to 50 games in the same ChessGame format used throughout the app.
+ * Fetches the most recent game for a Lichess username via two public endpoints:
+ *  1. GET /api/user/{username}/current-game → returns JSON with the game ID
+ *  2. GET /game/export/{gameId}             → returns full PGN as plain text
  *
- * Uses `pgnInJson=true` so each game includes the full PGN verbatim.
- * We parse SAN moves from PGN via chess.js rather than reconstructing from UCI.
+ * The PGN is wrapped in a LichessGameRaw and fed through the existing
+ * parseLichessGame / buildPgn helpers so the rest of the app (gameStore etc.)
+ * works unchanged.
+ *
+ * Requests are serialised with a short delay to respect Lichess rate limits.
  */
 export async function fetchLichessGames(username: string): Promise<ChessGame[]> {
   const cleanUsername = username.trim().toLowerCase();
   if (cleanUsername === '') return [];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const timeout = setTimeout(() => controller.abort(), 15_000);
 
   try {
-    const url = `https://lichess.org/api/games/user/${encodeURIComponent(cleanUsername)}?max=50&pgnInJson=true`;
-    const response = await fetch(url, {
-      headers: {
-        'Accept': 'application/x-ndjson',
-      },
+    // ── Step 1: get the current (most-recent) game ID ────────────────
+    const currentGameUrl = `https://lichess.org/api/user/${encodeURIComponent(cleanUsername)}/current-game`;
+    const currentGameRes = await fetch(currentGameUrl, {
+      headers: { 'Accept': 'application/json' },
       signal: controller.signal,
     });
 
-    if (!response.ok) {
-      if (response.status === 404) {
+    if (!currentGameRes.ok) {
+      if (currentGameRes.status === 404) {
         throw new Error(`Lichess user "${username}" not found.`);
       }
-      throw new Error(`Lichess API error (Status ${response.status})`);
+      if (currentGameRes.status === 429) {
+        throw new Error(`Lichess rate limit exceeded. Please wait a moment and try again.`);
+      }
+      throw new Error(`Lichess API error while looking up user (Status ${currentGameRes.status})`);
     }
 
-    const text = await response.text();
-    const lines = text.trim().split('\n').filter(l => l.length > 0);
+    const currentGameData = await currentGameRes.json();
+    const gameId: string | undefined = currentGameData.id;
+    if (!gameId) {
+      throw new Error(`No current game found for Lichess user "${username}".`);
+    }
 
-    if (lines.length === 0) return [];
+    // Brief pause so the second request doesn't get 429'd
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    const rawGames: LichessGameRaw[] = lines.map(line => {
-      try { return JSON.parse(line) as LichessGameRaw; } catch { return null; }
-    }).filter((g): g is LichessGameRaw => g != null);
+    // ── Step 2: fetch the full PGN for that game ─────────────────────
+    const pgnUrl = `https://lichess.org/game/export/${gameId}`;
+    const pgnRes = await fetch(pgnUrl, { signal: controller.signal });
 
-    return rawGames.map((g, index) => parseLichessGame(g, cleanUsername, index));
+    if (!pgnRes.ok) {
+      if (pgnRes.status === 429) {
+        throw new Error(`Lichess rate limit exceeded. Please wait a moment and try again.`);
+      }
+      throw new Error(`Lichess API error while fetching game PGN (Status ${pgnRes.status})`);
+    }
+
+    const pgnText = await pgnRes.text();
+    if (!pgnText.trim()) {
+      throw new Error(`Empty PGN received for game ${gameId}.`);
+    }
+
+    // ── Build a LichessGameRaw from the PGN headers + PGN text ───────
+    const rawGame = buildRawGameFromPgn(pgnText, gameId);
+
+    // Reuse the existing parser — returns a single-element array so the
+    // existing importLichessGames → selectGame → autoAnalyzeGame flow
+    // continues to work.
+    return [parseLichessGame(rawGame, cleanUsername, 0)];
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * Parses PGN headers out of a PGN text block and returns a LichessGameRaw
+ * so we can hand it to parseLichessGame without changing that function.
+ */
+function buildRawGameFromPgn(pgn: string, gameId: string): LichessGameRaw {
+  const headerRe = /\[(\w+)\s+"([^"]*)"\]/g;
+  const headers: Record<string, string> = {};
+  let m: RegExpExecArray | null;
+  while ((m = headerRe.exec(pgn)) !== null) {
+    headers[m[1]] = m[2];
+  }
+
+  const whiteName = headers['White'];
+  const blackName = headers['Black'];
+  const whiteRating = headers['WhiteElo'] ? parseInt(headers['WhiteElo'], 10) : undefined;
+  const blackRating = headers['BlackElo'] ? parseInt(headers['BlackElo'], 10) : undefined;
+
+  let winner: 'white' | 'black' | null = null;
+  if (headers['Result'] === '1-0') winner = 'white';
+  else if (headers['Result'] === '0-1') winner = 'black';
+
+  // Date may be "2024.01.15"
+  let createdAt: number | undefined;
+  if (headers['Date']) {
+    const d = new Date(headers['Date'].replace(/\./g, '-'));
+    if (!isNaN(d.getTime())) createdAt = d.getTime();
+  }
+
+  return {
+    id: gameId,
+    players: {
+      white: {
+        user: whiteName ? { name: whiteName } : undefined,
+        rating: isNaN(whiteRating!) ? undefined : whiteRating,
+      },
+      black: {
+        user: blackName ? { name: blackName } : undefined,
+        rating: isNaN(blackRating!) ? undefined : blackRating,
+      },
+    },
+    winner,
+    createdAt,
+    pgn,
+  };
 }
 
 function parseLichessGame(g: LichessGameRaw, cleanUsername: string, index: number): ChessGame {

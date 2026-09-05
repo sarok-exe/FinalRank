@@ -1,5 +1,5 @@
 import type React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BarChart3,
@@ -12,6 +12,7 @@ import {
   ChevronDown,
   Brain,
   Trophy,
+  Coffee,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -28,6 +29,17 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [koFiOpen, setKoFiOpen] = useState(false);
+
+  // Close the Ko-fi modal on Escape
+  useEffect(() => {
+    if (!koFiOpen) return;
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setKoFiOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => { window.removeEventListener('keydown', onKeyDown); };
+  }, [koFiOpen]);
 
   const isActive = (path: string): boolean => location.pathname === path;
 
@@ -105,19 +117,15 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
         </nav>
 
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 flex-shrink-0">
-          <a
-            href="https://ko-fi.com/sarok_ibnx"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden sm:block flex-shrink-0"
+          <button
+            onClick={() => { setKoFiOpen(true); }}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 hover:bg-[var(--color-accent)]/20 hover:border-[var(--color-accent)]/60 transition-all flex-shrink-0"
+            id="ko-fi-nav"
             aria-label="Support on Ko-fi"
           >
-            <img
-              src="https://ko-fi.com/img/githubbutton_sm.svg"
-              alt="Support me on Ko-fi"
-              className="h-7 w-auto"
-            />
-          </a>
+            <Coffee className="w-3.5 h-3.5" />
+            <span>Support</span>
+          </button>
 
           {user && (
             <Link
@@ -279,6 +287,52 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           <span className="text-[var(--color-text-muted)]">Arrow keys to navigate moves</span>
         </div>
       </footer>
+
+      {koFiOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
+          onClick={() => { setKoFiOpen(false); }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Support FinalRank"
+        >
+          <div
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-sm w-full mx-4 text-center"
+            onClick={e => { e.stopPropagation(); }}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Coffee className="w-5 h-5 text-[var(--color-accent)]" />
+                Support FinalRank
+              </h2>
+              <button
+                onClick={() => { setKoFiOpen(false); }}
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-6">
+              Thank you for supporting FinalRank. Your generosity keeps the site free and open source for everyone.
+            </p>
+
+            <a
+              href="https://ko-fi.com/sarok_ibnx"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block"
+            >
+              <img
+                src="https://ko-fi.com/img/githubbutton_sm.svg"
+                alt="Support me on Ko-fi"
+                className="h-10 w-auto"
+              />
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

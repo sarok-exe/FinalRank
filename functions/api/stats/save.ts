@@ -1,6 +1,11 @@
+import { verifyFirebaseToken } from '../_auth';
+import { checkRateLimits, clientIp } from '../_rateLimit';
+import { isAllowedAvatar } from '../_validate';
+
 interface Env {
   VITE_TURSO_DATABASE_URL?: string;
   VITE_TURSO_AUTH_TOKEN?: string;
+  VITE_FIREBASE_PROJECT_ID?: string;
 }
 
 type Cell = { type: 'text' | 'integer' | 'null'; value: string | null };
@@ -76,7 +81,6 @@ async function ensureSchema(httpUrl: string, token: string): Promise<void> {
 }
 
 type SaveBody = {
-  userId?: unknown;
   username?: unknown;
   avatar?: unknown;
   pgnHash?: unknown;
@@ -97,10 +101,25 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers });
   }
 
+  // Firebase ID-token auth — userId is ALWAYS derived from the verified token.
+  const auth = await verifyFirebaseToken(context.request, context.env);
+  if (!auth) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers });
+  }
+  const userId = auth.uid;
+
   const url = context.env.VITE_TURSO_DATABASE_URL;
   const token = context.env.VITE_TURSO_AUTH_TOKEN;
   if (!url || !token) {
     return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 500, headers });
+  }
+
+  const httpUrl = toHttpUrl(url);
+
+  // Rate limit (uid + IP) after auth.
+  const rateOk = await checkRateLimits(httpUrl, token, userId, clientIp(context.request));
+  if (!rateOk.ok) {
+    return new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429, headers });
   }
 
   let body: SaveBody;
@@ -110,8 +129,9 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ error: 'Invalid JSON body' }), { status: 400, headers });
   }
 
-  const userId = typeof body.userId === 'string' ? body.userId : '';
-  const username = typeof body.username === 'string' ? body.username : '';
+  // username/avatar are DISPLAY-ONLY fields from the client (anonymous users
+  // still appear on the leaderboard). Never trust a client-supplied userId.
+  const username = typeof body.username === 'string' ? body.username.trim() : '';
   const avatar = typeof body.avatar === 'string' ? body.avatar : '';
   const pgnHash = typeof body.pgnHash === 'string' ? body.pgnHash : '';
   const shortId = typeof body.shortId === 'string' ? body.shortId : '';
@@ -120,9 +140,27 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   const brilliantCount = typeof body.brilliantCount === 'number' ? body.brilliantCount : 0;
   const depth = typeof body.depth === 'number' ? body.depth : 0;
 
-  // Validate required fields.
-  if (!userId || !username || !pgnHash || !shortId || !gameLabel) {
-    return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers });
+  // Validate required fields and lengths.
+  if (!username || username.length > 32) {
+    return new Response(JSON.stringify({ error: 'Invalid username' }), { status: 400, headers });
+  }
+  if (avatar !== '' && !isAllowedAvatar(avatar)) {
+    return new Response(JSON.stringify({ error: 'Invalid avatar' }), { status: 400, headers });
+  }
+  if (!pgnHash || pgnHash.length > 128) {
+    return new Response(JSON.stringify({ error: 'Invalid pgnHash' }), { status: 400, headers });
+  }
+  if (!shortId || shortId.length > 64) {
+    return new Response(JSON.stringify({ error: 'Invalid shortId' }), { status: 400, headers });
+  }
+  if (!gameLabel || gameLabel.length > 200) {
+    return new Response(JSON.stringify({ error: 'Invalid gameLabel' }), { status: 400, headers });
+  }
+  if (body.accuracy != null && typeof body.accuracy !== 'number') {
+    return new Response(JSON.stringify({ error: 'Invalid accuracy' }), { status: 400, headers });
+  }
+  if (body.brilliantCount != null && typeof body.brilliantCount !== 'number') {
+    return new Response(JSON.stringify({ error: 'Invalid brilliantCount' }), { status: 400, headers });
   }
 
   // Brilliants are only accepted from analyses at depth 15+.
@@ -131,7 +169,6 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   }
 
   try {
-    const httpUrl = toHttpUrl(url);
     await ensureSchema(httpUrl, token);
 
     await pipeline(httpUrl, token, [
@@ -159,6 +196,6 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ ok: true }), { headers });
   } catch (err) {
     console.error('stats save fn error:', err instanceof Error ? err.stack : err);
-    return new Response(JSON.stringify({ error: 'Save failed', detail: String(err) }), { status: 500, headers });
+    return new Response(JSON.stringify({ error: 'Save failed' }), { status: 500, headers });
   }
 }
