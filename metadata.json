@@ -1,6 +1,0 @@
-{
-  "name": "FinalRank",
-  "description": "A high-performance chess analysis web application featuring Chess.com game import, PGN parsing, an interactive chessboard, custom clock tools, and local Stockfish WASM analysis.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

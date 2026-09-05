@@ -13,6 +13,9 @@ Desktop.ini
 # OpenCode session files
 .opencode/
 
+# Cloudflare build artifacts
+.wrangler/
+
 # Profiling / trace data
 trace_dir/
 
