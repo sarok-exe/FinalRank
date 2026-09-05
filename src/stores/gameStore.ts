@@ -20,6 +20,14 @@ import { getLocalGames, type FullGame } from '../lib/localStore';
 import { canMakeApiCall } from '../lib/firewall';
 import { isValidPgn } from '../lib/validator';
 
+// Mobile/tablet viewports (< 1024px, Tailwind `lg` breakpoint) get a lighter
+// analysis behavior: background batch analysis is skipped and only the game the
+// user actually selects is analyzed. Evaluated at call time so it always reflects
+// the current viewport (no SSR, plain Zustand store).
+function isMobileViewport(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
+}
+
 type GameState = {
   games: ChessGame[];
   selectedGame: ChessGame | null;
@@ -231,6 +239,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       hypothesisDepth: 0,
       hypothesisClassification: null,
     });
+
+    // On mobile/tablet, auto-analyze only the game the user just picked, then
+    // stop. Skip games that are already analyzed. `autoAnalyzeGame`'s own guards
+    // (analyzing/autoAnalyzing/hypothesisActive/pendingAnalysis) dedupe a
+    // concurrent import-path call, so this is safe to fire-and-forget.
+    if (isMobileViewport() && !get().analyzedPgnHashes[hashPgn(game.pgn)]) {
+      void get().autoAnalyzeGame(gameId);
+    }
   },
 
   setCurrentMoveIndex: (index) => {
@@ -510,6 +526,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       const uncached = withIds.filter(g => !analysisStatus[hashPgn(g.pgn)]);
       if (uncached.length === 0) {
         set({ linkedAnalyzing: false });
+        return;
+      }
+
+      // On mobile/tablet, cancel the background batch analysis of linked games.
+      // Only the game the user explicitly selects gets analyzed (see selectGame).
+      if (isMobileViewport()) {
+        set({ linkedAnalyzing: false, linkedAnalysisProgress: '' });
         return;
       }
 
