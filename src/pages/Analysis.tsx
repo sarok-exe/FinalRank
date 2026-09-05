@@ -1686,7 +1686,7 @@ function formatDuration(ms: number | undefined): string {
             </div>
           )}
 
-          {(analysisMode === 'advanced' || focusMode) && (<>{navConsole}</>)}
+          {(analysisMode === 'advanced' || focusMode || vpW < 1024) && (<>{navConsole}</>)}
 
           {/* Rewind-on-analyze indicator — shown while the pieces are stepping
               back to the start in lockstep with the engine's progress. */}
@@ -1811,7 +1811,7 @@ function formatDuration(ms: number | undefined): string {
           </div>
           {analysisMode === 'regular' && (
           <>
-          {navConsole}
+          {vpW >= 1024 && (<>{navConsole}</>)}
           {utilityRow}
           {enginePanel}
           {hypothesisActive && (
