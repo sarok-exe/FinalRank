@@ -1389,6 +1389,7 @@ function formatDuration(ms: number | undefined): string {
         <span className="hidden xs:inline">Flip</span>
       </button>
       <div className="flex-1" />
+      {vpW >= 1024 && (
       <button
         onClick={() => window.dispatchEvent(new CustomEvent('open-shortcuts'))}
         className="flex items-center gap-1 sm:gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] px-2.5 sm:px-3 py-2 rounded-lg text-xs text-[var(--color-text-muted)]"
@@ -1397,6 +1398,7 @@ function formatDuration(ms: number | undefined): string {
         <Keyboard className="w-3.5 h-3.5" />
         <span className="hidden sm:inline">Shortcuts</span>
       </button>
+      )}
       <button
         onClick={toggleFocusMode}
         className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border ${
@@ -1742,6 +1744,7 @@ function formatDuration(ms: number | undefined): string {
           />
           </>
           )}
+          {vpW >= 1024 && (
           <div className="fade-in flex-1 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 flex flex-col overflow-clip max-h-[min(420px,55vh)] min-h-[220px]">
             <h3 className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2.5 flex items-center space-x-1.5">
               <History className="w-4 h-4 text-[var(--color-accent)]" />
@@ -1809,6 +1812,7 @@ function formatDuration(ms: number | undefined): string {
               )}
             </div>
           </div>
+          )}
           {analysisMode === 'regular' && (
           <>
           {vpW >= 1024 && (<>{navConsole}</>)}
@@ -2137,7 +2141,7 @@ function formatDuration(ms: number | undefined): string {
       </>
       )}
 
-      {showShortcuts && (
+      {showShortcuts && vpW >= 1024 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowShortcuts(false); }} role="dialog" aria-modal="true" aria-label="Keyboard shortcuts">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4" onClick={e => { e.stopPropagation(); }}>
             <div className="flex items-center justify-between mb-4">
