@@ -31,6 +31,7 @@ import {
   ShieldAlert,
   GitBranch,
   X,
+  Settings2,
 } from 'lucide-react';
 import { useGameStore, getRecentGames } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
@@ -70,6 +71,27 @@ type SavedGame = {
   accuracy?: { white?: number; black?: number };
   userSaved?: boolean;
 };
+
+// Pill toggle used in the Engine Settings modal — mirrors the SettingToggle
+// pattern from the Profile page's Engine tab.
+function EngineSettingToggle({ label, desc, checked, onChange }: {
+  label: string; desc: string; checked: boolean; onChange(v: boolean): void;
+}): React.ReactElement {
+  return (
+    <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all duration-200">
+      <div>
+        <div className="text-xs font-semibold text-[var(--color-text)]">{label}</div>
+        <div className="text-[10px] text-[var(--color-text-muted)]">{desc}</div>
+      </div>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={e => { onChange(e.target.checked); }}
+        className="w-9 h-5 bg-[var(--color-background)] border border-[var(--color-border)] rounded-full appearance-none checked:bg-[var(--color-primary)] relative cursor-pointer outline-none before:content-[''] before:absolute before:w-4 before:h-4 before:rounded-full before:bg-white before:top-0.5 before:left-0.5 checked:before:left-4 before:transition-all"
+      />
+    </label>
+  );
+}
 
 // Compact badge for the what-if (hypothesis) classification: mate is solid
 // red/white, everything else follows the shared classificationBadgeStyles.
@@ -211,6 +233,11 @@ export default function Analysis() {
   const { user: authUser } = useAuthStore();
 
   const { settings, updateSettings } = useSettingsStore();
+  // Engine label follows the selected engine file (settings.engineVersion is
+  // added by the settings-store fixer; fall back to 18 Lite until it lands).
+  const engineDisplayName = (settings.engineVersion ?? 'stockfish-18-lite-single.js').includes('stockfish-17')
+    ? 'Stockfish 17 Lite'
+    : 'Stockfish 18 Lite';
   const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
   const { toggleFullscreen } = useFullscreen();
   const { play, playFromSan, playGameEnd } = useSound();
@@ -234,6 +261,7 @@ export default function Analysis() {
   const [showShare, setShowShare] = useState(false);
   const [priorAnalyses, setPriorAnalyses] = useState<AnalysisRunMeta[]>([]);
   const [showPriorAnalyses, setShowPriorAnalyses] = useState(false);
+  const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
@@ -584,6 +612,30 @@ function formatDuration(ms: number | undefined): string {
     return () => { clearInterval(interval); };
   }, [autoplay, selectedGame]);
 
+  // FOLLOW BEST LINE: when enabled, auto-advance the board along the engine's
+  // best line — one ply per position, continuing as each position resolves.
+  // The current move's engineLines analyze the position on screen; if the
+  // engine's top move matches the game's next ply, step forward. Strictly
+  // forward-only (index always grows) so it can never loop. Manual navigation
+  // anywhere in the UI turns the setting off (see the nav handlers).
+  React.useEffect(() => {
+    if (!settings.followBestLine) return;
+    if (hypothesisActive) return;
+    if (analyzing) return;
+    if (!selectedGame || selectedGame.moves.length === 0) return;
+    if (currentMoveIndex < 0) return;
+    const m = selectedGame.moves[currentMoveIndex];
+    if (!m?.engineLines || m.engineLines.length === 0) return;
+    const topLine = getTopEngineLine(m.engineLines);
+    const bestUci = topLine?.moves?.[0]?.uci;
+    if (!bestUci || bestUci.length < 4) return;
+    const nextMove = selectedGame.moves[currentMoveIndex + 1];
+    if (!nextMove) return; // end of game
+    if (nextMove.from === bestUci.slice(0, 2) && nextMove.to === bestUci.slice(2, 4)) {
+      setCurrentMoveIndex(currentMoveIndex + 1);
+    }
+  }, [settings.followBestLine, selectedGame, currentMoveIndex, hypothesisActive, analyzing, setCurrentMoveIndex]);
+
   const refreshFavorites = React.useCallback(() => {
     if (!authUser || (authUser.authProvider !== 'google' && authUser.authProvider !== 'anonymous')) {
       setSavedGameIds(new Set());
@@ -694,7 +746,10 @@ function formatDuration(ms: number | undefined): string {
           if (hypothesisMoves.length > 0) setHypViewIndex(prev => Math.min(prev + 1, hypothesisMoves.length - 1));
           return;
         }
-        if (selectedGame) setCurrentMoveIndex(currentMoveIndex + 1);
+        if (selectedGame) {
+          updateSettings({ followBestLine: false });
+          setCurrentMoveIndex(currentMoveIndex + 1);
+        }
       },
     },
     {
@@ -706,19 +761,25 @@ function formatDuration(ms: number | undefined): string {
           if (hypothesisMoves.length > 0) setHypViewIndex(prev => Math.max(prev - 1, -1));
           return;
         }
-        if (selectedGame) setCurrentMoveIndex(currentMoveIndex - 1);
+        if (selectedGame) {
+          updateSettings({ followBestLine: false });
+          setCurrentMoveIndex(currentMoveIndex - 1);
+        }
       },
     },
     {
       key: 'Home',
       description: 'First move',
-      handler: () => { setCurrentMoveIndex(-1); },
+      handler: () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex(-1); },
     },
     {
       key: 'End',
       description: 'Last move',
       handler: () => {
-        if (selectedGame) setCurrentMoveIndex(selectedGame.moves.length - 1);
+        if (selectedGame) {
+          updateSettings({ followBestLine: false });
+          setCurrentMoveIndex(selectedGame.moves.length - 1);
+        }
       },
     },
     {
@@ -740,7 +801,10 @@ function formatDuration(ms: number | undefined): string {
       key: ' ',
       description: 'Play/Pause autoplay',
       handler: () => {
-        if (selectedGame) setAutoplay(!autoplay);
+        if (selectedGame) {
+          if (!autoplay) updateSettings({ followBestLine: false });
+          setAutoplay(!autoplay);
+        }
       },
     },
     {
@@ -789,10 +853,10 @@ function formatDuration(ms: number | undefined): string {
     setPgnInput('');
   };
 
-  const handleBackToStart = () => { setCurrentMoveIndex(-1); };
-  const handlePrevMove = () => { setCurrentMoveIndex(currentMoveIndex - 1); };
-  const handleNextMove = () => { setCurrentMoveIndex(currentMoveIndex + 1); };
-  const handleEndMove = () => { setCurrentMoveIndex((selectedGame?.moves.length || 0) - 1); };
+  const handleBackToStart = () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex(-1); };
+  const handlePrevMove = () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex(currentMoveIndex - 1); };
+  const handleNextMove = () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex(currentMoveIndex + 1); };
+  const handleEndMove = () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex((selectedGame?.moves.length || 0) - 1); };
 
   // Shared entry point for the Analyze button and the 'a' shortcut. When the board
   // shows the final position the rewind is armed, so the pieces step back in time
@@ -817,6 +881,7 @@ function formatDuration(ms: number | undefined): string {
   const handleTryCoachMove = async (note: CoachNote) => {
     if (!selectedGame) return;
     if (hypothesisActive) exitHypothesisMode();
+    updateSettings({ followBestLine: false });
     setCurrentMoveIndex(note.moveIndex - 1);
     enterHypothesisMode();
     // Zustand set is synchronous, so the store now holds the new base position.
@@ -1337,6 +1402,7 @@ function formatDuration(ms: number | undefined): string {
         const idx = fresh.currentMoveIndex;
         const nextReal = game.moves[idx + 1];
         if (nextReal && nextReal.from === from && nextReal.to === to) {
+          updateSettings({ followBestLine: false });
           setCurrentMoveIndex(idx + 1);
           return true;
         }
@@ -1356,7 +1422,7 @@ function formatDuration(ms: number | undefined): string {
       }}
       orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
-      bestMoveArrow={hypothesisActive ? bestMove : undefined}
+      bestMoveArrow={hypothesisActive || settings.suggestionArrows ? bestMove : undefined}
       hintSquare={hintLevel === 1 && bestMove ? bestMove.from : undefined}
       arrows={hintLevel === 2 && bestMove ? [{ from: bestMove.from, to: bestMove.to, color: '#00a000' }] : undefined}
       dangerSquares={dangerSquares}
@@ -1438,7 +1504,7 @@ function formatDuration(ms: number | undefined): string {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <button
-            onClick={() => { setAutoplay(!autoplay); }}
+            onClick={() => { if (!autoplay) updateSettings({ followBestLine: false }); setAutoplay(!autoplay); }}
             disabled={currentMoveIndex === selectedGame.moves.length - 1 || hypothesisActive || navLocked}
             className={`p-1.5 ${autoplay ? 'text-[var(--color-primary)]' : 'text-[var(--color-text-muted)]'}`}
             title={autoplay ? 'Pause (Space)' : 'Play (Space)'}
@@ -1594,7 +1660,15 @@ function formatDuration(ms: number | undefined): string {
         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2.5">
           <h3 className="min-w-0 flex items-center gap-2 text-sm font-bold text-white">
             <Zap className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
-            <span className="truncate">Stockfish 18 Lite</span>
+            <span className="truncate">{engineDisplayName}</span>
+            <button
+              onClick={() => { setShowEngineSettings(true); }}
+              className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] transition-all duration-200"
+              title="Engine settings"
+              aria-label="Engine settings"
+            >
+              <Settings2 className="w-3.5 h-3.5" />
+            </button>
           </h3>
           <div className="flex flex-wrap items-center gap-2">
             <select
@@ -1609,6 +1683,8 @@ function formatDuration(ms: number | undefined): string {
               <option value={12}>Depth 12</option>
               <option value={15}>Depth 15</option>
               <option value={18}>Depth 18</option>
+              <option value={20}>Depth 20</option>
+              <option value={25}>Depth 25</option>
             </select>
             <button
               onClick={handleAnalyzePress}
@@ -1917,6 +1993,7 @@ function formatDuration(ms: number | undefined): string {
                         <button
                           onClick={(e) => {
                             if (hypothesisActive) exitHypothesisMode();
+                            updateSettings({ followBestLine: false });
                             setCurrentMoveIndex(whiteMove.index);
                             e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                           }}
@@ -1936,6 +2013,7 @@ function formatDuration(ms: number | undefined): string {
                           <button
                             onClick={(e) => {
                               if (hypothesisActive) exitHypothesisMode();
+                              updateSettings({ followBestLine: false });
                               setCurrentMoveIndex(blackMove.index);
                               e.currentTarget.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                             }}
@@ -2007,7 +2085,7 @@ function formatDuration(ms: number | undefined): string {
                     <span>What-if line</span>
                     <span className="text-[var(--color-text-muted)]">depth={hypothesisDepth}</span>
                     <span>|</span>
-                    <span>Stockfish 18 Lite</span>
+                    <span>{engineDisplayName}</span>
                     {hypothesisLines && hypothesisLines.length > 1 && (
                       <span className="ml-auto text-[var(--color-text-muted)]">({hypothesisLines.length} PV)</span>
                     )}
@@ -2398,6 +2476,62 @@ function formatDuration(ms: number | undefined): string {
                   </span>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEngineSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowEngineSettings(false); }} role="dialog" aria-modal="true" aria-label="Engine settings">
+          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => { e.stopPropagation(); }}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <Settings2 className="w-5 h-5 text-[var(--color-primary)]" />
+                Engine Settings
+              </h2>
+              <button onClick={() => { setShowEngineSettings(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Chess Engine</label>
+                <select
+                  value={settings.engineVersion ?? 'stockfish-18-lite-single.js'}
+                  onChange={e => { updateSettings({ engineVersion: e.target.value }); }}
+                  className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+                >
+                  <option value="stockfish-18-lite-single.js">Stockfish 18 Lite</option>
+                  <option value="stockfish-17-lite-single.js">Stockfish 17 Lite</option>
+                </select>
+                <p className="text-[10px] text-[var(--color-text-muted)]">17 Lite is lighter and faster on low-end devices</p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Number of Lines</label>
+                <select
+                  value={settings.engineLinesCount ?? 2}
+                  onChange={e => { updateSettings({ engineLinesCount: parseInt(e.target.value, 10) }); }}
+                  className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+                >
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <option key={n} value={n}>{n} {n === 1 ? 'line' : 'lines'}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[var(--color-text-muted)]">More lines show alternative moves but may slow analysis</p>
+              </div>
+              <EngineSettingToggle
+                label="Suggestion Arrows"
+                desc="Show best moves for the current position"
+                checked={settings.suggestionArrows ?? false}
+                onChange={v => { updateSettings({ suggestionArrows: v }); }}
+              />
+              <EngineSettingToggle
+                label="Follow Best Line"
+                desc="Auto-play the engine's best move"
+                checked={settings.followBestLine ?? false}
+                onChange={v => {
+                  updateSettings({ followBestLine: v });
+                  if (v) setAutoplay(false);
+                }}
+              />
             </div>
           </div>
         </div>

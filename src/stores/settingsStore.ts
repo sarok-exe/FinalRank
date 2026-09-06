@@ -172,11 +172,17 @@ export const THEME_PRESETS: Record<string, {
   },
 };
 
+const ENGINE_VERSIONS: string[] = ['stockfish-18-lite-single.js', 'stockfish-17-lite-single.js'];
+
 const DEFAULT_SETTINGS: UserSettings = {
   engineDepth: 15,
   engineGoMode: 'depth',
   engineEffort: 'balanced',
   engineTimeLimitMs: 2000,
+  engineVersion: 'stockfish-18-lite-single.js',
+  engineLinesCount: 2,
+  followBestLine: false,
+  suggestionArrows: false,
   boardColor: 'elegant',
   boardOrientation: 'white',
   audioEnabled: true,
@@ -262,6 +268,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     // Clamp numeric settings to valid ranges
     if (updated.engineDepth != null) updated.engineDepth = clamp(updated.engineDepth, 1, 30);
     if (updated.audioVolume != null) updated.audioVolume = clamp(updated.audioVolume, 0, 1);
+    if (updated.engineLinesCount != null) updated.engineLinesCount = Math.round(clamp(updated.engineLinesCount, 1, 5));
+    if (updated.engineVersion != null && !ENGINE_VERSIONS.includes(updated.engineVersion)) {
+      updated.engineVersion = DEFAULT_SETTINGS.engineVersion;
+    }
     try {
       localStorage.setItem('finalrank_settings', JSON.stringify(updated));
       applyThemeCss(updated);

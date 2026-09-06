@@ -36,6 +36,10 @@ export type UserSettings = {
   engineGoMode: EngineGoMode;
   engineEffort: EngineEffort;
   engineTimeLimitMs: number;
+  engineVersion: string;
+  engineLinesCount: number;
+  followBestLine: boolean;
+  suggestionArrows: boolean;
   boardColor: 'green' | 'blue' | 'brown' | 'charcoal' | 'elegant' | 'ocean-sunset' | 'fresh-greens' | 'cherry-blossom' | 'golden-blue' | 'pine-forest' | 'coastal' | 'amber-glow' | 'soft-sand';
   boardOrientation: 'white' | 'black';
   audioEnabled: boolean;

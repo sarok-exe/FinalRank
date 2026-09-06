@@ -10,6 +10,7 @@ export function hashPgn(pgn: string): string {
 
 export function engineLabel(engine: string): string {
   if (!engine) return 'Stockfish 18 Lite';
+  if (engine.includes('stockfish-17-lite') || engine.includes('stockfish-17')) return 'Stockfish 17 Lite';
   if (engine.includes('stockfish-18-lite') || engine.includes('stockfish-18')) return 'Stockfish 18 Lite';
   if (engine.includes('lichess')) return 'Lichess Cloud';
   if (engine.includes('official')) return 'Stockfish Official';
@@ -56,10 +57,10 @@ function writeCache(entries: CacheEntry[]): void {
   }
 }
 
-export async function getCachedAnalysis(pgn: string, minDepth: number): Promise<ChessGame | null> {
+export async function getCachedAnalysis(pgn: string, minDepth: number, engine: string = ''): Promise<ChessGame | null> {
   const hash = hashPgn(pgn);
   const entries = readCache()
-    .filter((e) => e.hash === hash && e.depth >= minDepth)
+    .filter((e) => e.hash === hash && e.depth >= minDepth && (!engine || e.engine === engine))
     .sort((a, b) => b.depth - a.depth);
   return entries.length > 0 ? entries[0].game : null;
 }
@@ -95,13 +96,13 @@ export async function getPriorAnalyses(pgn: string): Promise<AnalysisRunMeta[]> 
   return [...seen.values()].sort((a, b) => b.depth - a.depth);
 }
 
-export async function batchCheckAnalysis(games: ChessGame[], minDepth: number): Promise<Record<string, boolean>> {
+export async function batchCheckAnalysis(games: ChessGame[], minDepth: number, engine: string = ''): Promise<Record<string, boolean>> {
   const result: Record<string, boolean> = {};
   if (games.length === 0) return result;
   const entries = readCache();
   for (const g of games) {
     const hash = hashPgn(g.pgn);
-    if (entries.some((e) => e.hash === hash && e.depth >= minDepth)) {
+    if (entries.some((e) => e.hash === hash && e.depth >= minDepth && (!engine || e.engine === engine))) {
       result[hash] = true;
     }
   }

@@ -5,7 +5,7 @@ import { Engine, getTopEngineLine } from './index';
 import { getOpeningName } from '../reporter/utils/opening';
 
 type EvaluateMovesOptions = {
-  engineVersion: string;
+  engineVersion?: string;
   maxEngineCount?: number;
   engineDepth: number;
   engineTimeLimit?: number;
@@ -26,12 +26,14 @@ type EvaluationProcess = {
 
 const fenCache = new Map<string, { lines: EngineLine[]; depth: number }>();
 
+const DEFAULT_ENGINE_VERSION = 'stockfish-18-lite-single.js';
+
 export function getOptimalEngineCount(requested?: number): number {
   return Math.max(1, Math.min(requested ?? 1, 8));
 }
 
-export function getEngineVersion(_cores: number): string {
-  return 'stockfish-18-lite-single.js';
+export function getEngineVersion(version?: string): string {
+  return version ?? DEFAULT_ENGINE_VERSION;
 }
 
 export function clearFenCache(): void {
@@ -47,6 +49,7 @@ export function createGameEvaluator(
   options: EvaluateMovesOptions
 ): EvaluationProcess {
   const controller = new AbortController();
+  const engineVersion = options.engineVersion ?? DEFAULT_ENGINE_VERSION;
   const startingFen = game.initialPosition || STARTING_FEN;
   const moveCount = game.moves.length;
   const fens: string[] = [startingFen, ...game.moves.map(m => m.fen)];
@@ -74,7 +77,7 @@ export function createGameEvaluator(
       if (getOpeningName(fens[i])) {
         gameEngineLines[i] = [{
           evaluation: { type: 'centipawn', value: 0 },
-          source: options.engineVersion as unknown as EngineLine['source'],
+          source: engineVersion,
           depth: 1,
           index: 1,
           moves: [],
@@ -106,7 +109,7 @@ export function createGameEvaluator(
       const engines: Engine[] = [];
       const zeroLine: EngineLine = {
         evaluation: { type: 'centipawn', value: 0 },
-        source: options.engineVersion as unknown as EngineLine['source'],
+        source: engineVersion,
         depth: 1,
         index: 1,
         moves: [],
@@ -127,7 +130,8 @@ export function createGameEvaluator(
 
       function spawnEngine(): Engine | null {
         try {
-          const engine = new Engine(options.engineVersion);
+          const engine = new Engine(engineVersion);
+          engine.setLineCount(options.engineLinesCount ?? 2);
           options.engineConfig?.(engine);
           if (options.engineHashMb) engine.setOption('Hash', String(options.engineHashMb));
           engine.onError(() => {});
@@ -259,7 +263,7 @@ export function createPositionEvaluator(
   const engines: Engine[] = [];
 
   function spawnEngine(): Engine {
-    const engine = new Engine(options.engineVersion ?? 'stockfish-18-lite-single.js');
+    const engine = new Engine(options.engineVersion ?? DEFAULT_ENGINE_VERSION);
     engine.setLineCount(options.linesCount ?? 2);
     engine.onError(() => {});
     engine.setPositionQuiet(fen);

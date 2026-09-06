@@ -297,7 +297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
-        const analysisStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth);
+        const analysisStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
         set({ analyzedPgnHashes: analysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
@@ -325,7 +325,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ importError: 'No recent games found for this user.', loadingGames: false });
       } else {
         set({ games: loaded, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
-        const analysisStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth);
+        const analysisStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
         set({ analyzedPgnHashes: analysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
@@ -569,7 +569,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         source: g.source ?? 'linked',
       }));
 
-        const analysisStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
+        const analysisStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
       set(state => {
         const deduped = [...state.games, ...withIds].filter(
           (g, i, arr) => arr.findIndex(x => x.id === g.id) === i
@@ -761,9 +761,11 @@ async function runHypothesisSearch(tipMove: HypothesisMove): Promise<void> {
   hypothesisAbortController?.abort();
   useGameStore.setState({ hypothesisSearching: true, hypothesisError: false });
 
+  const settings = useSettingsStore.getState().settings;
   const evaluator = createPositionEvaluator(tipMove.fen, {
     depth: useGameStore.getState().hypothesisDepth,
-    linesCount: 2,
+    linesCount: settings.engineLinesCount,
+    engineVersion: settings.engineVersion,
   });
   hypothesisAbortController = evaluator.controller;
 
@@ -836,9 +838,8 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   let lastProgressValue = -1;
   let lastProgressEmitAt = 0;
 
-  const cores = typeof navigator !== 'undefined' ? navigator.hardwareConcurrency : 4;
-  const engineVersion = getEngineVersion(cores);
   const settings = useSettingsStore.getState().settings;
+  const engineVersion = getEngineVersion(settings.engineVersion);
   const tier = detectDeviceTier();
   // Depth is honored as requested: auto-clamping happens only in the automatic
   // analysis path (autoAnalyzeGame), so a depth the user explicitly picks in the
@@ -864,9 +865,9 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
     engineDepth: effectiveDepth,
     engineTimeLimit,
     engineHashMb: hashMb,
-    engineLinesCount: 2,
+    engineLinesCount: settings.engineLinesCount,
     engineConfig: (engine) => {
-      engine.setLineCount(2);
+      engine.setLineCount(settings.engineLinesCount);
     },
     onProgress: (progress) => {
       // Only emit when the visible value actually changed and at most ~6 times
