@@ -11,6 +11,7 @@ type AuthState = {
   logout(): void;
   incrementAnalyzedGames(): Promise<void>;
   setChessComUsername(username: string): Promise<void>;
+  setLichessUsername(username: string): Promise<void>;
 }
 
 const DEFAULT_GUEST: User = {
@@ -116,6 +117,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       analyzedCount: existing?.analyzedCount ?? 0,
       lastActiveDate: existing?.lastActiveDate ?? null,
       chessComUsername: existing?.chessComUsername,
+      lichessUsername: existing?.lichessUsername,
       settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
     };
     set({ user, error: null });
@@ -157,6 +159,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
     }
   },
+
+  setLichessUsername: async (lichessUsername: string) => {
+    const { user } = get();
+    if (!user) return;
+    const trimmed = lichessUsername.trim();
+    const updated = { ...user, lichessUsername: trimmed || undefined };
+    set({ user: updated });
+    saveUser(updated);
+    if (user.authProvider === 'google') {
+      void updateUserProfile(updated.id, {
+        lichessUsername: updated.lichessUsername ?? null,
+      });
+    }
+  },
 }));
 
 function buildGoogleUser(fbUser: { uid: string; displayName: string | null; email: string | null; photoURL: string | null }): User {
@@ -170,6 +186,7 @@ function buildGoogleUser(fbUser: { uid: string; displayName: string | null; emai
     analyzedCount: existing?.analyzedCount ?? 0,
     lastActiveDate: existing?.lastActiveDate ?? null,
     chessComUsername: existing?.chessComUsername ?? undefined,
+    lichessUsername: existing?.lichessUsername ?? undefined,
     settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
   };
 }
@@ -205,6 +222,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       analyzedCount: existing?.analyzedCount ?? 0,
       lastActiveDate: existing?.lastActiveDate ?? null,
       chessComUsername: existing?.chessComUsername ?? undefined,
+      lichessUsername: existing?.lichessUsername ?? undefined,
       settings: existing?.settings ?? { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
@@ -228,6 +246,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
       analyzedCount: (remoteProfile.analyzedCount as number | undefined) ?? 0,
       lastActiveDate: (remoteProfile.lastActiveDate as string | undefined) ?? existing?.lastActiveDate ?? null,
       chessComUsername: (remoteProfile.chessComUsername as string | undefined) ?? existing?.chessComUsername ?? undefined,
+      lichessUsername: (remoteProfile.lichessUsername as string | undefined) ?? existing?.lichessUsername ?? undefined,
       settings: (remoteProfile.settings as User['settings'] | undefined) ?? { ...DEFAULT_GUEST.settings },
     };
     saveUser(user);
@@ -258,6 +277,7 @@ async function handleFirebaseUser(fbUser: { uid: string; displayName: string | n
     analyzedCount: user.analyzedCount,
     lastActiveDate: user.lastActiveDate,
     chessComUsername: user.chessComUsername ?? null,
+    lichessUsername: user.lichessUsername ?? null,
     settings: user.settings,
   });
 }

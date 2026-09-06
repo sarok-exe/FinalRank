@@ -90,6 +90,7 @@ export default function Profile(): React.ReactElement {
   const [loadingRecent, setLoadingRecent] = useState(false);
   const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
   const [chessComInput, setChessComInput] = useState(user?.chessComUsername ?? '');
+  const [lichessInput, setLichessInput] = useState(user?.lichessUsername ?? '');
 
   const canSave = user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous');
 
@@ -155,6 +156,11 @@ export default function Profile(): React.ReactElement {
   useEffect(() => {
     setChessComInput(user?.chessComUsername ?? '');
   }, [user?.chessComUsername]);
+
+  // Sync lichess input when user data loads/changes
+  useEffect(() => {
+    setLichessInput(user?.lichessUsername ?? '');
+  }, [user?.lichessUsername]);
 
   const toggleFavorite = (g: SavedGame): void => {
     if (!canSave || user == null) return;
@@ -505,6 +511,32 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <button
                 onClick={() => {
                   useAuthStore.getState().setChessComUsername(chessComInput.trim());
+                }}
+              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+            >
+              Save
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5">
+          <span className="text-[10px] uppercase font-mono font-bold tracking-widest text-[var(--color-primary)] block flex items-center gap-1.5">
+            <Search className="w-3 h-3" />
+            Link Lichess
+          </span>
+          <p className="text-[10px] text-[var(--color-text-muted)]">Auto-fetch your last 3 games on the Analysis page.</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={lichessInput}
+                onChange={e => setLichessInput(e.target.value)}
+                placeholder="Lichess username"
+                id="lichess-link-input"
+                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
+              />
+              <button
+                onClick={() => {
+                  useAuthStore.getState().setLichessUsername(lichessInput.trim());
                 }}
               className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
             >

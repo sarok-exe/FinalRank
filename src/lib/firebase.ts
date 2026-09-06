@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import type { Firestore} from 'firebase/firestore';
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, serverTimestamp,
+  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp,
   collection, getDocs, query, orderBy, limit,
 } from 'firebase/firestore';
 
@@ -495,5 +495,20 @@ export async function deleteUserGame(uid: string, gameId: string) {
       timestamp: Date.now(),
     });
     flushQueue();
+  }
+}
+
+/** Permanently delete a saved game document from Firestore (users/{uid}/games/{gameId}).
+ *  Unlike deleteUserGame (which only unfavorites), this removes the document entirely.
+ *  Never throws — callers should fire-and-forget with `.catch(() => {})`. */
+export async function deleteSavedGame(uid: string, gameId: string) {
+  if (firestoreDisabled) return;
+  const fs = await initFirestore();
+  if (!fs) return;
+  try {
+    await withTimeout(deleteDoc(doc(fs, 'users', uid, 'games', gameId)));
+    noteFirestoreSuccess();
+  } catch {
+    noteFirestoreFailure();
   }
 }

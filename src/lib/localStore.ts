@@ -146,6 +146,15 @@ export function removeLocalGame(shortId: string): void {
   writeBlob(blob);
 }
 
+/** Clear all games from the local cache (games map + order), keeping
+ *  favorites and settings intact (sync). */
+export function clearLocalGames(): void {
+  const blob = readBlob();
+  blob.games = {};
+  blob.order = [];
+  writeBlob(blob);
+}
+
 /** Update just the metadata fields of an already-cached game (sync).
  *  Useful for flipping userSaved or updating analysis stats without
  *  replacing the full PGN/moves blob. */

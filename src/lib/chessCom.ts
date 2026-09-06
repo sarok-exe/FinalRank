@@ -75,6 +75,7 @@ export async function fetchChessComGames(username: string): Promise<ChessGame[]>
     return {
       id: g.uuid ?? `chesscom-${cleanUsername}-${index}`,
       shortId: shortIdFromKey(g.uuid ?? `chesscom-${cleanUsername}-${index}`),
+      source: 'chesscom',
       white: {
         username: g.white?.username ?? 'White',
         rating: g.white?.rating

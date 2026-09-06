@@ -12,11 +12,11 @@ import { batchCheckAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn
 import { saveAnalysisStats } from '../lib/communityApi';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
-import { saveUserGame, fetchUserGames, fetchPublishedGame } from '../lib/firebase';
+import { saveUserGame, fetchUserGames, fetchPublishedGame, deleteSavedGame } from '../lib/firebase';
 import { fetchGameFromApi, saveGameToApi } from '../lib/api';
 import { generateShortId, shortIdFromKey } from '../lib/shortId';
 import { useToastStore } from './toastStore';
-import { getLocalGames, type FullGame } from '../lib/localStore';
+import { getLocalGames, clearLocalGames, type FullGame } from '../lib/localStore';
 import { canMakeApiCall } from '../lib/firewall';
 import { isValidPgn } from '../lib/validator';
 
@@ -62,6 +62,7 @@ type GameState = {
   autoAnalyzeGame(gameId: string): Promise<void>;
   loadPriorAnalysis(depth: number, engine: string): Promise<boolean>;
   setGames(games: ChessGame[]): void;
+  clearGames(): void;
   fetchLinkedUserGames(): Promise<void>;
   loadUserGames(): Promise<void>;
   loadGameByShortId(shortId: string): Promise<ChessGame | null>;
@@ -110,6 +111,30 @@ export const useGameStore = create<GameState>((set, get) => ({
   hypothesisClassification: null,
 
   setGames: (games) => { set({ games }); },
+
+  clearGames: () => {
+    const { games, linkedGames } = get();
+
+    // Reset in-memory state.
+    set({
+      games: [],
+      linkedGames: [],
+      selectedGame: null,
+      currentMoveIndex: -1,
+    });
+
+    // Clear the local device cache for all current games (keeps favorites/settings).
+    clearLocalGames();
+
+    // Fire-and-forget delete of the user's saved games from Firestore.
+    const authUser = useAuthStore.getState().user;
+    if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
+      const all = [...games, ...linkedGames];
+      for (const g of all) {
+        void deleteSavedGame(authUser.id, g.id).catch(() => {});
+      }
+    }
+  },
 
   consumeImportFlag: () => { set({ importJustCompleted: false }); },
 
@@ -334,6 +359,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       const newGame: ChessGame = {
         id: `pgn_custom_${Date.now()}`,
         shortId: generateShortId(),
+        source: 'pgn',
         white: { username: whiteName },
         black: { username: blackName },
         result,
@@ -497,17 +523,51 @@ export const useGameStore = create<GameState>((set, get) => ({
   fetchLinkedUserGames: async () => {
     const authUser = useAuthStore.getState().user;
     const chessComUsername = authUser?.chessComUsername;
-    if (chessComUsername == null) return;
+    const lichessUsername = authUser?.lichessUsername;
+    if (chessComUsername == null && lichessUsername == null) return;
 
     set({ linkedLoading: true, linkedAnalyzing: false, linkedAnalysisProgress: '' });
 
     try {
       const { fetchChessComGames, fetchAvatarsForGames } = await import('../lib/chessCom');
-      const raw = await fetchChessComGames(chessComUsername);
-      const latest = raw.slice(0, 3);
+      const { fetchLichessGames } = await import('../lib/lichess');
 
-      const withAvatars = await fetchAvatarsForGames(latest);
-      const withIds = withAvatars.map(g => ({ ...g, id: `linked-${g.id}`, shortId: shortIdFromKey(`linked-${g.id}`) }));
+      // Fetch the 3 most recent games per platform. A failure on one platform
+      // (e.g. unknown username / rate limit) must not wipe out the other.
+      let chessComLatest: ChessGame[] = [];
+      try {
+        if (chessComUsername != null) {
+          const raw = await fetchChessComGames(chessComUsername);
+          chessComLatest = await fetchAvatarsForGames(raw.slice(0, 3));
+        }
+      } catch (e) {
+        console.warn('[GameStore] linked chess.com fetch failed:', e);
+      }
+
+      let lichessLatest: ChessGame[] = [];
+      try {
+        if (lichessUsername != null) {
+          const raw = await fetchLichessGames(lichessUsername);
+          lichessLatest = raw.slice(0, 3);
+        }
+      } catch (e) {
+        console.warn('[GameStore] linked lichess fetch failed:', e);
+      }
+
+      // Combine both platforms, keep the 3 most recent overall (by date desc).
+      const combined = [...chessComLatest, ...lichessLatest].sort((a, b) => {
+        const aTime = Date.parse(a.date);
+        const bTime = Date.parse(b.date);
+        return (isNaN(bTime) ? 0 : bTime) - (isNaN(aTime) ? 0 : aTime);
+      });
+      const latest = combined.slice(0, 3);
+
+      const withIds = latest.map(g => ({
+        ...g,
+        id: `linked-${g.id}`,
+        shortId: shortIdFromKey(`linked-${g.id}`),
+        source: g.source ?? 'linked',
+      }));
 
         const analysisStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth);
       set(state => {
@@ -987,4 +1047,46 @@ function mergeMoves(base: AnalyzedMove[], analysis: AnalyzedMove[]): AnalyzedMov
       opening: analyzed.opening ?? move.opening,
     };
   });
+}
+
+// ---------------------------------------------------------------------------
+// Pure helpers (exported for the UI)
+// ---------------------------------------------------------------------------
+
+/** Best-effort sort key for a game: analyzedAt when valid, else the game date
+ *  (with `/` normalized to `-`), else 0. */
+function gameSortTime(game: ChessGame): number {
+  if (game.analyzedAt != null) {
+    const t = Date.parse(game.analyzedAt);
+    if (!isNaN(t)) return t;
+  }
+  if (game.date != null) {
+    const t = Date.parse(game.date.replace(/\//g, '-'));
+    if (!isNaN(t)) return t;
+  }
+  return 0;
+}
+
+/** Resolve a game's source: explicit `source` field wins, otherwise infer from
+ *  the id prefix (`chesscom-`, `lichess-`, `pgn_custom_`, `linked-`). */
+export function getGameSource(game: ChessGame): 'chesscom' | 'lichess' | 'pgn' | 'linked' | 'unknown' {
+  if (game.source) return game.source;
+  if (game.id.startsWith('chesscom-')) return 'chesscom';
+  if (game.id.startsWith('lichess-')) return 'lichess';
+  if (game.id.startsWith('pgn_custom_')) return 'pgn';
+  if (game.id.startsWith('linked-')) return 'linked';
+  return 'unknown';
+}
+
+/** Filter games by source ('all' keeps everything), sort by recency descending,
+ *  then slice to `limit`. Returns a new array (never mutates the input). */
+export function getRecentGames(
+  games: ChessGame[],
+  source: 'chesscom' | 'lichess' | 'pgn' | 'all',
+  limit: number,
+): ChessGame[] {
+  const filtered = source === 'all' ? [...games] : games.filter(g => getGameSource(g) === source);
+  return filtered
+    .sort((a, b) => gameSortTime(b) - gameSortTime(a))
+    .slice(0, limit);
 }

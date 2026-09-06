@@ -30,7 +30,7 @@ import {
   GitBranch,
   X,
 } from 'lucide-react';
-import { useGameStore } from '../stores/gameStore';
+import { useGameStore, getRecentGames } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/analysisCache';
@@ -192,6 +192,7 @@ export default function Analysis() {
     triggerEvaluationPipeline,
     loadPriorAnalysis,
     setGames,
+    clearGames,
     fetchLinkedUserGames,
     loadUserGames,
     loadGameByShortId,
@@ -888,6 +889,14 @@ function formatDuration(ms: number | undefined): string {
   }
 
   if (!isInAnalysis) {
+    // Games matching the active import tab, newest first, capped at 3.
+    const recentGames = getRecentGames(games, importMode, 3);
+    const platformLabel = importMode === 'chesscom' ? 'Chess.com' : importMode === 'lichess' ? 'Lichess' : 'PGN';
+    const handleClearHistory = (): void => {
+      if (window.confirm('Clear all match history?')) {
+        clearGames();
+      }
+    };
     return (
       <div className="max-w-2xl mx-auto space-y-6" id="analysis-import-view">
 
@@ -1015,10 +1024,17 @@ function formatDuration(ms: number | undefined): string {
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
               <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
-              <span>Recent Games ({games.length})</span>
+              <span>Recent Games ({recentGames.length})</span>
+              <button
+                onClick={handleClearHistory}
+                className="ml-auto text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50"
+              >
+                Clear History
+              </button>
             </h3>
+            {recentGames.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 {games.map((g) => {
+                 {recentGames.map((g) => {
                     const isSel = selectedGame?.id === g.id;
                   const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
                   let borderClass = 'border-[var(--color-border)]';
@@ -1062,21 +1078,32 @@ function formatDuration(ms: number | undefined): string {
                   );
                })}
             </div>
+            ) : (
+              <p className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
+                No {platformLabel} matches yet — fetch your games above.
+              </p>
+            )}
           </div>
         )}
 
-        {authUser?.chessComUsername && linkedLoading && linkedGames.length === 0 && (
+        {(authUser?.chessComUsername || authUser?.lichessUsername) && linkedLoading && linkedGames.length === 0 && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
             <div className="h-4 w-40 bg-[var(--color-border)] rounded animate-pulse mb-4" />
             <SkeletonGameGrid count={3} />
           </div>
         )}
-        {authUser?.chessComUsername && !linkedLoading && linkedGames.length > 0 && (
+        {(authUser?.chessComUsername || authUser?.lichessUsername) && !linkedLoading && linkedGames.length > 0 && (
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
                 <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
-                <span>{authUser.chessComUsername}&apos;s Recent Games</span>
+                <span>
+                  {authUser?.chessComUsername && authUser?.lichessUsername
+                    ? 'Linked Recent Games'
+                    : authUser?.lichessUsername
+                      ? `${authUser.lichessUsername}&apos;s Recent Games`
+                      : `${authUser?.chessComUsername}&apos;s Recent Games`}
+                </span>
               </h3>
               <button
                 onClick={fetchLinkedUserGames}
@@ -1092,7 +1119,7 @@ function formatDuration(ms: number | undefined): string {
               </div>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {linkedGames.map((g) => {
+              {getRecentGames(linkedGames, 'all', 3).map((g) => {
                 const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
                 return (
                   <button

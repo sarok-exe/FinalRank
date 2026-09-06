@@ -7,6 +7,7 @@ export type User = {
   analyzedCount: number;
   lastActiveDate: string | null;
   chessComUsername?: string;
+  lichessUsername?: string;
   settings: UserSettings;
 }
 
@@ -185,6 +186,7 @@ export type ChessGame = {
   analyzedAt?: string;
   analysisDurationMs?: number;
   analysisDepth?: number;
+  source?: 'chesscom' | 'lichess' | 'pgn' | 'linked';
 }
 
 export type ClockPreset = {

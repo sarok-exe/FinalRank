@@ -199,6 +199,7 @@ function parseLichessGame(g: LichessGameRaw, cleanUsername: string, index: numbe
   return {
     id,
     shortId: shortIdFromKey(id),
+    source: 'lichess',
     white: { username: whiteName, rating: whiteRating },
     black: { username: blackName, rating: blackRating },
     result,
