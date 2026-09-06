@@ -203,7 +203,7 @@ export default function Profile(): React.ReactElement {
   const SettingToggle = ({ label, desc, checked, onChange, id }: {
     label: string; desc: string; checked: boolean; onChange(v: boolean): void; id?: string;
   }): React.ReactElement => (
-    <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer">
+    <label className="flex items-center justify-between bg-[var(--color-background)] px-3.5 py-2.5 rounded-lg border border-[var(--color-border)] cursor-pointer hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-primary)]/5 transition-all duration-200">
       <div>
         <div className="text-xs font-semibold text-[var(--color-text)]">{label}</div>
         <div className="text-[10px] text-[var(--color-text-muted)]">{desc}</div>
@@ -234,13 +234,20 @@ export default function Profile(): React.ReactElement {
           <button
             key={tab.id}
             onClick={() => { setActiveTab(tab.id); }}
-            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 md:w-full ${
+            className={`group flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 md:w-full ${
               active
                 ? 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
                 : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border border-transparent'
             }`}
           >
-            <Icon className="w-4 h-4 shrink-0" />
+            <Icon
+              className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                active
+                  ? 'text-[var(--color-primary)]'
+                  : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] group-hover:scale-110'
+              }`}
+              strokeWidth={active ? 2.25 : 2}
+            />
             <span>{tab.label}</span>
             {active && <ChevronRight className="w-3.5 h-3.5 ml-auto hidden md:block" />}
           </button>
@@ -276,7 +283,7 @@ export default function Profile(): React.ReactElement {
                 placeholder="Choose a display name"
                 className="bg-[var(--color-background)] border border-[var(--color-border)] w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-primary)]"
               />
-              <button type="submit" className="w-full bg-[var(--color-primary)] text-white py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all">
+              <button type="submit" className="w-full bg-[var(--color-primary)] text-white py-2 rounded-lg font-bold text-xs hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all">
                 Sign In as Guest
               </button>
             </form>
@@ -291,7 +298,7 @@ export default function Profile(): React.ReactElement {
               <button
                 onClick={() => { signInWithGoogle(); }}
                 disabled={authLoading}
-                className="w-full bg-white text-[var(--color-background)] py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs hover:brightness-110 transition-all disabled:opacity-50"
+                className="w-full bg-white text-[var(--color-background)] py-2.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs hover:brightness-110 hover:shadow-[0_0_16px_-4px_rgba(255,255,255,0.5)] transition-all disabled:opacity-50"
               >
                 <svg className="w-4 h-4" viewBox="0 0 24 24">
                   <path fill="#EA4335" d="M12 5.04c1.67 0 3.14.59 4.3 1.62l3.12-3.12C17.5 1.84 15 1 12 1 7.42 1 3.53 3.63 1.62 7.46l3.82 2.96c.92-2.76 3.51-4.38 6.56-4.38z" />
@@ -342,7 +349,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                 const shortId = g.shortId ?? g.id;
                 void navigate(`/game/${shortId}`);
               }}
-              className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] transition-all"
+              className="text-left p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:scale-[1.02] hover:border-[var(--color-primary)]/50 hover:shadow-[0_4px_16px_-6px_rgba(0,0,0,0.5)] transition-all"
             >
               <div className="text-[10px] text-[var(--color-text-muted)] font-semibold mb-0.5">{g.date}</div>
               <div className="text-xs font-bold text-white truncate">
@@ -480,11 +487,11 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                     </button>
                     <button
                       onClick={() => { toggleFavorite(g); }}
-                      className="shrink-0 p-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all"
+                      className="group shrink-0 p-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-accent)]/10 transition-all"
                       title={g.userSaved === true ? 'Remove from favorites' : 'Add to favorites'}
                       aria-label={g.userSaved === true ? 'Remove from favorites' : 'Add to favorites'}
                     >
-                      <Heart className={`w-4 h-4 ${g.userSaved === true ? 'fill-current text-[var(--color-accent)]' : 'text-[var(--color-text-muted)]'}`} />
+                      <Heart className={`w-4 h-4 transition-transform duration-200 group-hover:scale-110 ${g.userSaved === true ? 'fill-current text-[var(--color-accent)]' : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-accent)]'}`} />
                     </button>
                   </div>
                 ))}
@@ -512,7 +519,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                 onClick={() => {
                   useAuthStore.getState().setChessComUsername(chessComInput.trim());
                 }}
-              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_12px_-4px_var(--color-primary)]"
             >
               Save
             </button>
@@ -538,7 +545,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                 onClick={() => {
                   useAuthStore.getState().setLichessUsername(lichessInput.trim());
                 }}
-              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg"
+              className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_12px_-4px_var(--color-primary)]"
             >
               Save
             </button>
@@ -547,9 +554,9 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
 
         <button
           onClick={() => { logout(); }}
-          className="w-full flex items-center justify-center gap-2 text-xs text-[var(--color-accent)] border border-[var(--color-border)] px-4 py-2 rounded-lg hover:bg-[var(--color-background)] transition-all"
+          className="group w-full flex items-center justify-center gap-2 text-xs text-[var(--color-accent)] border border-[var(--color-border)] px-4 py-2 rounded-lg hover:bg-[var(--color-background)] hover:border-[var(--color-accent)]/40 transition-all"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
           <span>{user.authProvider === 'google' ? 'Sign Out' : 'Disconnect'}</span>
         </button>
 
@@ -557,10 +564,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           href="https://ko-fi.com/sarok_ibnx"
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-2 text-xs font-bold text-white px-4 py-2 rounded-lg transition-all hover:brightness-110"
+          className="group w-full flex items-center justify-center gap-2 text-xs font-bold text-white px-4 py-2 rounded-lg transition-all hover:brightness-110 hover:shadow-[0_0_16px_-4px_#FF5E5B]"
           style={{ backgroundColor: '#FF5E5B' }}
         >
-          <Coffee className="w-3.5 h-3.5" />
+          <Coffee className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
           <span>Support on Ko-fi</span>
         </a>
       </div>
@@ -595,10 +602,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <button
               key={mode}
               onClick={() => { updateSettings({ engineGoMode: mode }); }}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
                 settings.engineGoMode === mode
                   ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
               }`}
             >
               {mode === 'depth' ? 'Depth' : 'Time'}
@@ -652,10 +659,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <button
                 key={mode}
                 onClick={() => { updateSettings({ engineEffort: mode }); }}
-                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all ${
+                className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${
                   settings.engineEffort === mode
                     ? 'bg-[var(--color-primary)] text-white'
-                    : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+                    : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                 }`}
               >
                 {mode === 'quick' ? 'Quick' : mode === 'balanced' ? 'Balanced' : 'Max'}
@@ -727,7 +734,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             alert('Cache cleared! The site will reload to apply changes.');
             window.location.reload();
           }}
-          className="w-full bg-[var(--color-background)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-accent)] hover:text-white transition-all"
+          className="w-full bg-[var(--color-background)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-accent)] hover:text-white transition-all hover:shadow-[0_0_16px_-4px_var(--color-accent)]"
         >
           Clear Cache
         </button>
@@ -749,7 +756,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <button
                 key={theme.id}
                 onClick={() => { updateSettings({ boardColor: theme.id }); }}
-                className={`rounded-xl border p-3 flex flex-col items-center gap-2 text-center h-20 transition-all ${
+                className={`rounded-xl border p-3 flex flex-col items-center gap-2 text-center h-20 transition-all hover:scale-[1.03] hover:border-[var(--color-primary)]/60 ${
                   sel
                     ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
                     : 'border-[var(--color-border)] bg-[var(--color-background)]'
@@ -795,10 +802,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             <button
               key={side}
               onClick={() => { updateSettings({ boardOrientation: side }); }}
-              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold capitalize transition-all ${
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-bold capitalize transition-all duration-200 ${
                 settings.boardOrientation === side
                   ? 'bg-[var(--color-primary)] text-white'
-                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)]'
+                  : 'bg-[var(--color-background)] text-[var(--color-text-muted)] border border-[var(--color-border)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
               }`}
             >
               {side === 'white' ? 'White Bottom' : 'Black Bottom'}
@@ -956,7 +963,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
                       boardColor: preset.suggestedBoardColor,
                     });
                   }}
-                  className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all ${
+                  className={`rounded-xl border p-3 flex flex-col items-center gap-1.5 transition-all hover:scale-[1.03] hover:border-[var(--color-primary)]/60 ${
                     sel
                       ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
                       : 'border-[var(--color-border)] bg-[var(--color-background)]'
@@ -985,7 +992,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <button
                 key={key}
                 onClick={() => { setColorPickerTarget('site'); }}
-                className="flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
+                className="flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 transition-all text-left"
               >
                 <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
                 <div>
@@ -997,7 +1004,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           </div>
           <button
             onClick={() => { setColorPickerTarget('site'); }}
-            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
+            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all"
           >
             Customize Site Colors
           </button>
@@ -1010,7 +1017,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <button
                 key={key}
                 onClick={() => { setColorPickerTarget('board'); }}
-                className="flex-1 flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] transition-all text-left"
+                className="flex-1 flex items-center gap-3 bg-[var(--color-background)] px-3 py-2 rounded-lg border border-[var(--color-border)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 transition-all text-left"
               >
                 <div className="w-8 h-8 rounded-lg border border-[var(--color-border)] shrink-0" style={{ backgroundColor: value }} />
                 <div>
@@ -1022,7 +1029,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
           </div>
           <button
             onClick={() => { setColorPickerTarget('board'); }}
-            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 transition-all"
+            className="w-full mt-2 bg-[var(--color-primary)] text-white px-4 py-2 rounded-lg font-bold text-xs hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all"
           >
             Customize Board Colors
           </button>
@@ -1062,7 +1069,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
         {user != null && (
           <button
             onClick={resetSettings}
-            className="text-xs font-semibold px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] transition-all"
+            className="text-xs font-semibold px-3 py-1.5 bg-[var(--color-surface)] text-[var(--color-text-muted)] rounded-lg border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] transition-all"
           >
             Reset Defaults
           </button>

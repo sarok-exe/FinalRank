@@ -151,7 +151,7 @@ function AnalyzeConfirmDialog(props: Readonly<{
           </h2>
           <button
             onClick={props.onCancel}
-            className="text-[var(--color-text-muted)] hover:text-white transition-colors"
+            className="text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg p-1 hover:bg-[var(--color-background)]"
             aria-label="Cancel"
           >
             <X className="w-5 h-5" />
@@ -163,14 +163,14 @@ function AnalyzeConfirmDialog(props: Readonly<{
         <div className="flex justify-end gap-2 mt-5">
           <button
             onClick={props.onCancel}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white transition-colors"
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-text-muted)] transition-all duration-200"
             id="analyze-confirm-cancel"
           >
             Cancel
           </button>
           <button
             onClick={props.onContinue}
-            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-primary)] text-white"
+            className="px-4 py-2 rounded-lg text-xs font-bold bg-[var(--color-primary)] text-white hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
             id="analyze-confirm-continue"
           >
             Continue
@@ -198,8 +198,8 @@ function FeatureCard(props: Readonly<{
       onClick={props.onClick}
       className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center hover:border-[var(--color-primary)] group min-h-[180px] sm:aspect-square sm:justify-center w-full hover-lift will-anim"
     >
-      <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] group-hover:scale-110">
-        <Icon className="w-6 h-6 text-white" />
+      <div className="w-12 h-12 bg-[var(--color-surface)] rounded-xl flex items-center justify-center mb-5 group-hover:bg-[var(--color-primary)] group-hover:scale-110 transition-all duration-300 group-hover:shadow-[0_0_20px_-4px_var(--color-primary)]">
+        <Icon className="w-6 h-6 text-white transition-transform duration-300 group-hover:scale-110" strokeWidth={1.75} />
       </div>
       <h3 className="text-lg font-extrabold text-white mb-2">{title}</h3>
       <p className="text-sm text-[var(--color-text-muted)] leading-relaxed mb-5">{description}</p>
@@ -427,9 +427,9 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={() => { destroyEngine(); props.onBack(); }}
-          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
+          className="group flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -ml-2 hover:bg-[var(--color-background)]"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
           <span>Back to Tools</span>
         </button>
         <div className="flex items-center gap-2">
@@ -437,22 +437,22 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
             <>
               <button
                 onClick={() => { uiStore.toggleFocusMode(); }}
-                className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+                className={`group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all duration-200 ${
                   focusMode
                     ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                    : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
                 }`}
                 title="Toggle focus mode (Z)"
               >
-                <Focus className="w-3 h-3" />
+                <Focus className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                 <span>Focus</span>
               </button>
               <button
                 onClick={() => { void fullscreen.toggleFullscreen(); }}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
+                className="group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200"
                 title="Toggle fullscreen (F11)"
               >
-                <Maximize className="w-3 h-3" />
+                <Maximize className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                 <span>Fullscreen</span>
               </button>
             </>
@@ -472,7 +472,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
             </div>
             <button
               onClick={startNewGame}
-              className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm"
+              className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 hover:shadow-[0_0_20px_-4px_var(--color-primary)] transition-all duration-200"
             >
               New Game
             </button>
@@ -522,24 +522,24 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
                 <div className="flex gap-1">
                   <button
                     onClick={() => { setEngineGoMode('depth'); }}
-                    className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
+                    className={`group flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border transition-all duration-200 ${
                       engineGoMode === 'depth'
                         ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                     }`}
                   >
-                    <Layers className="w-3 h-3" />
+                    <Layers className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                     Depth
                   </button>
                   <button
                     onClick={() => { setEngineGoMode('time'); }}
-                    className={`flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border ${
+                    className={`group flex items-center gap-1 text-[10px] py-1.5 px-3 rounded-lg font-bold border transition-all duration-200 ${
                       engineGoMode === 'time'
                         ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                        : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                     }`}
                   >
-                    <Timer className="w-3 h-3" />
+                    <Timer className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                     Time per move
                   </button>
                 </div>
@@ -551,10 +551,10 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
                         <button
                           key={p.id}
                           onClick={() => { handleDepthPreset(p.id, p.depth); }}
-                          className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold border ${
+                          className={`text-[10px] py-1.5 px-2.5 rounded-lg font-bold border transition-all duration-200 ${
                             engineDepthPreset === p.id
                               ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                              : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                              : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                           }`}
                         >
                           {p.name}
@@ -622,14 +622,14 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
               <button
                 onClick={handleAnalyzeClick}
                 disabled={moveHistory.length === 0}
-                className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+                className="group flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 transition-all duration-200"
                 id="pvc-analyze-button"
                 title="Save this match and analyze it"
               >
-                <Activity className="w-3.5 h-3.5" />
+                <Activity className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
                 <span>Analyze</span>
               </button>
-              <button onClick={startNewGame} className="flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
+              <button onClick={startNewGame} className="group flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200">
                 New Game
               </button>
             </div>
@@ -847,42 +847,42 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
+          className="group flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -ml-2 hover:bg-[var(--color-background)]"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
           <span>Back to Tools</span>
         </button>
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           <button
             onClick={() => { setAutoFlip(!autoFlip); }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+            className={`group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all duration-200 ${
               autoFlip
                 ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
             }`}
             title="Auto-flip board to the current player's perspective"
           >
-            <FlipHorizontal className="w-3 h-3" />
+            <FlipHorizontal className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
             <span>Auto-Flip</span>
           </button>
           <button
             onClick={() => { uiStore.toggleFocusMode(); }}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border ${
+            className={`group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all duration-200 ${
               focusMode
                 ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
             }`}
             title="Toggle focus mode (Z)"
           >
-            <Focus className="w-3 h-3" />
+            <Focus className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
             <span>Focus</span>
           </button>
           <button
             onClick={() => { void fullscreen.toggleFullscreen(); }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
+            className="group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200"
             title="Toggle fullscreen (F11)"
           >
-            <Maximize className="w-3 h-3" />
+            <Maximize className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
             <span>Fullscreen</span>
           </button>
         </div>
@@ -924,9 +924,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
               </div>
               <button
                 onClick={() => { setPerspective(perspective === 'white' ? 'black' : 'white'); }}
-                className="text-[10px] text-[var(--color-text-muted)] font-bold hover:text-white transition-colors"
+                className="group text-[10px] text-[var(--color-text-muted)] font-bold hover:text-white transition-colors rounded-lg px-2 py-1 -mr-2 hover:bg-[var(--color-background)]"
               >
-                <RotateCcw className="w-3 h-3 inline mr-1" />
+                <RotateCcw className="w-3.5 h-3.5 inline mr-1 transition-transform duration-200 group-hover:scale-110" />
                 Flip board
               </button>
             </div>
@@ -1036,18 +1036,18 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
             )}
             <div className="flex items-center justify-center gap-1 mb-2">
               {!isRunning ? (
-                <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50 flex items-center gap-1">
-                  <Play className="w-4 h-4" />
+                <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="group bg-[var(--color-primary)] text-white px-3 py-1.5 rounded text-[9px] font-bold disabled:opacity-50 flex items-center gap-1 hover:brightness-110 transition-all duration-200">
+                  <Play className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                   <span>Start</span>
                 </button>
               ) : (
-                <button onClick={() => { clockStore.pauseClock(); }} className="bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold flex items-center gap-1">
-                  <Pause className="w-4 h-4" />
+                <button onClick={() => { clockStore.pauseClock(); }} className="group bg-[var(--color-accent)] text-white px-3 py-1.5 rounded text-[9px] font-bold flex items-center gap-1 hover:brightness-110 transition-all duration-200">
+                  <Pause className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                   <span>Pause</span>
                 </button>
               )}
-              <button onClick={() => { clockStore.resetClock(); }} className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center" title="Reset clock" aria-label="Reset clock">
-                <RotateCcw className="w-4 h-4" />
+              <button onClick={() => { clockStore.resetClock(); }} className="group bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] px-2 py-1.5 rounded text-[9px] font-bold flex items-center hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 transition-all duration-200" title="Reset clock" aria-label="Reset clock">
+                <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
               </button>
             </div>
             <div className="flex gap-1 mb-2">
@@ -1055,10 +1055,10 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
                 <button
                   key={cat.name}
                   onClick={() => { setClockCategory(idx); }}
-                  className={`text-[9px] py-1 px-2 rounded font-bold ${
+                  className={`text-[9px] py-1 px-2 rounded font-bold transition-all duration-200 ${
                     clockCategory === idx
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
-                      : 'text-[var(--color-text-muted)] border border-transparent'
+                      : 'text-[var(--color-text-muted)] border border-transparent hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
                   }`}
                 >
                   {cat.name}
@@ -1126,7 +1126,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
                       clockStore.setCustomTime(whiteMs, blackMs, customInc);
                     }}
-                    className="bg-[var(--color-primary)] text-white px-4 py-1.5 rounded text-[9px] font-bold"
+                    className="bg-[var(--color-primary)] text-white px-4 py-1.5 rounded text-[9px] font-bold hover:brightness-110 transition-all duration-200"
                   >
                     Apply
                   </button>
@@ -1140,10 +1140,10 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
                     <button
                       key={p.id}
                       onClick={() => { handlePresetClick(p.id); }}
-                      className={`text-[9px] py-1 rounded border text-center font-bold font-mono ${
+                      className={`text-[9px] py-1 rounded border text-center font-bold font-mono transition-all duration-200 ${
                         active
                           ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                       }`}
                     >
                       {p.name}
@@ -1158,14 +1158,14 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
             <button
               onClick={handleAnalyzeClick}
               disabled={moveHistory.length === 0}
-              className="flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors"
+              className="group flex-1 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-accent)] text-[var(--color-accent)] py-2 rounded-lg text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/5 transition-all duration-200"
               id="pvp-analyze-button"
               title="Save this match and analyze it"
             >
-              <Activity className="w-3.5 h-3.5" />
+              <Activity className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
               <span>Analyze</span>
             </button>
-            <button onClick={resetGame} className="flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold">
+            <button onClick={resetGame} className="group flex-1 bg-[var(--color-surface)] text-white border border-[var(--color-border)] py-2 rounded-lg text-xs font-bold hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200">
               New Game
             </button>
           </div>
@@ -1297,9 +1297,9 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
+          className="group flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -ml-2 hover:bg-[var(--color-background)]"
         >
-          <ChevronLeft className="w-4 h-4" />
+          <ChevronLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
           <span>Back to Tools</span>
         </button>
         <div className="flex items-center gap-2">
@@ -1308,10 +1308,10 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
           </span>
           <button
             onClick={() => { void fullscreen.toggleFullscreen(); }}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)]"
+            className="group flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200"
             title="Toggle fullscreen (F11)"
           >
-            <Maximize className="w-3 h-3" />
+            <Maximize className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
             <span>Fullscreen</span>
           </button>
         </div>
@@ -1386,18 +1386,18 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
 
           <div className="flex gap-2 mt-3">
             {!isRunning ? (
-              <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="flex-1 bg-[var(--color-primary)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50" id="clock-start-btn">
-                <Play className="w-4 h-4" />
+              <button onClick={() => { clockStore.startClock(); }} disabled={winner != null} className="group flex-1 bg-[var(--color-primary)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs disabled:opacity-50 hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200" id="clock-start-btn">
+                <Play className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                 <span>Start</span>
               </button>
             ) : (
-              <button onClick={() => { clockStore.pauseClock(); }} className="flex-1 bg-[var(--color-accent)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs" id="clock-pause-btn">
-                <Pause className="w-4 h-4" />
+              <button onClick={() => { clockStore.pauseClock(); }} className="group flex-1 bg-[var(--color-accent)] text-white py-2.5 rounded-lg flex items-center justify-center space-x-1.5 font-bold text-xs hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-accent)] transition-all duration-200" id="clock-pause-btn">
+                <Pause className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                 <span>Pause</span>
               </button>
             )}
-            <button onClick={() => { clockStore.resetClock(); }} className="px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-muted)] flex items-center justify-center" title="Reset" id="clock-reset-btn">
-              <RotateCcw className="w-4 h-4" />
+            <button onClick={() => { clockStore.resetClock(); }} className="group px-4 py-2.5 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-muted)] flex items-center justify-center hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)] transition-all duration-200" title="Reset" id="clock-reset-btn">
+              <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
             </button>
           </div>
 
@@ -1412,10 +1412,10 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
                 <button
                   key={cat.name}
                   onClick={() => { setClockCategory(idx); }}
-                  className={`text-[10px] py-1.5 px-3 rounded-lg font-bold ${
+                  className={`text-[10px] py-1.5 px-3 rounded-lg font-bold transition-all duration-200 ${
                     clockCategory === idx
                       ? 'bg-[var(--color-surface)] text-[var(--color-primary)] border border-[var(--color-primary)]'
-                      : 'text-[var(--color-text-muted)] border border-transparent'
+                      : 'text-[var(--color-text-muted)] border border-transparent hover:text-[var(--color-text)] hover:bg-[var(--color-background)]'
                   }`}
                 >
                   {cat.name}
@@ -1483,7 +1483,7 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
                       const blackMs = (customBlackMin * 60 + customBlackSec) * 1000;
                       clockStore.setCustomTime(whiteMs, blackMs, customInc);
                     }}
-                    className="bg-[var(--color-primary)] text-white px-5 py-2 rounded-lg text-xs font-bold hover:bg-[var(--color-primary)] transition-colors"
+                    className="bg-[var(--color-primary)] text-white px-5 py-2 rounded-lg text-xs font-bold hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
                   >
                     Apply
                   </button>
@@ -1497,10 +1497,10 @@ function ChessClockFeature({ onBack }: { onBack(this: void): void }): React.Reac
                     <button
                       key={p.id}
                       onClick={() => { handleChessPresetClick(p.id); }}
-                      className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono ${
+                      className={`text-[10px] py-1.5 rounded-lg border text-center font-bold font-mono transition-all duration-200 ${
                         active
                           ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)]'
+                          : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50'
                       }`}
                       id={`preset-btn-${p.id}`}
                     >

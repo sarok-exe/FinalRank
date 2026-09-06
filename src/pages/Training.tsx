@@ -401,7 +401,7 @@ export default function Training() {
         <p className="text-sm text-[var(--color-text-muted)] text-center max-w-xs">{error}</p>
         <button
           onClick={() => { play('click'); freshBatch(); }}
-          className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2"
+          className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
         >
           {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
           Try again
@@ -481,9 +481,9 @@ export default function Training() {
             </p>
             <button
               onClick={() => { play('click'); freshBatch(); }}
-              className="flex items-center gap-1 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
+              className="group flex items-center gap-1 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -mr-2 hover:bg-[var(--color-background)]"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
               {refreshing ? 'Loading...' : 'New batch'}
             </button>
           </div>
@@ -501,9 +501,9 @@ export default function Training() {
               </div>
               <button
                 onClick={() => { play('click'); advance(); }}
-                className="w-full flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm"
+                className="group w-full flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
               >
-                Next puzzle <ChevronRight className="w-4 h-4" />
+                Next puzzle <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
             </div>
           )}
@@ -521,15 +521,15 @@ export default function Training() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => { play('click'); retry(); }}
-                  className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-lg font-bold text-base hover:brightness-110 active:scale-[0.97] transition-all"
+                  className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-lg font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
                 >
-                  <RotateCcw className="w-4 h-4" /> Retry
+                  <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Retry
                 </button>
                 <button
                   onClick={() => { play('click'); skip(); }}
-                  className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm"
+                  className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] transition-all duration-200"
                 >
-                  <SkipForward className="w-4 h-4" /> Skip
+                  <SkipForward className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Skip
                 </button>
               </div>
             </div>
@@ -637,35 +637,35 @@ export default function Training() {
             <button
               onClick={handleHint}
               disabled={!canHint}
-              className={`flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 active:scale-[0.97] transition-all ${isFailed ? 'col-span-2' : ''}`}
+              className={`group flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 hover:shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)] active:scale-[0.97] transition-all ${isFailed ? 'col-span-2' : ''}`}
             >
-              <Lightbulb className="w-4 h-4" /> Hint
+              <Lightbulb className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Hint
             </button>
 
             {isFailed && (
               <button
                 onClick={() => { play('click'); retry(); }}
-                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 active:scale-[0.97] transition-all"
+                className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
-                <RotateCcw className="w-4 h-4" /> Retry
+                <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Retry
               </button>
             )}
 
             {isFailed && (
               <button
                 onClick={() => { play('click'); skip(); }}
-                className="col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] active:scale-[0.97] transition-all"
+                className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] active:scale-[0.97] transition-all"
               >
-                <SkipForward className="w-4 h-4" /> Skip puzzle
+                <SkipForward className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Skip puzzle
               </button>
             )}
 
             {isSolved && (
               <button
                 onClick={() => { play('click'); advance(); }}
-                className="flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 active:scale-[0.97] transition-all"
+                className="group flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
-                Next puzzle <ChevronRight className="w-4 h-4" />
+                Next puzzle <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
             )}
           </div>
@@ -727,9 +727,9 @@ export default function Training() {
             </div>
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-text-muted)] px-4 py-2 rounded-lg font-bold text-xs active:scale-[0.97] transition-all"
+              className="group w-full flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] px-4 py-2 rounded-lg font-bold text-xs active:scale-[0.97] transition-all"
             >
-              <RotateCcw className="w-3.5 h-3.5" /> Reload with range
+              <RotateCcw className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> Reload with range
             </button>
           </form>
 

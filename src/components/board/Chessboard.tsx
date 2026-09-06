@@ -42,6 +42,7 @@ type ChessboardProps = {
   };
   bestMoveArrow?: { from: string; to: string };
   hintSquare?: string;
+  dangerSquares?: { square: string; strong?: boolean }[];
   rightClickedSquares?: string[];
   onSquareRightClick?(square: string): void;
   onLeftClick?(): void;
@@ -167,6 +168,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     highlightSquares,
     bestMoveArrow,
     hintSquare,
+    dangerSquares = [],
     rightClickedSquares = [],
     arrows = [],
     winnerOverlay = false,
@@ -285,6 +287,16 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     for (const sq of rightClickedSquares) {
       setBg(sq, hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
     }
+    // Danger review: red glow behind pieces under attack. Stronger variant (higher
+    // alpha + inset ring) marks pieces the opponent actually exploited.
+    for (const d of dangerSquares) {
+      if (d.strong) {
+        setBg(d.square, 'radial-gradient(circle, rgba(239,68,68,0.65) 0%, rgba(239,68,68,0.30) 60%, transparent 75%)');
+        styles[d.square] = { ...styles[d.square], boxShadow: 'inset 0 0 0 2px rgba(239,68,68,0.7)' };
+      } else {
+        setBg(d.square, 'radial-gradient(circle, rgba(239,68,68,0.45) 0%, rgba(239,68,68,0.15) 60%, transparent 75%)');
+      }
+    }
     // 2px inner border on every legal-move square when a piece is selected.
     for (const sq of validMoves) {
       if (!styles[sq]) styles[sq] = {};
@@ -294,7 +306,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       };
     }
     return styles;
-  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor, validMoves]);
+  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor, validMoves, dangerSquares]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];

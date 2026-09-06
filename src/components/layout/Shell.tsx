@@ -80,13 +80,20 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                   key={item.path}
                   to={item.path}
                   aria-current={active ? 'page' : undefined}
-                  className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium ${
+                  className={`group flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
                     active
-                      ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
-                      : 'text-[var(--color-text-muted)]'
+                      ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/30'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border-transparent'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon
+                    className={`w-4 h-4 transition-transform duration-200 ${
+                      active
+                        ? 'text-[var(--color-primary)]'
+                        : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] group-hover:scale-110'
+                    }`}
+                    strokeWidth={active ? 2.25 : 2}
+                  />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -103,13 +110,20 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                 key={item.path}
                 to={item.path}
                 aria-current={active ? 'page' : undefined}
-                className={`flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium ${
+                className={`group flex items-center space-x-2 px-3 lg:px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border ${
                   active
-                    ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
-                    : 'text-[var(--color-text-muted)]'
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/30'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border-transparent'
                 }`}
               >
-                <Icon className="w-4 h-4" />
+                <Icon
+                  className={`w-4 h-4 transition-transform duration-200 ${
+                    active
+                      ? 'text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] group-hover:scale-110'
+                  }`}
+                  strokeWidth={active ? 2.25 : 2}
+                />
                 <span>{item.name}</span>
               </Link>
             );
@@ -119,21 +133,21 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
         <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 min-w-0 flex-shrink-0">
           <button
             onClick={() => { setKoFiOpen(true); }}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 hover:bg-[var(--color-accent)]/20 hover:border-[var(--color-accent)]/60 transition-all flex-shrink-0"
+            className="group hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-[var(--color-accent)] border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/10 hover:bg-[var(--color-accent)]/20 hover:border-[var(--color-accent)]/60 transition-all flex-shrink-0"
             id="ko-fi-nav"
             aria-label="Support on Ko-fi"
           >
-            <Coffee className="w-3.5 h-3.5" />
+            <Coffee className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
             <span>Support</span>
           </button>
 
           {user && (
             <Link
               to="/profile"
-              className={`hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold ${
+              className={`hidden md:flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 ${
                 user.chessComUsername != null
-                  ? 'bg-green-900/30 text-green-400 border border-green-700/50'
-                  : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30'
+                  ? 'bg-green-900/30 text-green-400 border border-green-700/50 hover:bg-green-900/50 hover:border-green-600/60'
+                  : 'bg-[var(--color-primary)]/20 text-[var(--color-primary)] border border-[var(--color-primary)]/30 hover:bg-[var(--color-primary)]/30 hover:border-[var(--color-primary)]/50'
               }`}
               id="chesscom-link-nav"
             >
@@ -144,7 +158,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           {user ? (
             <div className="relative flex-shrink-0">
               <button
-                className="flex items-center space-x-1.5 sm:space-x-2 bg-[var(--color-surface)] px-2 sm:px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-sm"
+                className="flex items-center space-x-1.5 sm:space-x-2 bg-[var(--color-surface)] px-2 sm:px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-sm transition-all duration-200 hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]"
                 onClick={() => { setUserDropdownOpen(!userDropdownOpen); }}
                 id="user-profile-dropdown"
               >
@@ -176,10 +190,10 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                     </div>
                     <button
                       onClick={() => { setUserDropdownOpen(false); auth.logout(); }}
-                      className="w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg text-sm text-[var(--color-accent)] text-left font-medium"
+                      className="group w-full flex items-center space-x-2 px-3 py-2.5 rounded-lg text-sm text-[var(--color-accent)] text-left font-medium transition-all duration-200 hover:bg-[var(--color-accent)]/10"
                       id="logout-btn"
                     >
-                      <LogOut className="w-4 h-4" />
+                      <LogOut className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" />
                       <span>Log Out</span>
                     </button>
                   </div>
@@ -189,7 +203,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           ) : (
             <button
               onClick={() => { auth.loginAsGuest('Guest_Expert'); }}
-              className="bg-[var(--color-primary)] text-white px-3 sm:px-4 py-1.5 rounded-lg font-semibold text-xs sm:text-sm flex-shrink-0"
+              className="bg-[var(--color-primary)] text-white px-3 sm:px-4 py-1.5 rounded-lg font-semibold text-xs sm:text-sm flex-shrink-0 transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)]"
               id="guest-login-nav"
             >
               Guest Login
@@ -197,7 +211,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           )}
 
           <button
-            className="md:hidden text-[var(--color-text-muted)] p-1.5 -mr-1 flex-shrink-0"
+            className="md:hidden text-[var(--color-text-muted)] p-1.5 -mr-1 flex-shrink-0 rounded-lg transition-all duration-200 hover:text-[var(--color-text)] hover:bg-[var(--color-background)]"
             onClick={() => { setMobileMenuOpen(!mobileMenuOpen); }}
             id="mobile-menu-toggle"
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
@@ -230,13 +244,20 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                 key={item.path}
                 to={item.path}
                 onClick={handleNavClick}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium min-w-0 ${
+                className={`group flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium min-w-0 transition-all duration-200 border ${
                   active
-                    ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
-                    : 'text-[var(--color-text-muted)]'
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/30'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border-transparent'
                 }`}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon
+                  className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${
+                    active
+                      ? 'text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] group-hover:scale-110'
+                  }`}
+                  strokeWidth={active ? 2.25 : 2}
+                />
                 <span className="truncate">{item.name}</span>
               </Link>
             );
@@ -250,13 +271,20 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
                 key={item.path}
                 to={item.path}
                 onClick={handleNavClick}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium min-w-0 ${
+                className={`group flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium min-w-0 transition-all duration-200 border ${
                   active
-                    ? 'bg-[var(--color-surface)] text-[var(--color-primary)]'
-                    : 'text-[var(--color-text-muted)]'
+                    ? 'bg-[var(--color-primary)]/15 text-[var(--color-primary)] border-[var(--color-primary)]/30'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] border-transparent'
                 }`}
               >
-                <Icon className="w-4 h-4 flex-shrink-0" />
+                <Icon
+                  className={`w-4 h-4 flex-shrink-0 transition-transform duration-200 ${
+                    active
+                      ? 'text-[var(--color-primary)]'
+                      : 'text-[var(--color-text-muted)] group-hover:text-[var(--color-primary)] group-hover:scale-110'
+                  }`}
+                  strokeWidth={active ? 2.25 : 2}
+                />
                 <span className="truncate">{item.name}</span>
               </Link>
             );
@@ -264,9 +292,9 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
           {user && (
             <button
               onClick={() => { setMobileMenuOpen(false); auth.logout(); }}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm text-[var(--color-accent)] text-left"
+              className="group w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm text-[var(--color-accent)] text-left transition-all duration-200 hover:bg-[var(--color-accent)]/10"
             >
-              <LogOut className="w-4 h-4 flex-shrink-0" />
+              <LogOut className="w-4 h-4 flex-shrink-0 transition-transform duration-200 group-hover:scale-110" />
               <span>Log Out</span>
             </button>
           )}
@@ -311,7 +339,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
               </h2>
               <button
                 onClick={() => { setKoFiOpen(false); }}
-                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors"
+                className="text-[var(--color-text-muted)] hover:text-[var(--color-text)] transition-colors rounded-lg p-1 hover:bg-[var(--color-background)]"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />

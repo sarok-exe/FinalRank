@@ -59,10 +59,10 @@ function StrongestCard({ summary }: { readonly summary: CommunityMatchSummary })
       </div>
       <Link
         to={`/game/${shortId}`}
-        className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 px-3 py-1.5 rounded-lg hover:brightness-110 transition-all"
+        className="group inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 px-3 py-1.5 rounded-lg hover:brightness-110 hover:bg-[var(--color-primary)]/25 transition-all duration-200"
       >
         Open game
-        <ChevronRight className="w-3.5 h-3.5" />
+        <ChevronRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-0.5" />
       </Link>
     </div>
   );
@@ -132,11 +132,11 @@ export default function CommunityUser(): React.ReactElement {
           </div>
           <p className="text-sm font-bold text-[var(--color-text)]">Player not found</p>
           <p className="text-xs text-[var(--color-text-muted)] max-w-sm">This player has no qualifying analyses yet</p>
-          <Link
+<Link
             to="/community"
-            className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 px-3 py-1.5 rounded-lg hover:brightness-110 transition-all"
+            className="group inline-flex items-center gap-1.5 text-[11px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/15 border border-[var(--color-primary)]/30 px-3 py-1.5 rounded-lg hover:brightness-110 hover:bg-[var(--color-primary)]/25 transition-all duration-200"
           >
-            <ArrowLeft className="w-3.5 h-3.5" />
+            <ArrowLeft className="w-3.5 h-3.5 transition-transform duration-200 group-hover:-translate-x-0.5" />
             <span>Back to Community</span>
           </Link>
         </div>
@@ -151,9 +151,9 @@ export default function CommunityUser(): React.ReactElement {
     <div className="max-w-3xl mx-auto space-y-5" id="community-user-page">
       <Link
         to="/community"
-        className="inline-flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors"
+        className="group inline-flex items-center gap-1.5 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -ml-2 hover:bg-[var(--color-background)]"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-4 h-4 transition-transform duration-200 group-hover:-translate-x-0.5" />
         <span>Community</span>
       </Link>
 

@@ -20,6 +20,7 @@ import {
   ChevronDown,
   RotateCcw,
   Keyboard,
+  Lightbulb,
   Maximize,
   Focus,
   Pause,
@@ -27,6 +28,7 @@ import {
   Rewind,
   Heart,
   Share2,
+  ShieldAlert,
   GitBranch,
   X,
 } from 'lucide-react';
@@ -55,6 +57,8 @@ import AnalysisReport from '../components/AnalysisReport';
 import CoachPanel from '../components/CoachPanel';
 import { buildCoachNotes } from '../lib/reporter/coach';
 import type { CoachNote } from '../lib/reporter/coach';
+import { computeThreats, computeGameThreats } from '../lib/threats';
+import type { ThreatInfo } from '../lib/threats';
 
 type SavedGame = {
   id: string;
@@ -233,6 +237,15 @@ export default function Analysis() {
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
+  // Progressive hint: 0 = off, 1 = highlight the piece to move, 2 = show the move arrow.
+  const [hintLevel, setHintLevel] = useState(0);
+  // Danger review: post-analysis threat overlay. `dangerConsumedRef` latches the
+  // prompt so it can only appear once per game; `gameThreats` holds the per-position
+  // threat sets computed on opt-in.
+  const [dangerMode, setDangerMode] = useState(false);
+  const [dangerPromptVisible, setDangerPromptVisible] = useState(false);
+  const dangerConsumedRef = React.useRef(false);
+  const [gameThreats, setGameThreats] = useState<ThreatInfo[][]>([]);
   // What-if navigation: which hypothesis move's position the board is showing
   // (-1 = the base position before the line). It stays pinned to the tip whenever
   // the line changes, and is stepped with the arrow keys while in what-if mode.
@@ -479,6 +492,31 @@ function formatDuration(ms: number | undefined): string {
     prevPostAnalyzingRef.current = analyzing;
   }, [analyzing, isPostFlow]);
 
+  // DANGER REVIEW — PROMPT REVEAL. When an analysis completes (analyzing true→false
+  // and progress reached 100) and the prompt hasn't been consumed for this game,
+  // offer the danger review. Dismissing or opting in consumes it for the visit.
+  const prevDangerAnalyzingRef = React.useRef(false);
+  React.useEffect(() => {
+    if (prevDangerAnalyzingRef.current && !analyzing) {
+      const fresh = useGameStore.getState();
+      if (fresh.analysisProgress >= 100 && !dangerConsumedRef.current && fresh.selectedGame) {
+        setDangerPromptVisible(true);
+      }
+    }
+    prevDangerAnalyzingRef.current = analyzing;
+  }, [analyzing]);
+
+  // A new game resets the danger prompt latch.
+  React.useEffect(() => {
+    dangerConsumedRef.current = false;
+  }, [selectedGame?.id]);
+
+  // The hint is tied to the position on the board — any navigation, game switch,
+  // what-if toggle, or analysis run clears it.
+  React.useEffect(() => {
+    setHintLevel(0);
+  }, [currentMoveIndex, selectedGame?.id, hypothesisActive, analyzing]);
+
   // POST-GAME FLOW — ACTIONS. Dismissal and Re-analyze both consume the panel;
   // Play new match heads back to the tools page for the next game.
   const dismissPostPanel = React.useCallback(() => {
@@ -497,9 +535,40 @@ function formatDuration(ms: number | undefined): string {
     navigate('/tools');
   }, [navigate]);
 
+  const dismissDangerPrompt = React.useCallback(() => {
+    dangerConsumedRef.current = true;
+    setDangerPromptVisible(false);
+  }, []);
+
+  const handleDangerOptIn = React.useCallback(() => {
+    dangerConsumedRef.current = true;
+    setDangerPromptVisible(false);
+    setDangerMode(true);
+    const game = useGameStore.getState().selectedGame;
+    if (game) {
+      setGameThreats(computeGameThreats(
+        game.moves.map((m, i) => ({ fen: m.fen, bestSan: game.moves[i + 1]?.san })),
+      ));
+    }
+  }, []);
+
   const toggleOrientation = React.useCallback(() => {
     updateSettings({ boardOrientation: settings.boardOrientation === 'white' ? 'black' : 'white' });
   }, [settings.boardOrientation, updateSettings]);
+
+  const handleToggleDanger = React.useCallback(() => {
+    const next = !dangerMode;
+    setDangerMode(next);
+    // First opt-in computes the per-position threat sets on the fly.
+    if (next && gameThreats.length === 0) {
+      const game = useGameStore.getState().selectedGame;
+      if (game) {
+        setGameThreats(computeGameThreats(
+          game.moves.map((m, i) => ({ fen: m.fen, bestSan: game.moves[i + 1]?.san })),
+        ));
+      }
+    }
+  }, [dangerMode, gameThreats]);
 
   React.useEffect(() => {
     if (!autoplay || !selectedGame) return;
@@ -1173,6 +1242,10 @@ function formatDuration(ms: number | undefined): string {
 
   const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
 
+  // Best move for the current view (real line or what-if). Drives the hint button
+  // and the hint arrow; the always-on best-move arrow is now hint-gated in real mode.
+  const bestMove = getBestMoveArrow();
+
   // Rewind window: while the engine is running (and not in what-if mode) the
   // nav buttons are locked so the stepping loop and the user can't fight over
   // the position. Mirrors how hypothesisActive locks the same buttons.
@@ -1210,6 +1283,27 @@ function formatDuration(ms: number | undefined): string {
   const isCheckmate = checkmateSide ? (() => {
     try { return new Chess(getCurrentFen()).isCheckmate(); } catch { return false; }
   })() : false;
+
+  // DANGER REVIEW — threatened squares for the current view. Real mode reads the
+  // precomputed per-position threat sets (or the starting position); what-if mode
+  // computes the viewed position's threats on the fly.
+  const dangerSquares = React.useMemo(() => {
+    if (!dangerMode) return [];
+    if (hypothesisActive) {
+      if (effHypViewIndex >= 0) {
+        return computeThreats(hypothesisMoves[effHypViewIndex].fen)
+          .map(t => ({ square: t.square, strong: t.exploitable }));
+      }
+      return [];
+    }
+    if (!selectedGame) return [];
+    if (currentMoveIndex === -1) {
+      return computeThreats(STARTING_FEN)
+        .map(t => ({ square: t.square, strong: t.exploitable }));
+    }
+    return (gameThreats[currentMoveIndex] ?? [])
+      .map(t => ({ square: t.square, strong: t.exploitable }));
+  }, [dangerMode, hypothesisActive, effHypViewIndex, hypothesisMoves, selectedGame, currentMoveIndex, gameThreats]);
 
   const boardEl = (
     <Chessboard
@@ -1262,14 +1356,17 @@ function formatDuration(ms: number | undefined): string {
       }}
       orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
-      bestMoveArrow={getBestMoveArrow()}
+      bestMoveArrow={hypothesisActive ? bestMove : undefined}
+      hintSquare={hintLevel === 1 && bestMove ? bestMove.from : undefined}
+      arrows={hintLevel === 2 && bestMove ? [{ from: bestMove.from, to: bestMove.to, color: '#00a000' }] : undefined}
+      dangerSquares={dangerSquares}
       rightClickedSquares={rightClickedSquares}
       onSquareRightClick={(sq) => {
         setRightClickedSquares(prev =>
           prev.includes(sq) ? [] : [...prev, sq]
         );
       }}
-      onLeftClick={() => { setRightClickedSquares([]); }}
+      onLeftClick={() => { setRightClickedSquares([]); setHintLevel(0); }}
       winnerOverlay={isCheckmate && !!winnerSide}
       winnerSide={winnerSide}
       checkmateOverlay={isCheckmate && !!checkmateSide}
@@ -1414,6 +1511,31 @@ function formatDuration(ms: number | undefined): string {
       >
         <RotateCcw className="w-3.5 h-3.5" />
         <span className="hidden xs:inline">Flip</span>
+      </button>
+      <button
+        onClick={() => { setHintLevel(prev => (prev + 1) % 3); }}
+        disabled={!bestMove}
+        className={`group flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
+          hintLevel > 0
+            ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
+            : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
+        }`}
+        title="Show hint"
+      >
+        <Lightbulb className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
+        <span className="hidden xs:inline">Hint</span>
+      </button>
+      <button
+        onClick={handleToggleDanger}
+        className={`group flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border transition-all duration-200 ${
+          dangerMode
+            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
+            : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
+        }`}
+        title="Show threatened pieces"
+      >
+        <ShieldAlert className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
+        <span className="hidden xs:inline">Dangers</span>
       </button>
       <div className="flex-1" />
       {vpW >= 1024 && (
@@ -2276,6 +2398,34 @@ function formatDuration(ms: number | undefined): string {
                   </span>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dangerPromptVisible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-label="Danger review" onClick={dismissDangerPrompt}>
+          <div onClick={e => { e.stopPropagation(); }} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-sm w-full mx-4 text-center space-y-4">
+            <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center">
+              <ShieldAlert className="w-6 h-6" />
+            </div>
+            <h2 className="text-lg font-bold text-white leading-snug">Do you want to see the dangers that were staring at you?</h2>
+            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
+              Review shows a red glow behind pieces that were under attack in each position.
+            </p>
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                onClick={handleDangerOptIn}
+                className="w-full bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-2.5 rounded-lg hover:brightness-110 transition-all"
+              >
+                Yes, show dangers
+              </button>
+              <button
+                onClick={dismissDangerPrompt}
+                className="w-full text-xs font-semibold text-[var(--color-text-muted)] hover:text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                No, thanks
+              </button>
             </div>
           </div>
         </div>

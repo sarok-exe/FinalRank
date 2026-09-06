@@ -33,9 +33,9 @@ export default function Report(): React.JSX.Element {
       <div className="flex items-center gap-3">
         <button
           onClick={() => { navigate(-1); }}
-          className="w-10 h-10 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-[var(--color-background)] transition-colors"
+          className="group w-10 h-10 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-[var(--color-background)] hover:border-[var(--color-primary)]/50 hover:scale-105 transition-all duration-200"
         >
-          <ArrowLeft className="w-5 h-5 text-[var(--color-text)]" />
+          <ArrowLeft className="w-5 h-5 text-[var(--color-text)] transition-transform duration-200 group-hover:-translate-x-0.5" />
         </button>
         <div>
           <h1 className="text-2xl font-extrabold text-[var(--color-text)] tracking-tight">
@@ -56,10 +56,10 @@ export default function Report(): React.JSX.Element {
               href={link.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 flex flex-col items-center gap-4 text-center hover:border-[var(--color-accent)] transition-colors"
+              className="group bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 flex flex-col items-center gap-4 text-center hover:border-[var(--color-accent)] hover:shadow-[0_8px_24px_-8px_rgba(0,0,0,0.5)] hover:-translate-y-0.5 transition-all duration-200"
             >
               <div
-                className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                className="w-14 h-14 rounded-2xl flex items-center justify-center transition-transform duration-200 group-hover:scale-110"
                 style={{ backgroundColor: `${link.color}20` }}
               >
                 <img src={link.icon} alt={`${link.name} icon`} className="w-7 h-7" />
@@ -76,7 +76,7 @@ export default function Report(): React.JSX.Element {
 
               <span className="mt-auto inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-accent)] group-hover:underline">
                 Open
-                <ExternalLink className="w-3 h-3" />
+                <ExternalLink className="w-3 h-3 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
               </span>
             </a>
           );
