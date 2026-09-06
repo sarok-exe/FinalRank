@@ -957,6 +957,27 @@ function formatDuration(ms: number | undefined): string {
     return null;
   }
 
+  // DANGER REVIEW — threatened squares for the current view. Real mode reads the
+  // precomputed per-position threat sets (or the starting position); what-if mode
+  // computes the viewed position's threats on the fly.
+  const dangerSquares = React.useMemo(() => {
+    if (!dangerMode) return [];
+    if (hypothesisActive) {
+      if (effHypViewIndex >= 0) {
+        return computeThreats(hypothesisMoves[effHypViewIndex].fen)
+          .map(t => ({ square: t.square, strong: t.exploitable }));
+      }
+      return [];
+    }
+    if (!selectedGame) return [];
+    if (currentMoveIndex === -1) {
+      return computeThreats(STARTING_FEN)
+        .map(t => ({ square: t.square, strong: t.exploitable }));
+    }
+    return (gameThreats[currentMoveIndex] ?? [])
+      .map(t => ({ square: t.square, strong: t.exploitable }));
+  }, [dangerMode, hypothesisActive, effHypViewIndex, hypothesisMoves, selectedGame, currentMoveIndex, gameThreats]);
+
   if (!isInAnalysis) {
     // Games matching the active import tab, newest first, capped at 3.
     const recentGames = getRecentGames(games, importMode, 3);
@@ -1283,27 +1304,6 @@ function formatDuration(ms: number | undefined): string {
   const isCheckmate = checkmateSide ? (() => {
     try { return new Chess(getCurrentFen()).isCheckmate(); } catch { return false; }
   })() : false;
-
-  // DANGER REVIEW — threatened squares for the current view. Real mode reads the
-  // precomputed per-position threat sets (or the starting position); what-if mode
-  // computes the viewed position's threats on the fly.
-  const dangerSquares = React.useMemo(() => {
-    if (!dangerMode) return [];
-    if (hypothesisActive) {
-      if (effHypViewIndex >= 0) {
-        return computeThreats(hypothesisMoves[effHypViewIndex].fen)
-          .map(t => ({ square: t.square, strong: t.exploitable }));
-      }
-      return [];
-    }
-    if (!selectedGame) return [];
-    if (currentMoveIndex === -1) {
-      return computeThreats(STARTING_FEN)
-        .map(t => ({ square: t.square, strong: t.exploitable }));
-    }
-    return (gameThreats[currentMoveIndex] ?? [])
-      .map(t => ({ square: t.square, strong: t.exploitable }));
-  }, [dangerMode, hypothesisActive, effHypViewIndex, hypothesisMoves, selectedGame, currentMoveIndex, gameThreats]);
 
   const boardEl = (
     <Chessboard
