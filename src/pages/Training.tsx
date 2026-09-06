@@ -123,7 +123,8 @@ export default function Training() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
-  /* Hint state — one hint per puzzle */
+  /* Hint state — progressive: 0 = off, 1 = highlight the piece, 2 = show the arrow */
+  const [hintLevel, setHintLevel] = useState(0);
   const [hint, setHint] = useState<{ from: string; to: string } | null>(null);
 
   const queueRef = useRef(queue);
@@ -229,7 +230,7 @@ export default function Training() {
       setActive(null);
       void fetchIntoQueue(INITIAL_BATCH);
     }
-    setHint(null);
+    setHintLevel(0);
   }, [startPuzzle, fetchIntoQueue]);
 
   /* -------------------------------------------------------------------------- */
@@ -270,7 +271,7 @@ export default function Training() {
         status: 'solved',
         lastMove: { from: expected.slice(0, 2), to: expected.slice(2, 4) },
       });
-      setHint(null);
+      setHintLevel(0);
       return true;
     }
 
@@ -289,7 +290,7 @@ export default function Training() {
       moveIdx,
       lastMove: { from: expected.slice(0, 2), to: expected.slice(2, 4) },
     });
-    setHint(null);
+    setHintLevel(0);
     return true;
   }, [active, markSolved, play, playFromSan]);
 
@@ -304,7 +305,7 @@ export default function Training() {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
     }
-    setHint(null);
+    setHintLevel(0);
     setActive(startPuzzle(active.puzzle));
   }, [active, startPuzzle]);
 
@@ -315,7 +316,7 @@ export default function Training() {
     }
     const next = { ...stats, streak: 0 };
     persistStats(next);
-    setHint(null);
+    setHintLevel(0);
     advance();
   }, [stats, persistStats, advance]);
 
@@ -325,7 +326,7 @@ export default function Training() {
     setActive(null);
     setSessionSolved(0);
     solvedSinceRefill.current = 0;
-    setHint(null);
+    setHintLevel(0);
     void fetchIntoQueue(INITIAL_BATCH, true);
   }, [fetchIntoQueue]);
 
@@ -346,12 +347,15 @@ export default function Training() {
 
   const handleHint = useCallback(() => {
     if (!active || active.status !== 'playing') return;
-    play('click');
     const expected = active.puzzle.moves.split(' ')[active.moveIdx];
-    if (expected) {
+    if (!expected) return;
+    const next = (hintLevel + 1) % 3;
+    setHintLevel(next);
+    // Level 1 needs the hint data; levels 2 and 0 reuse/clear it.
+    if (next === 1) {
       setHint({ from: expected.slice(0, 2), to: expected.slice(2, 4) });
     }
-  }, [active, play]);
+  }, [active, hintLevel]);
 
   /* -------------------------------------------------------------------------- */
   /*  Auto-advance after completing a puzzle                                     */
@@ -400,7 +404,7 @@ export default function Training() {
         <AlertTriangle className="w-10 h-10 text-[var(--color-accent)]" />
         <p className="text-sm text-[var(--color-text-muted)] text-center max-w-xs">{error}</p>
         <button
-          onClick={() => { play('click'); freshBatch(); }}
+          onClick={() => { freshBatch(); }}
           className="bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm flex items-center gap-2 hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
         >
           {refreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
@@ -461,7 +465,8 @@ export default function Training() {
               playable={active.status === 'playing'}
               orientation={active.playerColor === 'w' ? 'white' : 'black'}
               highlightSquares={active.lastMove}
-              hintSquare={hint?.from}
+              hintSquare={hintLevel === 1 && hint ? hint.from : undefined}
+              arrows={hintLevel === 2 && hint ? [{ from: hint.from, to: hint.to, color: '#00a000' }] : undefined}
               animationDurationInMs={300}
             />
           </div>
@@ -480,7 +485,7 @@ export default function Training() {
               )}
             </p>
             <button
-              onClick={() => { play('click'); freshBatch(); }}
+              onClick={() => { freshBatch(); }}
               className="group flex items-center gap-1 text-xs font-bold text-[var(--color-text-muted)] hover:text-white transition-colors rounded-lg px-2 py-1 -mr-2 hover:bg-[var(--color-background)]"
             >
               <RotateCcw className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
@@ -500,7 +505,7 @@ export default function Training() {
                 ))}
               </div>
               <button
-                onClick={() => { play('click'); advance(); }}
+                onClick={() => { advance(); }}
                 className="group w-full flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-6 py-2.5 rounded-lg font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] transition-all duration-200"
               >
                 Next puzzle <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
@@ -520,13 +525,13 @@ export default function Training() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <button
-                  onClick={() => { play('click'); retry(); }}
+                  onClick={() => { retry(); }}
                   className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-lg font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
                 >
                   <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Retry
                 </button>
                 <button
-                  onClick={() => { play('click'); skip(); }}
+                  onClick={() => { skip(); }}
                   className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] transition-all duration-200"
                 >
                   <SkipForward className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Skip
@@ -640,11 +645,12 @@ export default function Training() {
               className={`group flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 hover:shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)] active:scale-[0.97] transition-all ${isFailed ? 'col-span-2' : ''}`}
             >
               <Lightbulb className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Hint
+              {hintLevel > 0 && <span className="text-[10px] font-mono bg-amber-500/20 rounded px-1 leading-4">{hintLevel}/2</span>}
             </button>
 
             {isFailed && (
               <button
-                onClick={() => { play('click'); retry(); }}
+                onClick={() => { retry(); }}
                 className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
                 <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Retry
@@ -653,7 +659,7 @@ export default function Training() {
 
             {isFailed && (
               <button
-                onClick={() => { play('click'); skip(); }}
+                onClick={() => { skip(); }}
                 className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] active:scale-[0.97] transition-all"
               >
                 <SkipForward className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Skip puzzle
@@ -662,7 +668,7 @@ export default function Training() {
 
             {isSolved && (
               <button
-                onClick={() => { play('click'); advance(); }}
+                onClick={() => { advance(); }}
                 className="group flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
                 Next puzzle <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />

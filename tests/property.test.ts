@@ -10,6 +10,8 @@ import {
   getMoveAccuracyFromWin,
 } from '../src/lib/reporter/expectedPoints';
 import { classifyMove } from '../src/lib/reporter/classify';
+import { pointLossClassify, depthStrictnessScale } from '../src/lib/reporter/classification/pointLoss';
+import type { ExtractedCurrentNode } from '../src/lib/reporter/types';
 import { getGameAnalysis } from '../src/lib/reporter/report';
 import { getSubjectiveEvaluation, setFenTurn, getCaptureSquare } from '../src/lib/reporter/chess';
 import { getTopEngineLine } from '../src/lib/engine';
@@ -129,6 +131,58 @@ describe('getExpectedPointsLoss', () => {
       'w',
     );
     expect(loss).toBeGreaterThan(improvedWhite);
+  });
+});
+
+describe('depthStrictnessScale', () => {
+  it('is 1.0 at depth 12 (current behavior preserved)', () => {
+    expect(depthStrictnessScale(12)).toBe(1.0);
+  });
+
+  it('is monotonically decreasing with depth', () => {
+    for (let d = 1; d < 40; d++) {
+      expect(depthStrictnessScale(d + 1)).toBeLessThanOrEqual(depthStrictnessScale(d));
+    }
+  });
+
+  it('stays within [0.55, 1.4] bounds', () => {
+    for (let d = 1; d <= 40; d++) {
+      const s = depthStrictnessScale(d);
+      expect(s).toBeGreaterThanOrEqual(0.55);
+      expect(s).toBeLessThanOrEqual(1.4);
+    }
+  });
+});
+
+describe('pointLossClassify depth strictness', () => {
+  it('classifies the same eval delta as mistake at depth 8 and blunder at depth 18', () => {
+    // White drops from +2.0 to 0.0 (~0.17 expected-points loss).
+    const prevEval: Evaluation = { type: 'centipawn', value: 200 };
+    const currEval: Evaluation = { type: 'centipawn', value: 0 };
+    const board = new Chess();
+    const playedMove = board.move('e4');
+    const current: ExtractedCurrentNode = {
+      board,
+      fen: board.fen(),
+      topLine: {
+        evaluation: currEval,
+        source: 'test',
+        depth: 18,
+        index: 1,
+        moves: [{ uci: 'e2e4', san: 'e4' }],
+      },
+      evaluation: currEval,
+      subjectiveEvaluation: { type: 'centipawn', value: 0 },
+      playedMove,
+    };
+
+    const loss = getExpectedPointsLoss(prevEval, currEval, 'w');
+    // Sanity: the delta sits in the 'mistake' band at depth 12 (0.12–0.22).
+    expect(loss).toBeGreaterThan(0.12);
+    expect(loss).toBeLessThan(0.22);
+
+    expect(pointLossClassify(prevEval, current, 8)).toBe('mistake');
+    expect(pointLossClassify(prevEval, current, 18)).toBe('blunder');
   });
 });
 

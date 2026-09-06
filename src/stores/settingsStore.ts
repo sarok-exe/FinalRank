@@ -179,7 +179,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   engineGoMode: 'depth',
   engineEffort: 'balanced',
   engineTimeLimitMs: 2000,
-  engineVersion: 'stockfish-18-lite-single.js',
+  engineVersion: 'stockfish-17-lite-single.js',
   engineLinesCount: 2,
   followBestLine: false,
   suggestionArrows: false,

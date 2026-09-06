@@ -3,10 +3,24 @@ import type { MoveClassification, Evaluation } from '../../../types';
 import type { ExtractedCurrentNode } from '../types';
 import { getExpectedPointsLoss } from '../expectedPoints';
 
+/**
+ * Depth-aware strictness multiplier for expected-points-loss thresholds.
+ * Higher analysis depth → stricter classification (lower thresholds).
+ * - depth 12 → 1.0 (current behavior preserved)
+ * - depth 18 → 0.625 (stricter)
+ * - depth 8  → 1.25 (more lenient)
+ * - depth 25 → 0.55 (very strict, clamped floor)
+ */
+export function depthStrictnessScale(depth: number): number {
+  return Math.min(1.4, Math.max(0.55, 1.75 - 0.0625 * depth));
+}
+
 export function pointLossClassify(
   previousEvaluation: Evaluation,
-  current: ExtractedCurrentNode
+  current: ExtractedCurrentNode,
+  depth: number = 12
 ): MoveClassification {
+  const scale = depthStrictnessScale(depth);
   const previousSubjectiveValue = previousEvaluation.value * (current.playedMove.color === WHITE ? 1 : -1);
   const subjectiveValue = current.subjectiveEvaluation.value;
 
@@ -22,9 +36,9 @@ export function pointLossClassify(
   }
 
   if (previousEvaluation.type === 'mate' && current.evaluation.type === 'centipawn') {
-    if (subjectiveValue >= 800) return 'excellent';
-    if (subjectiveValue >= 400) return 'okay';
-    if (subjectiveValue >= 200) return 'inaccuracy';
+    if (subjectiveValue >= 800 * scale) return 'excellent';
+    if (subjectiveValue >= 400 * scale) return 'okay';
+    if (subjectiveValue >= 200 * scale) return 'inaccuracy';
     if (subjectiveValue >= 0) return 'mistake';
     return 'blunder';
   }
@@ -38,10 +52,10 @@ export function pointLossClassify(
 
   const pointLoss = getExpectedPointsLoss(previousEvaluation, current.evaluation, current.playedMove.color === WHITE ? 'w' : 'b');
 
-  if (pointLoss < 0.01) return 'best';
-  if (pointLoss < 0.045) return 'excellent';
-  if (pointLoss < 0.08) return 'okay';
-  if (pointLoss < 0.12) return 'inaccuracy';
-  if (pointLoss < 0.22) return 'mistake';
+  if (pointLoss < 0.01 * scale) return 'best';
+  if (pointLoss < 0.045 * scale) return 'excellent';
+  if (pointLoss < 0.08 * scale) return 'okay';
+  if (pointLoss < 0.12 * scale) return 'inaccuracy';
+  if (pointLoss < 0.22 * scale) return 'mistake';
   return 'blunder';
 }

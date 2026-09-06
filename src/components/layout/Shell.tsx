@@ -310,10 +310,9 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
       </main>
 
       <footer
-        className={`border-t border-[var(--color-border)] bg-[var(--color-surface)] py-4 text-center text-xs text-[var(--color-text-muted)] flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 max-w-7xl w-full mx-auto gap-1 ${fullscreenMode ? 'hidden' : ''}`}
+        className={`border-t border-[var(--color-border)] bg-[var(--color-surface)] py-4 text-center text-xs text-[var(--color-text-muted)] flex flex-col sm:flex-row items-center justify-center px-4 sm:px-6 max-w-7xl w-full mx-auto gap-1 ${fullscreenMode ? 'hidden' : ''}`}
         style={{ paddingBottom: `calc(1rem + var(--safe-bottom))` }}
       >
-        <p>&copy; 2026 FinalRank.</p>
         <div className="flex items-center space-x-2 sm:space-x-4">
           <span className="text-[var(--color-border)]">|</span>
           <span className="text-[var(--color-text-muted)]">Arrow keys to navigate moves</span>

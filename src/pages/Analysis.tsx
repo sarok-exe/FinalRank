@@ -20,7 +20,6 @@ import {
   ChevronDown,
   RotateCcw,
   Keyboard,
-  Lightbulb,
   Maximize,
   Focus,
   Pause,
@@ -265,8 +264,6 @@ export default function Analysis() {
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
-  // Progressive hint: 0 = off, 1 = highlight the piece to move, 2 = show the move arrow.
-  const [hintLevel, setHintLevel] = useState(0);
   // Danger review: post-analysis threat overlay. `dangerConsumedRef` latches the
   // prompt so it can only appear once per game; `gameThreats` holds the per-position
   // threat sets computed on opt-in.
@@ -527,23 +524,27 @@ function formatDuration(ms: number | undefined): string {
   React.useEffect(() => {
     if (prevDangerAnalyzingRef.current && !analyzing) {
       const fresh = useGameStore.getState();
-      if (fresh.analysisProgress >= 100 && !dangerConsumedRef.current && fresh.selectedGame) {
-        setDangerPromptVisible(true);
+      if (fresh.analysisProgress >= 100 && fresh.selectedGame) {
+        // Precompute the per-position threat sets in the background so the
+        // danger review is instant when the user opts in — no on-the-fly wait.
+        if (gameThreats.length === 0) {
+          setGameThreats(computeGameThreats(
+            fresh.selectedGame.moves.map((m, i) => ({ fen: m.fen, bestSan: fresh.selectedGame!.moves[i + 1]?.san })),
+          ));
+        }
+        if (!dangerConsumedRef.current) {
+          setDangerPromptVisible(true);
+        }
       }
     }
     prevDangerAnalyzingRef.current = analyzing;
-  }, [analyzing]);
+  }, [analyzing, gameThreats]);
 
-  // A new game resets the danger prompt latch.
+  // A new game resets the danger prompt latch and clears stale threat sets.
   React.useEffect(() => {
     dangerConsumedRef.current = false;
+    setGameThreats([]);
   }, [selectedGame?.id]);
-
-  // The hint is tied to the position on the board — any navigation, game switch,
-  // what-if toggle, or analysis run clears it.
-  React.useEffect(() => {
-    setHintLevel(0);
-  }, [currentMoveIndex, selectedGame?.id, hypothesisActive, analyzing]);
 
   // POST-GAME FLOW — ACTIONS. Dismissal and Re-analyze both consume the panel;
   // Play new match heads back to the tools page for the next game.
@@ -1423,8 +1424,6 @@ function formatDuration(ms: number | undefined): string {
       orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
       bestMoveArrow={hypothesisActive || settings.suggestionArrows ? bestMove : undefined}
-      hintSquare={hintLevel === 1 && bestMove ? bestMove.from : undefined}
-      arrows={hintLevel === 2 && bestMove ? [{ from: bestMove.from, to: bestMove.to, color: '#00a000' }] : undefined}
       dangerSquares={dangerSquares}
       rightClickedSquares={rightClickedSquares}
       onSquareRightClick={(sq) => {
@@ -1432,7 +1431,7 @@ function formatDuration(ms: number | undefined): string {
           prev.includes(sq) ? [] : [...prev, sq]
         );
       }}
-      onLeftClick={() => { setRightClickedSquares([]); setHintLevel(0); }}
+      onLeftClick={() => { setRightClickedSquares([]); }}
       winnerOverlay={isCheckmate && !!winnerSide}
       winnerSide={winnerSide}
       checkmateOverlay={isCheckmate && !!checkmateSide}
@@ -1577,19 +1576,6 @@ function formatDuration(ms: number | undefined): string {
       >
         <RotateCcw className="w-3.5 h-3.5" />
         <span className="hidden xs:inline">Flip</span>
-      </button>
-      <button
-        onClick={() => { setHintLevel(prev => (prev + 1) % 3); }}
-        disabled={!bestMove}
-        className={`group flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs border transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${
-          hintLevel > 0
-            ? 'bg-amber-500/15 border-amber-500/40 text-amber-400'
-            : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
-        }`}
-        title="Show hint"
-      >
-        <Lightbulb className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
-        <span className="hidden xs:inline">Hint</span>
       </button>
       <button
         onClick={handleToggleDanger}

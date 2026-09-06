@@ -66,8 +66,9 @@ export function classifyMove(
     return { classification: pointLossClassify(prevTopLine.evaluation, curr), opening };
   }
 
+  const depth = prev.topLine?.depth ?? curr.topLine?.depth ?? 12;
   const topMovePlayed = prev.topMove.san === curr.playedMove.san;
-  let classification: MoveClassification | undefined = topMovePlayed ? 'best' : pointLossClassify(prev.evaluation, curr);
+  let classification: MoveClassification | undefined = topMovePlayed ? 'best' : pointLossClassify(prev.evaluation, curr, depth);
 
   if (opts.includeCritical && topMovePlayed && considerCriticalClassification(prev, curr)) {
     classification = 'critical';
