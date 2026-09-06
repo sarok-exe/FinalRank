@@ -8,6 +8,7 @@ import {
   getExpectedPointsLoss,
   getGameAccuracy,
   getMoveAccuracyFromWin,
+  getMoveAccuracyFromWinChesscom,
 } from '../src/lib/reporter/expectedPoints';
 import { classifyMove } from '../src/lib/reporter/classify';
 import { pointLossClassify, depthStrictnessScale } from '../src/lib/reporter/classification/pointLoss';
@@ -445,5 +446,65 @@ describe('reporter/chess utils', () => {
 
   it('getTopEngineLine handles empty input', () => {
     expect(getTopEngineLine([])).toBeUndefined();
+  });
+});
+
+describe('power-mean aggregation', () => {
+  it('lies between arithmetic and harmonic mean for a mixed array', () => {
+    const accs = [95, 95, 95, 95, 95, 95, 95, 95, 95, 5];
+    const n = accs.length;
+    const arithmetic = accs.reduce((s, a) => s + a, 0) / n;
+    const harmonic = n / accs.reduce((s, a) => s + 1 / a, 0);
+    const power = getGameAccuracy(accs);
+    // Power mean (p=0.25) should sit between harmonic (≤ geometric ≤ arithmetic)
+    expect(power).toBeGreaterThan(harmonic);
+    expect(power).toBeLessThan(arithmetic);
+  });
+
+  it('approaches the maximum for near-uniform arrays', () => {
+    const accs = Array(20).fill(99);
+    expect(getGameAccuracy(accs)).toBeCloseTo(99, 0);
+  });
+
+  it('is 100 when every move is 100', () => {
+    const accs = Array(30).fill(100);
+    expect(getGameAccuracy(accs)).toBeCloseTo(100, 4);
+  });
+
+  it('is 0 for an empty array', () => {
+    expect(getGameAccuracy([])).toBe(0);
+  });
+});
+
+describe('getMoveAccuracyFromWinChesscom', () => {
+  it('returns 100 when position did not worsen', () => {
+    expect(getMoveAccuracyFromWinChesscom(50, 50)).toBe(100);
+    expect(getMoveAccuracyFromWinChesscom(50, 60)).toBe(100);
+    expect(getMoveAccuracyFromWinChesscom(50, 100)).toBe(100);
+  });
+
+  it('returns near 0 for a catastrophic loss', () => {
+    // 50 pp win% drop → should be very close to 0
+    const acc = getMoveAccuracyFromWinChesscom(80, 30);
+    expect(acc).toBeLessThan(10);
+    expect(acc).toBeGreaterThanOrEqual(0);
+  });
+
+  it('is always in [0, 100]', () => {
+    fc.assert(fc.property(
+      fc.float({ min: 0, max: 100, noNaN: true }),
+      fc.float({ min: 0, max: 100, noNaN: true }),
+      (a, b) => {
+        const acc = getMoveAccuracyFromWinChesscom(a, b);
+        return acc >= 0 && acc <= 100;
+      },
+    ));
+  });
+
+  it('is steeper than Lichess for moderate losses', () => {
+    // 20 pp win% drop: chess.com should score lower than Lichess
+    const cc = getMoveAccuracyFromWinChesscom(70, 50);
+    const li = getMoveAccuracyFromWin(70, 50);
+    expect(cc).toBeLessThan(li);
   });
 });
