@@ -37,8 +37,15 @@ export function computeThreats(fen: string, bestMoveSan?: string): ThreatInfo[] 
 
   // chess.js only generates moves for the side to move, so flip the turn on a
   // clone to enumerate the enemy's attacks. The piece layout is unchanged.
-  const attackBoard = new Chess(fen);
-  attackBoard.setTurn(enemy);
+  //
+  // NOTE: chess.js's setTurn() flips the turn by making a null move ('--'),
+  // which throws "Null move not allowed when in check" whenever the side to
+  // move is in check. Rewrite the FEN's active-color field instead (and clear
+  // the en passant square — only the original side to move could capture en
+  // passant, so the flipped side cannot).
+  const [placement, , castling, , halfmove, fullmove] = fen.split(' ');
+  const attackFen = [placement, enemy, castling, '-', halfmove, fullmove].join(' ');
+  const attackBoard = new Chess(attackFen);
 
   // target square -> squares of enemy pieces that can legally move there
   const attacks = new Map<string, string[]>();

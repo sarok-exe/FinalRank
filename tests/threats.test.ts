@@ -37,6 +37,18 @@ describe('computeThreats', () => {
     expect(computeThreats('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1')).toEqual([]);
   });
 
+  it('does not crash when the side to move is in check', () => {
+    // Black king e8 is in check from the rook e2; the bishop c3 attacks the
+    // black knight f6. chess.js's setTurn() (null move) throws here, so the
+    // FEN-based turn flip must be used instead.
+    const fen = '4k3/8/5n2/8/8/2B5/4R3/4K3 b - - 0 1';
+    const threats = computeThreats(fen);
+    const f6 = threats.find(t => t.square === 'f6');
+    expect(f6).toBeDefined();
+    expect(f6!.piece).toBe('bN');
+    expect(f6!.attackers).toContain('c3');
+  });
+
   it('marks exploitable when the best move captures the threatened piece', () => {
     const fen = '4r2k/8/8/4Q3/8/8/8/4K3 w - - 0 1';
     const threats = computeThreats(fen, 'Rxe5');
