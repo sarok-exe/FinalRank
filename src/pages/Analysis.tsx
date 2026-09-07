@@ -2248,6 +2248,15 @@ function formatDuration(ms: number | undefined): string {
         >
           Refresh
         </button>
+        {allAnalyses.length > 0 && (
+          <button
+            onClick={() => { setShowPriorAnalyses(true); }}
+            className="text-[10px] font-bold text-green-400 border border-green-600 px-2 py-0.5 rounded hover:bg-green-600 hover:text-white transition-all"
+            title="Open analyzed games"
+          >
+            Pre-analyzed ({allAnalyses.length})
+          </button>
+        )}
       </div>
 
       {showGameList && (
@@ -2390,8 +2399,10 @@ function formatDuration(ms: number | undefined): string {
             </p>
             <div className="space-y-2">
               {allAnalyses.map((entry, i) => {
-                const whiteName = entry.game.white?.username || 'White';
-                const blackName = entry.game.black?.username || 'Black';
+                const w = entry.game.white;
+                const b = entry.game.black;
+                const whiteName = w?.username || 'White';
+                const blackName = b?.username || 'Black';
                 return (
                   <button
                     key={`${entry.engine}-${entry.depth}-${i}`}
@@ -2405,13 +2416,23 @@ function formatDuration(ms: number | undefined): string {
                     }}
                     className="w-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)] transition-all text-left"
                   >
-                    <span className="flex items-center gap-2 min-w-0">
-                      <Activity className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
-                      <span className="text-xs font-bold text-white truncate">{whiteName} vs {blackName}</span>
-                      <span className="text-[10px] font-mono bg-[var(--color-surface)] px-2 py-0.5 rounded text-[var(--color-accent)] shrink-0">depth {entry.depth}</span>
+                    <span className="flex flex-col min-w-0 flex-1">
+                      <span className="flex items-center gap-2 min-w-0">
+                        <PlayerAvatar name={whiteName} avatar={w?.avatar} size={20} />
+                        <span className="text-xs font-bold text-white truncate">{whiteName}</span>
+                        {w?.rating != null && <span className="text-[10px] font-mono text-[var(--color-text-muted)] shrink-0">Elo {w.rating}</span>}
+                      </span>
+                      <span className="flex items-center gap-2 min-w-0 mt-1">
+                        <PlayerAvatar name={blackName} avatar={b?.avatar} size={20} />
+                        <span className="text-xs font-bold text-white truncate">{blackName}</span>
+                        {b?.rating != null && <span className="text-[10px] font-mono text-[var(--color-text-muted)] shrink-0">Elo {b.rating}</span>}
+                      </span>
                     </span>
-                    <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
-                      {entry.analyzedAt ? `Analyzed ${entry.analyzedAt.slice(0, 10)}` : 'Analyzed'}
+                    <span className="flex flex-col items-end shrink-0 gap-1">
+                      <span className="text-[10px] font-mono bg-[var(--color-surface)] px-2 py-0.5 rounded text-[var(--color-accent)]">depth {entry.depth}</span>
+                      <span className="text-[10px] text-[var(--color-text-muted)]">
+                        {entry.analyzedAt ? `Analyzed ${entry.analyzedAt.slice(0, 10)}` : 'Analyzed'}
+                      </span>
                     </span>
                   </button>
                 );

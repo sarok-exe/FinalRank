@@ -579,6 +579,22 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       <div className="space-y-2.5">
         <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
           <Zap className="w-4 h-4 text-[var(--color-accent)]" />
+          <span>Chess Engine</span>
+        </label>
+        <select
+          value={settings.engineVersion ?? 'stockfish-18-lite-single.js'}
+          onChange={e => { updateSettings({ engineVersion: e.target.value }); }}
+          className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+        >
+          <option value="stockfish-18-lite-single.js">Stockfish 18 Lite</option>
+          <option value="stockfish-17-lite-single.js">Stockfish 17 Lite</option>
+        </select>
+        <p className="text-[10px] text-[var(--color-text-muted)]">17 Lite is lighter and faster on low-end devices</p>
+      </div>
+
+      <div className="space-y-2.5">
+        <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+          <Zap className="w-4 h-4 text-[var(--color-accent)]" />
           <span>Engine Depth</span>
         </label>
         <select
