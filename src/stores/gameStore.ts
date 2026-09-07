@@ -493,7 +493,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    if (autoAnalyzing) return;
+    if (autoAnalyzing) {
+      // A background auto-analysis of a DIFFERENT game holds the engine pool.
+      // Don't swallow the click silently — tell the user why nothing started.
+      useToastStore.getState().addToast({
+        type: 'info',
+        message: 'Auto-analysis is running — try again in a moment.',
+      });
+      return;
+    }
 
     set({ analyzing: true, analysisProgress: 1 });
 

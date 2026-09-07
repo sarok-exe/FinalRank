@@ -1,30 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Activity, CheckCircle2 } from 'lucide-react';
 import { useGameStore } from '../stores/gameStore';
 
 export default function AnalysisOverlay(): React.JSX.Element | null {
   const analyzing = useGameStore(s => s.analyzing);
-  const autoAnalyzing = useGameStore(s => s.autoAnalyzing);
   const progress = useGameStore(s => s.analysisProgress);
   const selectedGame = useGameStore(s => s.selectedGame);
 
   const [showComplete, setShowComplete] = useState(false);
 
-  // Analysis is busy during a manual run OR a background auto-analysis (e.g.
-  // right after importing a game) — both must surface the progress bar.
-  const busy = analyzing || autoAnalyzing;
+  // The loading screen only appears for a MANUAL analysis (user clicked
+  // "Analyze"). Background auto-analysis (e.g. right after importing or
+  // linking games) runs silently and never pops the full-screen overlay.
+  const busy = analyzing;
 
-  // When analysis finishes, flash the checkmark briefly then dismiss
+  // Track the previous analyzing state so the "Analysis Complete" flash only
+  // fires when a manual run finishes — never when background auto-analysis
+  // ends (analyzing stays false throughout an auto run).
+  const prevAnalyzing = useRef(false);
+
   useEffect(() => {
-    if (!analyzing && !autoAnalyzing && progress >= 100) {
+    const wasAnalyzing = prevAnalyzing.current;
+    prevAnalyzing.current = analyzing;
+
+    if (wasAnalyzing && !analyzing && progress >= 100) {
       setShowComplete(true);
       const t = setTimeout(() => { setShowComplete(false); }, 1200);
       return () => { clearTimeout(t); };
     }
-    if (busy) {
+    if (analyzing) {
       setShowComplete(false);
     }
-  }, [analyzing, autoAnalyzing, busy, progress]);
+  }, [analyzing, progress]);
 
   // Lock body scroll while visible
   useEffect(() => {
