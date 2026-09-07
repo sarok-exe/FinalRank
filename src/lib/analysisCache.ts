@@ -96,6 +96,35 @@ export async function getPriorAnalyses(pgn: string): Promise<AnalysisRunMeta[]> 
   return [...seen.values()].sort((a, b) => b.depth - a.depth);
 }
 
+export type AllAnalysisEntry = {
+  game: ChessGame;
+  depth: number;
+  engine: string;
+  analyzedAt: string;
+};
+
+/** Every cached analysis across all games, deduped by (hash|depth|engine) and
+ *  newest first. Powers the Pre-analyzed modal so background auto-analysis
+ *  results are always reachable. */
+export async function getAllAnalyses(): Promise<AllAnalysisEntry[]> {
+  const seen = new Map<string, AllAnalysisEntry>();
+  for (const e of readCache()) {
+    const key = `${e.hash}|${e.depth}|${e.engine}`;
+    const existing = seen.get(key);
+    if (!existing || e.analyzedAt > existing.analyzedAt) {
+      seen.set(key, { game: e.game, depth: e.depth, engine: e.engine, analyzedAt: e.analyzedAt });
+    }
+  }
+  return [...seen.values()].sort((a, b) => (a.analyzedAt < b.analyzedAt ? 1 : -1));
+}
+
+/** True if ANY cached analysis exists for this PGN (any depth/engine). Used to
+ *  keep background auto-analysis limited to genuinely new games. */
+export async function hasAnyAnalysis(pgn: string): Promise<boolean> {
+  const hash = hashPgn(pgn);
+  return readCache().some((e) => e.hash === hash);
+}
+
 export async function batchCheckAnalysis(games: ChessGame[], minDepth: number, engine: string = ''): Promise<Record<string, boolean>> {
   const result: Record<string, boolean> = {};
   if (games.length === 0) return result;

@@ -8,7 +8,7 @@ import { classifyMove } from '../lib/reporter/classify';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { batchCheckAnalysis, batchCheckAnyAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn } from '../lib/analysisCache';
+import { batchCheckAnalysis, batchCheckAnyAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn, hasAnyAnalysis } from '../lib/analysisCache';
 import { saveAnalysisStats } from '../lib/communityApi';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
@@ -62,6 +62,7 @@ type GameState = {
   triggerEvaluationPipeline(depth?: number): Promise<void>;
   autoAnalyzeGame(gameId: string): Promise<void>;
   loadPriorAnalysis(depth: number, engine: string): Promise<boolean>;
+  loadCachedGame(game: ChessGame): void;
   setGames(games: ChessGame[]): void;
   clearGames(): void;
   fetchLinkedUserGames(): Promise<void>;
@@ -398,6 +399,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const game = games.find(g => g.id === gameId) ?? linkedGames.find(g => g.id === gameId);
     if (!game || game.moves.length === 0) return;
 
+    // Background auto-analysis only handles genuinely new games — skip any game
+    // that already has a cached analysis (any depth/engine). The user can still
+    // re-analyze manually via the Analyze button.
+    if (await hasAnyAnalysis(game.pgn)) return;
+
     const settings = useSettingsStore.getState().settings;
     const depth = settings.engineDepth;
     const autoEnabled = settings.featureToggles.autoAnalyze;
@@ -448,6 +454,27 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
     });
     return true;
+  },
+
+  // Load a fully-analyzed game straight from the analysis cache (used by the
+  // Pre-analyzed modal, which lists analyses across ALL games). The cached game
+  // already carries moves, accuracy, and classifications, so it becomes the
+  // selected game directly.
+  loadCachedGame: (game) => {
+    set((state) => ({
+      selectedGame: game,
+      analysisCache: { ...state.analysisCache, [game.id]: game },
+      analyzedPgnHashes: { ...state.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
+      analyzedAnyPgnHashes: { ...state.analyzedAnyPgnHashes, [hashPgn(game.pgn)]: true },
+      currentMoveIndex: -1,
+      hypothesisActive: false,
+      hypothesisMoves: [],
+      hypothesisBaseIndex: 0,
+      hypothesisSearching: false,
+      hypothesisLines: null,
+      hypothesisDepth: 0,
+      hypothesisClassification: null,
+    }));
   },
 
   triggerEvaluationPipeline: async (depth?: number) => {
@@ -604,7 +631,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         };
       });
 
-      const uncached = withIds.filter(g => !analysisStatus[hashPgn(g.pgn)]);
+      // Only genuinely new games (no cached analysis at ANY depth/engine) get
+      // background auto-analysis. Games already analyzed are left alone — the
+      // user can re-analyze them manually via the Analyze button.
+      const uncached = withIds.filter(g => !anyAnalysisStatus[hashPgn(g.pgn)]);
       if (uncached.length === 0) {
         set({ linkedAnalyzing: false });
         return;

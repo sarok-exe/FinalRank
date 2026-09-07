@@ -34,7 +34,8 @@ import {
 import { useGameStore, getRecentGames } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
-import { hashPgn, getPriorAnalyses, engineLabel } from '../lib/analysisCache';
+import { hashPgn, getPriorAnalyses, getAllAnalyses, engineLabel } from '../lib/analysisCache';
+import type { AllAnalysisEntry } from '../lib/analysisCache';
 import type { AnalysisRunMeta } from '../lib/analysisCache';
 import { shortIdFromKey } from '../lib/shortId';
 import type { ChessGame } from '../types';
@@ -215,6 +216,7 @@ export default function Analysis() {
     importPgnDirectly,
     triggerEvaluationPipeline,
     loadPriorAnalysis,
+    loadCachedGame,
     setGames,
     clearGames,
     fetchLinkedUserGames,
@@ -258,6 +260,7 @@ export default function Analysis() {
   const [favoriteGames, setFavoriteGames] = useState<SavedGame[]>([]);
   const [showShare, setShowShare] = useState(false);
   const [priorAnalyses, setPriorAnalyses] = useState<AnalysisRunMeta[]>([]);
+  const [allAnalyses, setAllAnalyses] = useState<AllAnalysisEntry[]>([]);
   const [showPriorAnalyses, setShowPriorAnalyses] = useState(false);
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -652,6 +655,16 @@ function formatDuration(ms: number | undefined): string {
       .catch(() => { if (!cancelled) setPriorAnalyses([]); });
     return () => { cancelled = true; };
   }, [selectedGame?.id]);
+
+  // All cached analyses across every game — powers the Pre-analyzed modal so
+  // background auto-analysis results are always reachable.
+  React.useEffect(() => {
+    let cancelled = false;
+    getAllAnalyses()
+      .then(list => { if (!cancelled) setAllAnalyses(list); })
+      .catch(() => { if (!cancelled) setAllAnalyses([]); });
+    return () => { cancelled = true; };
+  }, [showPriorAnalyses, analysisCache, analyzedAnyPgnHashes]);
 
   React.useEffect(() => {
     const cb = () => { setShowShortcuts(true); };
@@ -1572,23 +1585,23 @@ function formatDuration(ms: number | undefined): string {
             </select>
             <button
               onClick={handleAnalyzePress}
-              disabled={analyzing || autoAnalyzing}
+              disabled={analyzing}
               className={`min-h-[36px] px-3.5 sm:px-4 py-2 rounded-lg text-xs font-bold text-white flex items-center gap-1.5 ${
-                analyzing || autoAnalyzing
+                analyzing
                   ? 'bg-[var(--color-primary)] opacity-70 cursor-wait'
                   : 'bg-[var(--color-primary)]'
               }`}
               id="analyze-game-button"
             >
               <Activity className="w-3.5 h-3.5" />
-              <span>{analyzing || autoAnalyzing ? 'Analyzing...' : 'Analyze'}</span>
+              <span>{analyzing ? 'Analyzing...' : 'Analyze'}</span>
             </button>
-            {priorAnalyses.length > 0 && !analyzing && (
+            {allAnalyses.length > 0 && !analyzing && (
               <button
                 onClick={() => { setShowPriorAnalyses(true); }}
                 className="min-h-[36px] px-3 py-2 rounded-lg text-xs font-bold text-green-500 border border-green-600 hover:bg-green-600 hover:text-white transition-all flex items-center gap-1.5"
                 id="pre-analyzed-button"
-                title="This match was analyzed before. Load a saved analysis instead of re-analyzing."
+                title="Open saved analyses from this and other games."
               >
                 <History className="w-3.5 h-3.5" />
                 <span>Pre-analyzed</span>
@@ -1596,7 +1609,7 @@ function formatDuration(ms: number | undefined): string {
             )}
           </div>
         </div>
-        {(analyzing || autoAnalyzing) && (
+        {analyzing && (
           <div className="mt-2.5 pt-2.5 border-t border-[var(--color-border)]/60">
             <div className="flex items-center justify-between mb-1">
               <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzing</span>
@@ -1619,7 +1632,7 @@ function formatDuration(ms: number | undefined): string {
             {priorAnalyses.map((run, i) => (
               <button
                 key={`${run.engine}-${run.depth}-${i}`}
-                disabled={analyzing || autoAnalyzing}
+                disabled={analyzing}
                 onClick={async () => {
                   const ok = await loadPriorAnalysis(run.depth, run.engine);
                   if (ok) {
@@ -2362,7 +2375,7 @@ function formatDuration(ms: number | undefined): string {
         </div>
       )}
 
-      {showPriorAnalyses && selectedGame && priorAnalyses.length > 0 && (
+      {showPriorAnalyses && allAnalyses.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowPriorAnalyses(false); }} role="dialog" aria-modal="true" aria-label="Pre-analyzed games">
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-md w-full mx-4 max-h-[80vh] overflow-y-auto" onClick={e => { e.stopPropagation(); }}>
             <div className="flex items-center justify-between mb-4">
@@ -2373,34 +2386,36 @@ function formatDuration(ms: number | undefined): string {
               <button onClick={() => { setShowPriorAnalyses(false); }} className="text-[var(--color-text-muted)] text-xl leading-none"><X className="w-5 h-5" /></button>
             </div>
             <p className="text-xs text-[var(--color-text-muted)] mb-3 leading-relaxed">
-              This match was analyzed before. Pick a saved analysis to enter it directly — no need to re-analyze.
+              All saved analyses from background auto-analysis and manual runs. Pick one to open it directly — no need to re-analyze.
             </p>
             <div className="space-y-2">
-              {priorAnalyses.map((run, i) => (
-                <button
-                  key={`${run.engine}-${run.depth}-${i}`}
-                  onClick={async () => {
-                    const ok = await loadPriorAnalysis(run.depth, run.engine);
-                    if (ok) {
+              {allAnalyses.map((entry, i) => {
+                const whiteName = entry.game.white?.username || 'White';
+                const blackName = entry.game.black?.username || 'Black';
+                return (
+                  <button
+                    key={`${entry.engine}-${entry.depth}-${i}`}
+                    onClick={async () => {
+                      loadCachedGame(entry.game);
                       setShowPriorAnalyses(false);
                       useToastStore.getState().addToast({
                         type: 'success',
-                        message: `Loaded pre-analyzed game (${engineLabel(run.engine)})`,
+                        message: `Loaded ${whiteName} vs ${blackName} analysis`,
                       });
-                    }
-                  }}
-                  className="w-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)] transition-all text-left"
-                >
-                  <span className="flex items-center gap-2 min-w-0">
-                    <Activity className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
-                    <span className="text-xs font-bold text-white truncate">{engineLabel(run.engine)}</span>
-                    <span className="text-[10px] font-mono bg-[var(--color-surface)] px-2 py-0.5 rounded text-[var(--color-accent)] shrink-0">depth {run.depth}</span>
-                  </span>
-                  <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
-                    {run.analyzedAt ? `Analyzed ${run.analyzedAt.slice(0, 10)}` : 'Analyzed'}
-                  </span>
-                </button>
-              ))}
+                    }}
+                    className="w-full flex items-center justify-between gap-3 p-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)] transition-all text-left"
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <Activity className="w-4 h-4 text-[var(--color-primary)] shrink-0" />
+                      <span className="text-xs font-bold text-white truncate">{whiteName} vs {blackName}</span>
+                      <span className="text-[10px] font-mono bg-[var(--color-surface)] px-2 py-0.5 rounded text-[var(--color-accent)] shrink-0">depth {entry.depth}</span>
+                    </span>
+                    <span className="text-[10px] text-[var(--color-text-muted)] shrink-0">
+                      {entry.analyzedAt ? `Analyzed ${entry.analyzedAt.slice(0, 10)}` : 'Analyzed'}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
