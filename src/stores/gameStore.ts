@@ -401,9 +401,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     // Automatic analysis may be auto-clamped to the device-tier recommendation
     // when autoDepth is on, so weak devices aren't overwhelmed. A depth the user
-    // explicitly picks in the UI is honored as-is (see triggerEvaluationPipeline).
+    // explicitly picks in the UI (engineDepthExplicit) is honored as-is.
     const tier = detectDeviceTier();
-    const clampDepth = settings.autoDepth && settings.engineEffort !== 'max';
+    const clampDepth = settings.autoDepth && !settings.engineDepthExplicit && settings.engineEffort !== 'max';
     const effectiveDepth = clampDepth ? Math.min(depth, recommendedDepth(tier)) : depth;
 
     // Always run analysis from scratch (no cache lookup)

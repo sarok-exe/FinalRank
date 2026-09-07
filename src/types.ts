@@ -65,6 +65,7 @@ export type UserSettings = {
   rightClickHighlightColor: string;
   parallelWorkers: number;
   autoDepth: boolean;
+  engineDepthExplicit: boolean;
   featureToggles: {
     showCoordinates: boolean;
     autoAnalyze: boolean;

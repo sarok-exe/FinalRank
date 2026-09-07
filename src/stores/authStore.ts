@@ -64,6 +64,7 @@ const DEFAULT_GUEST: User = {
       rightClickHighlightColor: '#e53935',
       parallelWorkers: 4,
       autoDepth: true,
+      engineDepthExplicit: false,
       featureToggles: {
         showCoordinates: true,
         autoAnalyze: true,

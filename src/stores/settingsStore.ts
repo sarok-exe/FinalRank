@@ -204,6 +204,7 @@ const DEFAULT_SETTINGS: UserSettings = {
   rightClickHighlightColor: '#e53935',
   parallelWorkers: recommendedWorkers(detectDeviceTier()),
   autoDepth: true,
+  engineDepthExplicit: false,
   featureToggles: {
     showCoordinates: true,
     autoAnalyze: true,

@@ -1555,7 +1555,7 @@ function formatDuration(ms: number | undefined): string {
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={settings.engineDepth}
-              onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10) }); }}
+              onChange={(e) => { updateSettings({ engineDepth: parseInt(e.target.value, 10), engineDepthExplicit: true }); }}
               className="min-h-[36px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-2.5 py-2 text-xs text-white"
               id="depth-picker"
             >
