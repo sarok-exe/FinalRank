@@ -176,11 +176,11 @@ const ENGINE_VERSIONS: string[] = ['stockfish-18-lite-single.js', 'stockfish-17-
 
 const DEFAULT_SETTINGS: UserSettings = {
   engineDepth: 15,
-  engineGoMode: 'depth',
+  engineGoMode: 'time',
   engineEffort: 'balanced',
-  engineTimeLimitMs: 2000,
-  engineVersion: 'stockfish-17-lite-single.js',
-  engineLinesCount: 2,
+  engineTimeLimitMs: 5000,
+  engineVersion: 'stockfish-18-lite-single.js',
+  engineLinesCount: 3,
   followBestLine: false,
   suggestionArrows: false,
   boardColor: 'elegant',
