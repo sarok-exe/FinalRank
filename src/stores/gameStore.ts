@@ -415,6 +415,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     try {
       await promise;
+      set({ analysisProgress: 100 });
     } finally {
       pendingAnalysis.delete(gameId);
       const state = get();
@@ -452,10 +453,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     // createPositionEvaluator (src/lib/engine/evaluate.ts:251 spawns `new
     // Engine(...)` per call), so the main-game pipeline is blocked entirely
     // while what-if mode is active.
-    if (!selectedGame || analyzing || autoAnalyzing || hypothesisActive || selectedGame.moves.length === 0) return;
+    if (!selectedGame || analyzing || hypothesisActive || selectedGame.moves.length === 0) return;
 
     const evalDepth = depth ?? useSettingsStore.getState().settings.engineDepth;
 
+    // A manual Analyze press during an in-flight auto-analysis of the SAME game
+    // joins the pending run instead of being silently swallowed, so the user
+    // gets immediate progress feedback. Auto-analysis of a DIFFERENT game still
+    // refuses (one engine pool at a time).
     const pending = pendingAnalysis.get(selectedGame.id);
     if (pending) {
       set({ analyzing: true, analysisProgress: 50 });
@@ -483,6 +488,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
       return;
     }
+
+    if (autoAnalyzing) return;
 
     set({ analyzing: true, analysisProgress: 1 });
 

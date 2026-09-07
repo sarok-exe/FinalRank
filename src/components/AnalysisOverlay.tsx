@@ -4,33 +4,38 @@ import { useGameStore } from '../stores/gameStore';
 
 export default function AnalysisOverlay(): React.JSX.Element | null {
   const analyzing = useGameStore(s => s.analyzing);
+  const autoAnalyzing = useGameStore(s => s.autoAnalyzing);
   const progress = useGameStore(s => s.analysisProgress);
   const selectedGame = useGameStore(s => s.selectedGame);
 
   const [showComplete, setShowComplete] = useState(false);
 
+  // Analysis is busy during a manual run OR a background auto-analysis (e.g.
+  // right after importing a game) — both must surface the progress bar.
+  const busy = analyzing || autoAnalyzing;
+
   // When analysis finishes, flash the checkmark briefly then dismiss
   useEffect(() => {
-    if (!analyzing && progress >= 100) {
+    if (!analyzing && !autoAnalyzing && progress >= 100) {
       setShowComplete(true);
       const t = setTimeout(() => { setShowComplete(false); }, 1200);
       return () => { clearTimeout(t); };
     }
-    if (analyzing) {
+    if (busy) {
       setShowComplete(false);
     }
-  }, [analyzing, progress]);
+  }, [analyzing, autoAnalyzing, busy, progress]);
 
   // Lock body scroll while visible
   useEffect(() => {
-    if (analyzing || showComplete) {
+    if (busy || showComplete) {
       const prev = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       return () => { document.body.style.overflow = prev; };
     }
-  }, [analyzing, showComplete]);
+  }, [busy, showComplete]);
 
-  if (!analyzing && !showComplete) return null;
+  if (!busy && !showComplete) return null;
 
   const isDone = showComplete;
   const displayProgress = isDone ? 100 : Math.min(100, Math.max(0, progress));
