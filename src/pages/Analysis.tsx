@@ -1596,6 +1596,23 @@ function formatDuration(ms: number | undefined): string {
             )}
           </div>
         </div>
+        {(analyzing || autoAnalyzing) && (
+          <div className="mt-2.5 pt-2.5 border-t border-[var(--color-border)]/60">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider">Analyzing</span>
+              <span className="text-[10px] font-mono text-[var(--color-text-muted)]">{Math.min(100, Math.max(0, analysisProgress))}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-[var(--color-background)] rounded-full overflow-hidden border border-[var(--color-border)]">
+              <div
+                className="h-full rounded-full transition-all duration-300 ease-out"
+                style={{
+                  width: `${Math.min(100, Math.max(0, analysisProgress))}%`,
+                  background: 'linear-gradient(90deg, var(--color-primary), var(--color-accent))',
+                }}
+              />
+            </div>
+          </div>
+        )}
         {priorAnalyses.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-[var(--color-border)]/60">
             <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mr-0.5">Pre-analyzed:</span>
