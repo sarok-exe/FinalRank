@@ -8,7 +8,7 @@ import { classifyMove } from '../lib/reporter/classify';
 import { getGameAnalysis } from '../lib/reporter/report';
 import { useAuthStore } from './authStore';
 import { useSettingsStore } from './settingsStore';
-import { batchCheckAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn } from '../lib/analysisCache';
+import { batchCheckAnalysis, batchCheckAnyAnalysis, getCachedAnalysisByKey, saveCachedAnalysis, hashPgn } from '../lib/analysisCache';
 import { saveAnalysisStats } from '../lib/communityApi';
 import { getOptimalEngineCount } from '../lib/engine/evaluate';
 import { detectDeviceTier, recommendedDepth, recommendedWorkers } from '../lib/deviceTier';
@@ -39,6 +39,7 @@ type GameState = {
   loadingGames: boolean;
   analysisCache: Record<string, ChessGame | undefined>;
   analyzedPgnHashes: Record<string, boolean>;
+  analyzedAnyPgnHashes: Record<string, boolean>;
   linkedGames: ChessGame[];
   linkedLoading: boolean;
   linkedAnalyzing: boolean;
@@ -96,6 +97,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   loadingGames: false,
   analysisCache: {},
   analyzedPgnHashes: {},
+  analyzedAnyPgnHashes: {},
   linkedGames: [],
   linkedLoading: false,
   linkedAnalyzing: false,
@@ -298,7 +300,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         const withAvatars = await fetchAvatarsForGames(loaded);
         set({ games: withAvatars, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
         const analysisStatus = await batchCheckAnalysis(withAvatars, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
-        set({ analyzedPgnHashes: analysisStatus });
+        const anyAnalysisStatus = await batchCheckAnyAnalysis(withAvatars);
+        set({ analyzedPgnHashes: analysisStatus, analyzedAnyPgnHashes: anyAnalysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
         set({ importJustCompleted: true });
@@ -326,7 +329,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         set({ games: loaded, selectedGame: null, currentMoveIndex: -1, loadingGames: false });
         const analysisStatus = await batchCheckAnalysis(loaded, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
-        set({ analyzedPgnHashes: analysisStatus });
+        const anyAnalysisStatus = await batchCheckAnyAnalysis(loaded);
+        set({ analyzedPgnHashes: analysisStatus, analyzedAnyPgnHashes: anyAnalysisStatus });
         get().selectGame(loaded[0].id);
         void get().autoAnalyzeGame(loaded[0].id);
         set({ importJustCompleted: true });
@@ -577,6 +581,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       }));
 
         const analysisStatus = await batchCheckAnalysis(withIds, useSettingsStore.getState().settings.engineDepth, useSettingsStore.getState().settings.engineVersion);
+        const anyAnalysisStatus = await batchCheckAnyAnalysis(withIds);
       set(state => {
         const deduped = [...state.games, ...withIds].filter(
           (g, i, arr) => arr.findIndex(x => x.id === g.id) === i
@@ -585,6 +590,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           linkedGames: withIds,
           linkedLoading: false,
           analyzedPgnHashes: { ...state.analyzedPgnHashes, ...analysisStatus },
+          analyzedAnyPgnHashes: { ...state.analyzedAnyPgnHashes, ...anyAnalysisStatus },
           games: deduped,
           selectedGame: state.selectedGame,
         };

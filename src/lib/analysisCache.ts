@@ -108,3 +108,19 @@ export async function batchCheckAnalysis(games: ChessGame[], minDepth: number, e
   }
   return result;
 }
+
+// Loose check: marks a game as analyzed if ANY cached run exists for its PGN,
+// regardless of depth or engine. Used for the "✓ Analyzed" badge so a game
+// analyzed at a lower depth (e.g. depth 12) still shows as analyzed even when
+// the current engine setting is higher. The strict batchCheckAnalysis above is
+// kept for decisions that need a minimum depth (e.g. skipping auto-analysis).
+export async function batchCheckAnyAnalysis(games: ChessGame[]): Promise<Record<string, boolean>> {
+  const result: Record<string, boolean> = {};
+  if (games.length === 0) return result;
+  const entries = readCache();
+  for (const g of games) {
+    const hash = hashPgn(g.pgn);
+    if (entries.some((e) => e.hash === hash)) result[hash] = true;
+  }
+  return result;
+}

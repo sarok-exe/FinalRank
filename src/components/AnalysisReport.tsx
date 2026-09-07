@@ -2,7 +2,8 @@ import type React from 'react';
 import { useState, useMemo } from 'react';
 import { BarChart3, TrendingUp, PieChart, ClipboardList, Trophy } from 'lucide-react';
 import type { ChessGame } from '../types';
-import { classificationColours } from '../constants/classifications';
+import { classificationColours, classificationNames } from '../constants/classifications';
+import { useAuthStore } from '../stores/authStore';
 
 type ReportTab = 'review' | 'accuracy' | 'eval' | 'classifications';
 
@@ -27,21 +28,6 @@ const REVIEW_ROWS: { label: string; keys: string[]; color: string }[] = [
   { label: 'Miss', keys: [], color: '#c93230' },
   { label: 'Blunder', keys: ['blunder'], color: classificationColours.blunder },
 ];
-
-const CLASSIFICATION_LABELS: Record<string, string> = {
-  brilliant: 'Brilliant',
-  critical: 'Critical',
-  best: 'Best',
-  excellent: 'Excellent',
-  good: 'Good',
-  okay: 'Okay',
-  book: 'Book',
-  inaccuracy: 'Inaccuracy',
-  mistake: 'Mistake',
-  blunder: 'Blunder',
-  forced: 'Forced',
-  risky: 'Risky',
-};
 
 type Props = {
   readonly game: ChessGame;
@@ -92,6 +78,42 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
     : 0;
 
   const hasAccuracyData = accuracy?.white != null || accuracy?.black != null || classifiedMoves.length > 0;
+
+  // "My side" — the logged-in user's color in this game. Defaults to White when
+  // the username doesn't match either side (or there's no logged-in user).
+  const myUsername = useAuthStore.getState().user?.username;
+  const mySide: 'w' | 'b' = myUsername && myUsername === game.black.username ? 'b' : 'w';
+
+  // Shared chess.com-style player header: avatar (or initial circle), name,
+  // rating, accuracy, and a "You" badge when it's the logged-in user's side.
+  const renderPlayerHeader = (side: 'w' | 'b'): React.JSX.Element => {
+    const player = side === 'w' ? game.white : game.black;
+    const name = player.username || (side === 'w' ? 'White' : 'Black');
+    const isYou = mySide === side;
+    return (
+      <div className={`flex items-center gap-2 min-w-0 rounded-xl p-3 border ${isYou ? 'border-[var(--color-primary)]/50 bg-[var(--color-primary)]/5' : 'border-[var(--color-border)] bg-[var(--color-background)]'}`}>
+        {player.avatar ? (
+          <img src={player.avatar} alt={name} className="w-8 h-8 rounded-full object-cover border border-[var(--color-border)] shrink-0" />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[var(--color-primary)]/20 text-[var(--color-primary)] flex items-center justify-center text-sm font-black shrink-0">
+            {name.charAt(0).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-xs font-bold text-[var(--color-text)] truncate">{name}</span>
+            {isYou && (
+              <span className="shrink-0 text-[9px] font-bold text-[var(--color-primary)] bg-[var(--color-primary)]/15 px-1.5 py-0.5 rounded">You</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-[9px] text-[var(--color-text-muted)] font-mono">
+            {player.rating != null && <span>Rating {player.rating}</span>}
+            <span>Acc {side === 'w' ? (accuracy?.white != null ? accuracy.white.toFixed(1) : '—') : (accuracy?.black != null ? accuracy.black.toFixed(1) : '—')}</span>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // chess.com-style Game Review table. Two columns (White | Black) with the
   // player header, accuracy, classification tallies, game rating, and advanced
@@ -247,11 +269,20 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
     </div>
   );
 
-  type EvalChartItem = { moveNumber: number; score: number | null; isMate: boolean; mateIn: number | null; color: 'w' | 'b'; };
+  type EvalChartItem = { moveNumber: number; score: number; isMate: boolean; mateIn: number | null; color: 'w' | 'b'; classification: string | null; };
   const renderEvalTab = (): React.JSX.Element => {
-    const chartMoves = evalData.filter(
-      (d): d is EvalChartItem & { score: number } => d.score !== null
-    );
+    // Build chart data with classification, and orient scores from the user's
+    // perspective: if the user is Black, invert cp so positive = good for them.
+    const chartMoves: EvalChartItem[] = evalData
+      .map((d, i) => ({
+        moveNumber: d.moveNumber,
+        isMate: d.isMate,
+        mateIn: d.mateIn,
+        color: d.color,
+        classification: (moves[i]?.classification ?? null) as string | null,
+        score: d.score != null && mySide === 'b' ? -d.score : d.score,
+      }))
+      .filter((d): d is EvalChartItem => d.score !== null);
     if (chartMoves.length === 0) {
       return (
         <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">
@@ -278,6 +309,8 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
     const linePath = chartMoves.map((d, i) =>
       `${i === 0 ? 'M' : 'L'}${toX(i)},${toY(d.score)}`
     ).join(' ');
+    // Subtle area fill under the line, down to the bottom of the plot.
+    const areaPath = `${linePath} L${toX(totalMoves - 1)},${padding.top + plotH} L${toX(0)},${padding.top + plotH} Z`;
 
     const zeroY = toY(0);
 
@@ -288,57 +321,70 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
     const xTicks = Math.max(2, Math.min(10, Math.floor(totalMoves / 5)));
     const xStep = Math.max(1, Math.floor(totalMoves / xTicks));
 
+    const pointColor = (classification?: string | null): string =>
+      classification ? (classificationColours[classification] || '#666') : '#666';
+
     return (
-      <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
-        <div className="text-xs font-bold text-[var(--color-text)] mb-3">Evaluation Trend (cp)</div>
-        <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-auto" style={{ maxHeight: 220 }}>
-          <rect x={padding.left} y={padding.top} width={plotW} height={plotH} fill="none" stroke="var(--color-border)" strokeWidth="0.5" />
-          {yLabels.map((label, i) => {
-            const y = padding.top + (plotH * i) / yTicks;
-            return (
-              <g key={i}>
-                <line x1={padding.left} y1={y} x2={chartW - padding.right} y2={y} stroke="var(--color-border)" strokeWidth="0.5" strokeDasharray="4 4" />
-                <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="var(--color-text-muted)" fontSize="9" fontFamily="monospace">
-                  {label}
+      <div className="space-y-4">
+        {/* Player header */}
+        <div className="grid grid-cols-2 gap-3">
+          {renderPlayerHeader('w')}
+          {renderPlayerHeader('b')}
+        </div>
+
+        <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
+          <div className="text-xs font-bold text-[var(--color-text)] mb-3">
+            Evaluation Trend (cp){mySide === 'b' ? ' — from Black\'s perspective' : ''}
+          </div>
+          <svg viewBox={`0 0 ${chartW} ${chartH}`} className="w-full h-auto" style={{ maxHeight: 220 }}>
+            <rect x={padding.left} y={padding.top} width={plotW} height={plotH} fill="none" stroke="var(--color-border)" strokeWidth="0.5" />
+            {yLabels.map((label, i) => {
+              const y = padding.top + (plotH * i) / yTicks;
+              return (
+                <g key={i}>
+                  <line x1={padding.left} y1={y} x2={chartW - padding.right} y2={y} stroke="var(--color-border)" strokeWidth="0.5" strokeDasharray="4 4" />
+                  <text x={padding.left - 8} y={y + 3} textAnchor="end" fill="var(--color-text-muted)" fontSize="9" fontFamily="monospace">
+                    {label}
+                  </text>
+                </g>
+              );
+            })}
+            <line x1={padding.left} y1={zeroY} x2={chartW - padding.right} y2={zeroY} stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="6 3" />
+            {Array.from({ length: xTicks + 1 }).map((_, i) => {
+              const idx = Math.min(i * xStep, totalMoves - 1);
+              const x = toX(idx);
+              return (
+                <text key={i} x={x} y={chartH - 5} textAnchor="middle" fill="var(--color-text-muted)" fontSize="8" fontFamily="monospace">
+                  {chartMoves[idx].moveNumber}
                 </text>
-              </g>
-            );
-          })}
-          <line x1={padding.left} y1={zeroY} x2={chartW - padding.right} y2={zeroY} stroke="var(--color-text-muted)" strokeWidth="1" strokeDasharray="6 3" />
-          {Array.from({ length: xTicks + 1 }).map((_, i) => {
-            const idx = Math.min(i * xStep, totalMoves - 1);
-            const x = toX(idx);
-            return (
-              <text key={i} x={x} y={chartH - 5} textAnchor="middle" fill="var(--color-text-muted)" fontSize="8" fontFamily="monospace">
-                {chartMoves[idx].moveNumber}
-              </text>
-            );
-          })}
-          <path d={linePath} fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-          {chartMoves.map((d, i) => {
-            const cx = toX(i);
-            const cy = toY(d.score);
-            const isWhite = d.color === 'w';
-            return (
-              <circle
-                key={i}
-                cx={cx}
-                cy={cy}
-                r="3"
-                fill={isWhite ? '#ffffff' : '#333333'}
-                stroke="var(--color-primary)"
-                strokeWidth="1.5"
-              />
-            );
-          })}
-        </svg>
-        <div className="flex items-center justify-center gap-4 text-[10px] text-[var(--color-text-muted)] mt-2">
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-white border border-[var(--color-primary)]" /> White
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#333] border border-[var(--color-primary)]" /> Black
-          </span>
+              );
+            })}
+            <path d={areaPath} fill="var(--color-primary)" opacity="0.08" stroke="none" />
+            <path d={linePath} fill="none" stroke="var(--color-primary)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+            {chartMoves.map((d, i) => {
+              const cx = toX(i);
+              const cy = toY(d.score);
+              return (
+                <circle
+                  key={i}
+                  cx={cx}
+                  cy={cy}
+                  r="3.5"
+                  fill={pointColor(d.classification)}
+                  stroke="var(--color-background)"
+                  strokeWidth="1"
+                />
+              );
+            })}
+          </svg>
+          <div className="flex items-center justify-center gap-4 text-[10px] text-[var(--color-text-muted)] mt-2">
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-white border border-[var(--color-primary)]" /> White
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#333] border border-[var(--color-primary)]" /> Black
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -350,78 +396,75 @@ export default function AnalysisReport({ game }: Props): React.JSX.Element {
     if (!hasData) {
       return (
         <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">
-          No classification data. Run analysis to see classification breakdown.
+          No classification data. Run analysis to see the move quality breakdown.
         </div>
       );
     }
 
-    const renderPie = (data: Record<string, number>, label: string): React.JSX.Element | null => {
-      const entries = Object.entries(data).sort(([, a], [, b]) => b - a);
-      const total = entries.reduce((s, [, v]) => s + v, 0);
-      if (total === 0) return null;
-
-      let cumulativeAngle = -90;
-      const segments = entries.map(([key, count]) => {
-        const angle = (count / total) * 360;
-        const startAngle = cumulativeAngle;
-        cumulativeAngle += angle;
-        const endAngle = cumulativeAngle;
-        const startRad = (startAngle * Math.PI) / 180;
-        const endRad = (endAngle * Math.PI) / 180;
-        const r = 60;
-        const cx = 80;
-        const cy = 80;
-        const x1 = cx + r * Math.cos(startRad);
-        const y1 = cy + r * Math.sin(startRad);
-        const x2 = cx + r * Math.cos(endRad);
-        const y2 = cy + r * Math.sin(endRad);
-        const largeArc = angle > 180 ? 1 : 0;
-        const path = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-        const midAngle = startAngle + angle / 2;
-        const midRad = (midAngle * Math.PI) / 180;
-        const labelR = r * 0.65;
-        const lx = cx + labelR * Math.cos(midRad);
-        const ly = cy + labelR * Math.sin(midRad);
-        return { key, count, path, color: classificationColours[key] || '#666', lx, ly, pct: Math.round((count / total) * 100) };
-      });
-
+    // chess.com-style move-quality bar: one colored rectangle per move, in move
+    // order, colored by that move's classification. Two rows (White / Black).
+    const renderBar = (side: 'w' | 'b'): React.JSX.Element => {
+      const sideMoves = moves.filter(m => m.color === side);
+      if (sideMoves.length === 0) {
+        return (
+          <div className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
+            No {side === 'w' ? 'white' : 'black'} moves.
+          </div>
+        );
+      }
       return (
-        <div className="flex flex-col items-center">
-          <div className="text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">{label}</div>
-          <svg width="160" height="160" viewBox="0 0 160 160">
-            {segments.map(s => (
-              <path key={s.key} d={s.path} fill={s.color} stroke="var(--color-background)" strokeWidth="2" />
-            ))}
-            {segments.map(s => {
-              if (s.pct < 8) return null;
+        <div className="flex items-center gap-2">
+          <span className="w-10 shrink-0 text-[10px] font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
+            {side === 'w' ? 'White' : 'Black'}
+          </span>
+          <div className="flex-1 flex gap-px overflow-hidden rounded-sm">
+            {sideMoves.map((m, i) => {
+              const color = m.classification ? (classificationColours[m.classification] || '#666') : '#666';
               return (
-                <text key={s.key} x={s.lx} y={s.ly} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize="8" fontFamily="monospace" fontWeight="bold">
-                  {s.pct}%
-                </text>
+                <div
+                  key={i}
+                  className="flex-1 h-5"
+                  style={{ backgroundColor: color, opacity: m.classification ? 1 : 0.25 }}
+                  title={m.classification ? `${classificationNames[m.classification] || m.classification} — ${m.san}` : `${m.san}`}
+                />
               );
             })}
-          </svg>
-          <div className="flex flex-wrap gap-2 mt-2 justify-center">
-            {segments.map(s => (
-              <div key={s.key} className="flex items-center gap-1 text-[9px]">
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: s.color }} />
-                <span className="text-[var(--color-text-muted)]">{CLASSIFICATION_LABELS[s.key] || s.key}</span>
-                <span className="text-white font-bold">{s.count}</span>
-              </div>
-            ))}
           </div>
         </div>
       );
     };
 
+    // Legend: each classification present, with swatch, label, and count.
+    const legendEntries = Object.keys(classificationAgg.white)
+      .concat(Object.keys(classificationAgg.black))
+      .filter((k, i, arr) => arr.indexOf(k) === i)
+      .sort((a, b) => (classificationAgg.white[b] || 0) + (classificationAgg.black[b] || 0) - ((classificationAgg.white[a] || 0) + (classificationAgg.black[a] || 0)));
+
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {renderPie(classificationAgg.white, 'White') ?? (
-          <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">No white classification data.</div>
-        )}
-        {renderPie(classificationAgg.black, 'Black') ?? (
-          <div className="text-xs text-[var(--color-text-muted)] italic py-8 text-center">No black classification data.</div>
-        )}
+      <div className="space-y-4">
+        <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
+          <div className="text-xs font-bold text-[var(--color-text)] mb-3">Move Quality</div>
+          <div className="space-y-2">
+            {renderBar('w')}
+            {renderBar('b')}
+          </div>
+        </div>
+
+        <div className="bg-[var(--color-background)] rounded-xl p-4 border border-[var(--color-border)]">
+          <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mb-2">Legend</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            {legendEntries.map(key => {
+              const count = (classificationAgg.white[key] || 0) + (classificationAgg.black[key] || 0);
+              return (
+                <div key={key} className="flex items-center gap-1.5 text-xs">
+                  <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: classificationColours[key] || '#666' }} />
+                  <span className="text-[var(--color-text-muted)]">{classificationNames[key] || key}</span>
+                  <span className="text-white font-bold">{count}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   };

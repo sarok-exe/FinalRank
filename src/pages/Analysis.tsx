@@ -195,6 +195,7 @@ export default function Analysis() {
     loadingGames,
     analysisCache,
     analyzedPgnHashes,
+    analyzedAnyPgnHashes,
     linkedGames,
     linkedLoading,
     linkedAnalyzing,
@@ -1102,7 +1103,7 @@ function formatDuration(ms: number | undefined): string {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  {recentGames.map((g) => {
                     const isSel = selectedGame?.id === g.id;
-                  const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+                  const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
                   let borderClass = 'border-[var(--color-border)]';
                   if (isSel) borderClass = 'border-[var(--color-primary)]';
                   else if (isAnalyzed) borderClass = 'border-green-600';
@@ -1186,7 +1187,7 @@ function formatDuration(ms: number | undefined): string {
             )}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {getRecentGames(linkedGames, 'all', 3).map((g) => {
-                const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+                const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
                 return (
                   <button
                     key={g.id}
@@ -1595,6 +1596,30 @@ function formatDuration(ms: number | undefined): string {
             )}
           </div>
         </div>
+        {priorAnalyses.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-[var(--color-border)]/60">
+            <span className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider mr-0.5">Pre-analyzed:</span>
+            {priorAnalyses.map((run, i) => (
+              <button
+                key={`${run.engine}-${run.depth}-${i}`}
+                disabled={analyzing || autoAnalyzing}
+                onClick={async () => {
+                  const ok = await loadPriorAnalysis(run.depth, run.engine);
+                  if (ok) {
+                    useToastStore.getState().addToast({
+                      type: 'success',
+                      message: `Loaded pre-analyzed game (${engineLabel(run.engine)})`,
+                    });
+                  }
+                }}
+                className="px-2 py-1 rounded-md text-[10px] font-bold border border-green-600/60 text-green-500 hover:bg-green-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-wait"
+                title={`${engineLabel(run.engine)} · depth ${run.depth} · ${run.analyzedAt ? `analyzed ${run.analyzedAt.slice(0, 10)}` : 'analyzed'}`}
+              >
+                {engineLabel(run.engine)} · depth {run.depth}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     )}</>
   );
@@ -2200,7 +2225,7 @@ function formatDuration(ms: number | undefined): string {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {games.map((g) => {
               const isSel = selectedGame?.id === g.id;
-              const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)];
+              const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
               let borderClass = 'border-[var(--color-border)]';
               if (isSel) borderClass = 'border-[var(--color-primary)]';
               else if (isAnalyzed) borderClass = 'border-green-600';
