@@ -27,7 +27,6 @@ import {
   Rewind,
   Heart,
   Share2,
-  ShieldAlert,
   GitBranch,
   X,
   Settings2,
@@ -57,8 +56,6 @@ import AnalysisReport from '../components/AnalysisReport';
 import CoachPanel from '../components/CoachPanel';
 import { buildCoachNotes } from '../lib/reporter/coach';
 import type { CoachNote } from '../lib/reporter/coach';
-import { computeThreats, computeGameThreats } from '../lib/threats';
-import type { ThreatInfo } from '../lib/threats';
 
 type SavedGame = {
   id: string;
@@ -264,13 +261,6 @@ export default function Analysis() {
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
-  // Danger review: post-analysis threat overlay. `dangerConsumedRef` latches the
-  // prompt so it can only appear once per game; `gameThreats` holds the per-position
-  // threat sets computed on opt-in.
-  const [dangerMode, setDangerMode] = useState(false);
-  const [dangerPromptVisible, setDangerPromptVisible] = useState(false);
-  const dangerConsumedRef = React.useRef(false);
-  const [gameThreats, setGameThreats] = useState<ThreatInfo[][]>([]);
   // What-if navigation: which hypothesis move's position the board is showing
   // (-1 = the base position before the line). It stays pinned to the tip whenever
   // the line changes, and is stepped with the arrow keys while in what-if mode.
@@ -517,35 +507,6 @@ function formatDuration(ms: number | undefined): string {
     prevPostAnalyzingRef.current = analyzing;
   }, [analyzing, isPostFlow]);
 
-  // DANGER REVIEW — PROMPT REVEAL. When an analysis completes (analyzing true→false
-  // and progress reached 100) and the prompt hasn't been consumed for this game,
-  // offer the danger review. Dismissing or opting in consumes it for the visit.
-  const prevDangerAnalyzingRef = React.useRef(false);
-  React.useEffect(() => {
-    if (prevDangerAnalyzingRef.current && !analyzing) {
-      const fresh = useGameStore.getState();
-      if (fresh.analysisProgress >= 100 && fresh.selectedGame) {
-        // Precompute the per-position threat sets in the background so the
-        // danger review is instant when the user opts in — no on-the-fly wait.
-        if (gameThreats.length === 0) {
-          setGameThreats(computeGameThreats(
-            fresh.selectedGame.moves.map((m, i) => ({ fen: m.fen, bestSan: fresh.selectedGame!.moves[i + 1]?.san })),
-          ));
-        }
-        if (!dangerConsumedRef.current) {
-          setDangerPromptVisible(true);
-        }
-      }
-    }
-    prevDangerAnalyzingRef.current = analyzing;
-  }, [analyzing, gameThreats]);
-
-  // A new game resets the danger prompt latch and clears stale threat sets.
-  React.useEffect(() => {
-    dangerConsumedRef.current = false;
-    setGameThreats([]);
-  }, [selectedGame?.id]);
-
   // POST-GAME FLOW — ACTIONS. Dismissal and Re-analyze both consume the panel;
   // Play new match heads back to the tools page for the next game.
   const dismissPostPanel = React.useCallback(() => {
@@ -564,40 +525,9 @@ function formatDuration(ms: number | undefined): string {
     navigate('/tools');
   }, [navigate]);
 
-  const dismissDangerPrompt = React.useCallback(() => {
-    dangerConsumedRef.current = true;
-    setDangerPromptVisible(false);
-  }, []);
-
-  const handleDangerOptIn = React.useCallback(() => {
-    dangerConsumedRef.current = true;
-    setDangerPromptVisible(false);
-    setDangerMode(true);
-    const game = useGameStore.getState().selectedGame;
-    if (game) {
-      setGameThreats(computeGameThreats(
-        game.moves.map((m, i) => ({ fen: m.fen, bestSan: game.moves[i + 1]?.san })),
-      ));
-    }
-  }, []);
-
   const toggleOrientation = React.useCallback(() => {
     updateSettings({ boardOrientation: settings.boardOrientation === 'white' ? 'black' : 'white' });
   }, [settings.boardOrientation, updateSettings]);
-
-  const handleToggleDanger = React.useCallback(() => {
-    const next = !dangerMode;
-    setDangerMode(next);
-    // First opt-in computes the per-position threat sets on the fly.
-    if (next && gameThreats.length === 0) {
-      const game = useGameStore.getState().selectedGame;
-      if (game) {
-        setGameThreats(computeGameThreats(
-          game.moves.map((m, i) => ({ fen: m.fen, bestSan: game.moves[i + 1]?.san })),
-        ));
-      }
-    }
-  }, [dangerMode, gameThreats]);
 
   React.useEffect(() => {
     if (!autoplay || !selectedGame) return;
@@ -1023,27 +953,6 @@ function formatDuration(ms: number | undefined): string {
     return null;
   }
 
-  // DANGER REVIEW — threatened squares for the current view. Real mode reads the
-  // precomputed per-position threat sets (or the starting position); what-if mode
-  // computes the viewed position's threats on the fly.
-  const dangerSquares = React.useMemo(() => {
-    if (!dangerMode) return [];
-    if (hypothesisActive) {
-      if (effHypViewIndex >= 0) {
-        return computeThreats(hypothesisMoves[effHypViewIndex].fen)
-          .map(t => ({ square: t.square, strong: t.exploitable }));
-      }
-      return [];
-    }
-    if (!selectedGame) return [];
-    if (currentMoveIndex === -1) {
-      return computeThreats(STARTING_FEN)
-        .map(t => ({ square: t.square, strong: t.exploitable }));
-    }
-    return (gameThreats[currentMoveIndex] ?? [])
-      .map(t => ({ square: t.square, strong: t.exploitable }));
-  }, [dangerMode, hypothesisActive, effHypViewIndex, hypothesisMoves, selectedGame, currentMoveIndex, gameThreats]);
-
   if (!isInAnalysis) {
     // Games matching the active import tab, newest first, capped at 3.
     const recentGames = getRecentGames(games, importMode, 3);
@@ -1424,7 +1333,6 @@ function formatDuration(ms: number | undefined): string {
       orientation={boardOrientation}
       highlightSquares={getMoveHighlight()}
       bestMoveArrow={hypothesisActive || settings.suggestionArrows ? bestMove : undefined}
-      dangerSquares={dangerSquares}
       rightClickedSquares={rightClickedSquares}
       onSquareRightClick={(sq) => {
         setRightClickedSquares(prev =>
@@ -1576,18 +1484,6 @@ function formatDuration(ms: number | undefined): string {
       >
         <RotateCcw className="w-3.5 h-3.5" />
         <span className="hidden xs:inline">Flip</span>
-      </button>
-      <button
-        onClick={handleToggleDanger}
-        className={`group flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-2 rounded-lg text-xs font-bold border transition-all duration-200 ${
-          dangerMode
-            ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
-            : 'bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-background)]'
-        }`}
-        title="Show threatened pieces"
-      >
-        <ShieldAlert className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" />
-        <span className="hidden xs:inline">Dangers</span>
       </button>
       <div className="flex-1" />
       {vpW >= 1024 && (
@@ -2518,34 +2414,6 @@ function formatDuration(ms: number | undefined): string {
                   if (v) setAutoplay(false);
                 }}
               />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {dangerPromptVisible && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" role="dialog" aria-modal="true" aria-label="Danger review" onClick={dismissDangerPrompt}>
-          <div onClick={e => { e.stopPropagation(); }} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6 max-w-sm w-full mx-4 text-center space-y-4">
-            <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/15 text-red-400 flex items-center justify-center">
-              <ShieldAlert className="w-6 h-6" />
-            </div>
-            <h2 className="text-lg font-bold text-white leading-snug">Do you want to see the dangers that were staring at you?</h2>
-            <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-              Review shows a red glow behind pieces that were under attack in each position.
-            </p>
-            <div className="flex flex-col gap-2 pt-1">
-              <button
-                onClick={handleDangerOptIn}
-                className="w-full bg-[var(--color-primary)] text-white text-xs font-bold px-4 py-2.5 rounded-lg hover:brightness-110 transition-all"
-              >
-                Yes, show dangers
-              </button>
-              <button
-                onClick={dismissDangerPrompt}
-                className="w-full text-xs font-semibold text-[var(--color-text-muted)] hover:text-white px-4 py-2 rounded-lg transition-colors"
-              >
-                No, thanks
-              </button>
             </div>
           </div>
         </div>
