@@ -709,7 +709,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     // 1. Read device cache first so the UI renders instantly.
     const localGames: FullGame[] = getLocalGames();
     if (localGames.length > 0) {
-      applyParsed(parseGames(localGames as unknown as Record<string, unknown>[]));
+      applyParsed(parseGames(localGames));
     }
 
     // 2. Reconcile with Firestore in the background.
@@ -768,7 +768,7 @@ export const useGameStore = create<GameState>((set, get) => ({
               analyzedPgnHashes: { ...state2.analyzedPgnHashes, [hashPgn(game.pgn)]: true },
             }));
             void saveUserGame(authUser.id, game.id, { ...game, moves: JSON.parse(JSON.stringify(game.moves)) })
-              .catch(e => console.warn('[Firestore] save game failed:', e));
+              .catch(e => { console.warn('[Firestore] save game failed:', e); });
           }
           return game;
         }
@@ -961,7 +961,7 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   // If every engine attempt failed (e.g. the engine worker/WASM is blocked),
   // don't present a fake "analyzed" game — surface the failure instead.
-  const { attemptedPositions = 0, failedPositions = 0 } = evaluator;
+  const { attemptedPositions, failedPositions } = evaluator;
   if (attemptedPositions > 0 && failedPositions === attemptedPositions) {
     useGameStore.setState({ analysisProgress: 0, analyzing: false, autoAnalyzing: false });
     useToastStore.getState().addToast({
@@ -1020,16 +1020,16 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
       : state.selectedGame,
   }));
 
-  void saveCachedAnalysis(analysedGame, depth, engineVersion).catch(e => console.warn('[Cache] save failed:', e));
+  void saveCachedAnalysis(analysedGame, depth, engineVersion).catch(e => { console.warn('[Cache] save failed:', e); });
 
   const authUser = useAuthStore.getState().user;
   if (authUser != null) {
     void saveAnalysisStats(authUser, analysedGame, effectiveDepth)
-      .catch((e: unknown) => console.warn('[Community] stats save failed:', e));
+      .catch((e: unknown) => { console.warn('[Community] stats save failed:', e); });
   }
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
-  void saveGameToApi(shortId, analysedGame).catch(e => console.warn('[API] save failed:', e));
+  void saveGameToApi(shortId, analysedGame).catch(e => { console.warn('[API] save failed:', e); });
 
   const gameForFirestore = {
     ...analysedGame,
@@ -1038,12 +1038,12 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
 
   const u = useAuthStore.getState().user;
   if (u != null && (u.authProvider === 'google' || u.authProvider === 'anonymous')) {
-    void saveUserGame(u.id, gameId, gameForFirestore).catch(e => console.warn('[Firestore] save game failed:', e));
+    void saveUserGame(u.id, gameId, gameForFirestore).catch(e => { console.warn('[Firestore] save game failed:', e); });
   } else {
     const unsub = useAuthStore.subscribe((state, prev) => {
       if ((state.user?.authProvider === 'google' || state.user?.authProvider === 'anonymous') && !prev.user) {
         unsub();
-        void saveUserGame(state.user.id, gameId, gameForFirestore).catch(e => console.warn('[Firestore] save game failed:', e));
+        void saveUserGame(state.user.id, gameId, gameForFirestore).catch(e => { console.warn('[Firestore] save game failed:', e); });
       }
     });
     setTimeout(() => { unsub(); }, 15000);
@@ -1121,7 +1121,7 @@ function gameSortTime(game: ChessGame): number {
 
 /** Resolve a game's source: explicit `source` field wins, otherwise infer from
  *  the id prefix (`chesscom-`, `lichess-`, `pgn_custom_`, `linked-`). */
-export function getGameSource(game: ChessGame): 'chesscom' | 'lichess' | 'pgn' | 'linked' | 'unknown' {
+function getGameSource(game: ChessGame): 'chesscom' | 'lichess' | 'pgn' | 'linked' | 'unknown' {
   if (game.source) return game.source;
   if (game.id.startsWith('chesscom-')) return 'chesscom';
   if (game.id.startsWith('lichess-')) return 'lichess';
@@ -1138,7 +1138,6 @@ export function getRecentGames(
   limit: number,
 ): ChessGame[] {
   const filtered = source === 'all' ? [...games] : games.filter(g => getGameSource(g) === source);
-  return filtered
-    .sort((a, b) => gameSortTime(b) - gameSortTime(a))
-    .slice(0, limit);
+  const sorted = [...filtered].sort((a, b) => gameSortTime(b) - gameSortTime(a));
+  return sorted.slice(0, limit);
 }

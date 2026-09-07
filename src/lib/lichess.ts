@@ -55,7 +55,7 @@ export async function fetchLichessGames(username: string): Promise<ChessGame[]> 
   if (cleanUsername === '') return [];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const timeout = setTimeout(() => { controller.abort(); }, 15_000);
 
   try {
     // ── Step 1: get the current (most-recent) game ID ────────────────

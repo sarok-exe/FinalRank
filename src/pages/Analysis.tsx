@@ -1,4 +1,3 @@
-// @ts-nocheck - TODO: remove when TS 5.8/zustand v5 type inference issue resolved
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
@@ -38,7 +37,6 @@ import { hashPgn, getPriorAnalyses, getAllAnalyses, engineLabel } from '../lib/a
 import type { AllAnalysisEntry } from '../lib/analysisCache';
 import type { AnalysisRunMeta } from '../lib/analysisCache';
 import { shortIdFromKey } from '../lib/shortId';
-import type { ChessGame } from '../types';
 import { STARTING_FEN } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
@@ -50,9 +48,9 @@ import EvalBar from '../components/eval/EvalBar';
 import PlayerAvatar from '../components/PlayerAvatar';
 import { classificationImages, classificationColours, classificationNames, classificationBadgeStyles } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
-import { useSound, getSoundTypeFromSan } from '../hooks/useSound';
+import { useSound } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { SkeletonGameGrid, SkeletonBoard, SkeletonMoveList } from '../components/Skeleton';
+import { SkeletonGameGrid } from '../components/Skeleton';
 import AnalysisReport from '../components/AnalysisReport';
 import CoachPanel from '../components/CoachPanel';
 import { buildCoachNotes } from '../lib/reporter/coach';
@@ -190,7 +188,6 @@ export default function Analysis() {
     selectedGame,
     currentMoveIndex,
     analyzing,
-    autoAnalyzing,
     analysisProgress,
     importError,
     loadingGames,
@@ -217,7 +214,6 @@ export default function Analysis() {
     triggerEvaluationPipeline,
     loadPriorAnalysis,
     loadCachedGame,
-    setGames,
     clearGames,
     fetchLinkedUserGames,
     loadUserGames,
@@ -226,7 +222,6 @@ export default function Analysis() {
     exitHypothesisMode,
     playHypothesisMove,
     undoHypothesisMove,
-    clearHypothesisMoves,
   } = useGameStore();
   const games = storeGames;
 
@@ -240,7 +235,7 @@ export default function Analysis() {
     : 'Stockfish 18 Lite';
   const { focusMode, fullscreenMode, toggleFocusMode } = useUIStore();
   const { toggleFullscreen } = useFullscreen();
-  const { play, playFromSan, playGameEnd } = useSound();
+  const { play, playFromSan } = useSound();
 
   const { gameId: urlGameId } = useParams<{ gameId: string }>();
   const navigate = useNavigate();
@@ -335,32 +330,32 @@ function formatDuration(ms: number | undefined): string {
             message: 'Game not found. It may not have been saved yet.',
           });
         }
-      });
+      }).catch(() => { /* load failure is surfaced by the not-found toast path */ });
     }
   }, [urlGameId]);
 
   useEffect(() => {
     if (selectedGame?.shortId && selectedGame.shortId !== urlGameId) {
-      navigate(`/game/${selectedGame.shortId}`, { replace: true });
+      void navigate(`/game/${selectedGame.shortId}`, { replace: true });
     } else if (selectedGame && !selectedGame.shortId && !urlGameId) {
       const shortId = shortIdFromKey(selectedGame.id);
       useGameStore.setState(s => ({
         games: s.games.map(g => g.id === selectedGame.id ? { ...g, shortId } : g),
         selectedGame: s.selectedGame?.id === selectedGame.id ? { ...s.selectedGame, shortId } : s.selectedGame,
       }));
-      navigate(`/game/${shortId}`, { replace: true });
+      void navigate(`/game/${shortId}`, { replace: true });
     }
   }, [selectedGame?.id]);
 
   useEffect(() => {
     if (authUser && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous')) {
-      loadUserGames();
+void loadUserGames();
     }
   }, [authUser?.id]);
 
   useEffect(() => {
     if (authUser?.chessComUsername) {
-      fetchLinkedUserGames();
+void fetchLinkedUserGames();
     }
   }, [authUser?.chessComUsername]);
 
@@ -527,7 +522,7 @@ function formatDuration(ms: number | undefined): string {
   }, [postStrength, triggerEvaluationPipeline]);
 
   const handlePlayNewMatch = React.useCallback(() => {
-    navigate('/tools');
+    void navigate('/tools');
   }, [navigate]);
 
   const toggleOrientation = React.useCallback(() => {
@@ -578,13 +573,14 @@ function formatDuration(ms: number | undefined): string {
       setFavoriteGames([]);
       return;
     }
-    import('../lib/firebase').then(({ fetchUserFavorites }) => {
-      fetchUserFavorites(authUser.id).then(games => {
+    import('../lib/firebase')
+      .then(({ fetchUserFavorites }) => fetchUserFavorites(authUser.id))
+      .then(games => {
         const favs = (games as SavedGame[]).filter(g => g.userSaved === true);
         setSavedGameIds(new Set(favs.map(g => g.id)));
         setFavoriteGames(favs);
-      });
-    });
+      })
+      .catch(() => { /* favorites load is best-effort */ });
   }, [authUser?.id, authUser?.authProvider]);
 
   const handleSaveGame = React.useCallback(() => {
@@ -633,19 +629,20 @@ function formatDuration(ms: number | undefined): string {
       return;
     }
     let cancelled = false;
-    import('../lib/firebase').then(({ fetchUserFavorites }) => {
-      fetchUserFavorites(authUser.id).then(games => {
+    import('../lib/firebase')
+      .then(({ fetchUserFavorites }) => fetchUserFavorites(authUser.id))
+      .then(games => {
         if (cancelled) return;
         const favs = (games as SavedGame[]).filter((g: any) => g.userSaved);
         setSavedGameIds(new Set(favs.map(g => g.id)));
         setFavoriteGames(favs);
-      });
-    });
+      })
+      .catch(() => { /* favorites load is best-effort */ });
     return () => { cancelled = true; };
   }, [authUser?.id, authUser?.authProvider]);
 
   React.useEffect(() => {
-    if (!selectedGame || !selectedGame.pgn) {
+    if (!selectedGame?.pgn) {
       setPriorAnalyses([]);
       return;
     }
@@ -769,27 +766,27 @@ function formatDuration(ms: number | undefined): string {
     },
   ]);
 
-  const handleChessComSubmit = (e: React.FormEvent) => {
+  const handleChessComSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isValidUsername(usernameInput.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
       return;
     }
-    importChessComGames(usernameInput.trim());
+    void importChessComGames(usernameInput.trim());
     setShowGameList(true);
   };
 
-  const handleLichessSubmit = (e: React.FormEvent) => {
+  const handleLichessSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isValidUsername(usernameInput.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
       return;
     }
-    importLichessGames(usernameInput.trim());
+    void importLichessGames(usernameInput.trim());
     setShowGameList(true);
   };
 
-  const handlePgnImportSubmit = (e: React.FormEvent) => {
+  const handlePgnImportSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!isValidPgn(pgnInput.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid PGN. Make sure it contains valid chess moves.' });
@@ -818,7 +815,7 @@ function formatDuration(ms: number | undefined): string {
     if (fresh.hypothesisActive) exitHypothesisMode();
     rewindArmedRef.current = fresh.currentMoveIndex === game.moves.length - 1;
     if (rewindArmedRef.current) setAutoplay(false);
-    triggerEvaluationPipeline(settings.engineDepth);
+    void triggerEvaluationPipeline(settings.engineDepth);
   }, [settings.engineDepth, triggerEvaluationPipeline, setAutoplay, exitHypothesisMode]);
 
   // Replay the engine's recommendation for a flagged move: jump to the position
@@ -855,7 +852,7 @@ function formatDuration(ms: number | undefined): string {
   const handleBackToImport = () => {
     selectGame('');
     setNotificationDismissed(false);
-    navigate('/', { replace: true });
+    void navigate('/', { replace: true });
   };
 
   const handleSelectGame = (gameId: string) => {
@@ -868,15 +865,15 @@ function formatDuration(ms: number | undefined): string {
         selectedGame: s.selectedGame?.id === gameId ? { ...s.selectedGame, shortId } : s.selectedGame,
       }));
       game = { ...game!, shortId };
-      navigate(`/game/${shortId}`, { replace: true });
+      void navigate(`/game/${shortId}`, { replace: true });
       const uid = useAuthStore.getState().user?.id;
       if (uid) {
         import('../lib/firebase').then(({ saveUserGame }) => {
-          saveUserGame(uid, game!.id, { ...game!, shortId });
+          void saveUserGame(uid, game!.id, { ...game!, shortId });
         }).catch(() => { /* fire-and-forget: the games list is the source of truth */ });
       }
     } else {
-      navigate(`/game/${game.shortId}`, { replace: true });
+      void navigate(`/game/${game.shortId}`, { replace: true });
     }
   };
 
@@ -909,7 +906,9 @@ function formatDuration(ms: number | undefined): string {
       // destination square (undefined → plain from/to highlight, no badge).
       if (effHypViewIndex >= 0) {
         const m = hypothesisMoves[effHypViewIndex];
-        return { from: m.from, to: m.to, classification: m.classification };
+        // The Chessboard badge type only knows MoveClassification; a hypothesis
+        // move can carry 'mate', which renders as no badge anyway (undefined).
+        return { from: m.from, to: m.to, classification: m.classification === 'mate' ? undefined : m.classification };
       }
       return undefined;
     }
@@ -1115,7 +1114,9 @@ function formatDuration(ms: number | undefined): string {
             {recentGames.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                  {recentGames.map((g) => {
-                    const isSel = selectedGame?.id === g.id;
+// selectedGame is always null in this branch (no game
+                     // selected), so no game can be the selected one.
+                     const isSel = false;
                   const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
                   let borderClass = 'border-[var(--color-border)]';
                   if (isSel) borderClass = 'border-[var(--color-primary)]';
@@ -1267,7 +1268,7 @@ function formatDuration(ms: number | undefined): string {
   // side is shown at the bottom. When their name isn't linked to the game, keep
   // the user's boardOrientation setting (no automatic change).
   const boardOrientation = (() => {
-    const holders = [authUser?.chessComUsername, authUser?.username].filter(Boolean);
+    const holders = [authUser?.chessComUsername, authUser?.username].filter((s): s is string => Boolean(s));
     if (!holders.length || !selectedGame) return settings.boardOrientation;
     const norm = (s: string) => (s || '').trim().toLowerCase();
     const base = (s: string) => norm(s).split(/[_-]/)[0];
@@ -1326,7 +1327,7 @@ function formatDuration(ms: number | undefined): string {
         // plain navigation — advance the index, no hypothesis, no analysis.
         const idx = fresh.currentMoveIndex;
         const nextReal = game.moves[idx + 1];
-        if (nextReal && nextReal.from === from && nextReal.to === to) {
+        if (nextReal?.from === from && nextReal.to === to) {
           updateSettings({ followBestLine: false });
           setCurrentMoveIndex(idx + 1);
           return true;
@@ -1392,7 +1393,7 @@ function formatDuration(ms: number | undefined): string {
   const isHypBaseView = hypothesisActive && hypothesisMoves.length > 0 && effHypViewIndex === -1;
   const hypStepEval = isHypStepView ? hypothesisMoves[effHypViewIndex].evaluation : null;
   const hypStepEvalScore = hypStepEval && !hypStepEval.isMate ? hypStepEval.score : null;
-  const hypStepEvalMate = hypStepEval && hypStepEval.isMate ? hypStepEval.mateIn ?? 0 : null;
+  const hypStepEvalMate = hypStepEval?.isMate ? hypStepEval.mateIn ?? 0 : null;
 
   const displayScore = isHypStepView
     ? hypStepEvalScore
@@ -1793,7 +1794,7 @@ function formatDuration(ms: number | undefined): string {
             </div>
             <h2 className={`text-base sm:text-lg font-semibold truncate leading-tight min-h-[1.5rem] ${
               openingName ? 'text-[var(--color-text)]' : 'text-[var(--color-text-muted)]'
-            }`} title={openingName}>
+            }`} title={openingName ?? undefined}>
               {openingName || '—'}
             </h2>
           </div>
@@ -2043,7 +2044,7 @@ function formatDuration(ms: number | undefined): string {
                         <HypothesisClassificationBadge classification={hypothesisClassification} />
                       )}
                     </span>
-                    {hypothesisLines?.length > 0 && (() => {
+                    {hypothesisLines != null && hypothesisLines.length > 0 && (() => {
                       const topLine = getTopEngineLine(hypothesisLines);
                       if (!topLine?.evaluation) return null;
                       const evalStr = topLine.evaluation.type === 'mate'
@@ -2515,7 +2516,7 @@ function formatDuration(ms: number | undefined): string {
                   <input readOnly value={`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`} className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => { (e.target as HTMLInputElement).select(); }} />
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`);
+                      navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`).catch(() => { /* clipboard write is best-effort */ });
                       setCopied(true);
                       setTimeout(() => { setCopied(false); }, 1500);
                     }}

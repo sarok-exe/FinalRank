@@ -1,5 +1,3 @@
-import type { ChessGame } from '../types';
-
 export type LeaderboardEntry = {
   userId: string;
   username: string;
@@ -46,11 +44,11 @@ export function estimateRating(avgAccuracy: number | null, matches: number): num
 
 /** Minimum analyzed matches (depth 15+) required to appear on the leaderboard,
  *  consistent with the rating estimate's insufficient-data rule. */
-export const LEADERBOARD_MIN_MATCHES = 3;
+const LEADERBOARD_MIN_MATCHES = 3;
 
 /** Comparator for the community leaderboard: rank by average accuracy
  *  descending (nulls last), ties broken by more matches first. */
-export function compareLeaderboardEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
+function compareLeaderboardEntries(a: LeaderboardEntry, b: LeaderboardEntry): number {
   const aAcc = a.avgAccuracy;
   const bAcc = b.avgAccuracy;
 

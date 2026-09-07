@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { THEME_PRESETS } from '../stores/settingsStore';
 
@@ -14,15 +14,6 @@ type ColorPickerProps = {
   onSave(fields: ColorField[]): void;
   onClose(): void;
 }
-
-const PRESET_COLORS = [
-  '#606c38', '#283618', '#bc6c25', '#dda15e', '#fefae0',
-  '#1a1a1a', '#2a2a2a', '#4a4a4a', '#a0a0a0', '#ffffff',
-  '#d65d0e', '#fb4934', '#458588', '#83a598', '#689d6a',
-  '#8ec07c', '#7c7c7c', '#b0b0b0', '#585858', '#111111',
-  '#0f1a24', '#141e14', '#331a00', '#0e2433', '#142814',
-  '#ebdbb2', '#dee3e6', '#d5e6d5', '#f0d9b5', '#b58863',
-];
 
 export default function ColorPicker({ title, fields, onSave, onClose }: ColorPickerProps) {
   const [localFields, setLocalFields] = useState<ColorField[]>(fields.map(f => ({ ...f })));

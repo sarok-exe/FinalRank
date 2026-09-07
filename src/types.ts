@@ -13,9 +13,9 @@ export type User = {
 
 export type EngineGoMode = 'depth' | 'time';
 
-export type EngineEffort = 'quick' | 'balanced' | 'max';
+type EngineEffort = 'quick' | 'balanced' | 'max';
 
-export type SiteColorScheme = {
+type SiteColorScheme = {
   primary: string;
   secondary: string;
   accent: string;
@@ -26,7 +26,7 @@ export type SiteColorScheme = {
   border: string;
 }
 
-export type BoardCustomColors = {
+type BoardCustomColors = {
   lightSquare: string;
   darkSquare: string;
 }
@@ -87,15 +87,6 @@ export const CLASSIFICATION_VALUES = {
   forced: 5,
 } as const;
 
-export const CLASSIFICATION_NAGS: Record<string, string | undefined> = {
-  brilliant: '$3',
-  critical: '$1',
-  inaccuracy: '$6',
-  mistake: '$2',
-  blunder: '$4',
-  risky: '$5',
-};
-
 export type MoveClassification =
   | 'brilliant'
   | 'critical'
@@ -110,18 +101,12 @@ export type MoveClassification =
   | 'forced'
   | 'risky';
 
-export enum EngineVersion {
-  LICHESS_CLOUD = 'lichess-cloud',
-  STOCKFISH_18_LITE = 'stockfish-18-lite.js',
-  STOCKFISH_OFFICIAL = 'stockfish-official.js',
-}
-
 export type Evaluation = {
   type: 'centipawn' | 'mate';
   value: number;
 }
 
-export type EngineLineMove = {
+type EngineLineMove = {
   uci: string;
   san: string;
 }
@@ -207,9 +192,4 @@ export const STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq 
 export const PIECE_VALUES: Record<string, number> = {
   p: 1, n: 3, b: 3, r: 5, q: 9, k: Infinity,
   P: 1, N: 3, B: 3, R: 5, Q: 9, K: Infinity,
-};
-
-export const PIECE_NAMES: Record<string, string> = {
-  p: 'Pawn', n: 'Knight', b: 'Bishop', r: 'Rook', q: 'Queen', k: 'King',
-  P: 'Pawn', N: 'Knight', B: 'Bishop', R: 'Rook', Q: 'Queen', K: 'King',
 };

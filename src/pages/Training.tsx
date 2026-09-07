@@ -238,7 +238,7 @@ export default function Training() {
   /* -------------------------------------------------------------------------- */
 
   const handleMove = useCallback((from: string, to: string): boolean => {
-    if (!active || active.status !== 'playing') return false;
+    if (active?.status !== 'playing') return false;
     const moves = active.puzzle.moves.split(' ');
     const expected = moves[active.moveIdx];
     if (!expected) return false;
@@ -336,7 +336,7 @@ export default function Training() {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
   }, []);
 
-  const applyRange = useCallback((e: React.FormEvent) => {
+  const applyRange = useCallback((e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     freshBatch();
   }, [freshBatch]);
@@ -346,7 +346,7 @@ export default function Training() {
   /* -------------------------------------------------------------------------- */
 
   const handleHint = useCallback(() => {
-    if (!active || active.status !== 'playing') return;
+    if (active?.status !== 'playing') return;
     const expected = active.puzzle.moves.split(' ')[active.moveIdx];
     if (!expected) return;
     const next = (hintLevel + 1) % 3;
@@ -364,12 +364,12 @@ export default function Training() {
   useEffect(() => {
     if (!active) return;
     if (active.status === 'solved') {
-      const t = setTimeout(() => advance(), AUTO_ADVANCE_DELAY_MS.solved);
-      return () => clearTimeout(t);
+      const t = setTimeout(() => { advance(); }, AUTO_ADVANCE_DELAY_MS.solved);
+      return () => { clearTimeout(t); };
     }
     if (active.status === 'failed') {
       // Retry the same puzzle instead of auto-advancing to the next one.
-      const t = setTimeout(() => retry(), AUTO_ADVANCE_DELAY_MS.failed);
+      const t = setTimeout(() => { retry(); }, AUTO_ADVANCE_DELAY_MS.failed);
       retryTimerRef.current = t;
       return () => { clearTimeout(t); retryTimerRef.current = null; };
     }
@@ -715,7 +715,7 @@ export default function Training() {
                   min={0}
                   max={3500}
                   value={settings.min}
-                  onChange={e => updateRange(parseInt(e.target.value, 10) || 0, settings.max)}
+                  onChange={e => { updateRange(parseInt(e.target.value, 10) || 0, settings.max); }}
                   className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
                 />
               </label>
@@ -726,7 +726,7 @@ export default function Training() {
                   min={0}
                   max={3500}
                   value={settings.max}
-                  onChange={e => updateRange(settings.min, parseInt(e.target.value, 10) || 0)}
+                  onChange={e => { updateRange(settings.min, parseInt(e.target.value, 10) || 0); }}
                   className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
                 />
               </label>

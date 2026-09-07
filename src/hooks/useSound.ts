@@ -60,7 +60,7 @@ const SOUND_FILES: Record<SoundType, string> = {
   'correct-short': '/audio/correct.mp3',
 };
 
-export function getSoundTypeFromSan(san: string): SoundType {
+function getSoundTypeFromSan(san: string): SoundType {
   if (!san) return 'move';
   if (san.includes('#')) return 'check';
   if (san.includes('+')) return 'move-check';
@@ -114,7 +114,9 @@ export function useSound() {
       audio.currentTime = 0;
       audioRef.current = audio;
       audio.play().catch(() => {});
-    } catch {}
+    } catch {
+      // Audio playback can throw (e.g. autoplay policy) — silently ignore.
+    }
   }, [audioEnabled, volume]);
 
   const playFromSan = useCallback((san: string) => {

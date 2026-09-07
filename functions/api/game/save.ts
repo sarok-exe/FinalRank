@@ -2,7 +2,9 @@ import { verifyFirebaseToken } from '../_auth';
 import { checkRateLimits, clientIp } from '../_rateLimit';
 
 interface Env {
+  TURSO_DATABASE_URL?: string;
   VITE_TURSO_DATABASE_URL?: string;
+  TURSO_AUTH_TOKEN?: string;
   VITE_TURSO_AUTH_TOKEN?: string;
   VITE_FIREBASE_PROJECT_ID?: string;
 }
@@ -63,8 +65,8 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   }
   const uid = auth.uid;
 
-  const url = context.env.VITE_TURSO_DATABASE_URL;
-  const token = context.env.VITE_TURSO_AUTH_TOKEN;
+  const url = context.env.TURSO_DATABASE_URL ?? context.env.VITE_TURSO_DATABASE_URL;
+  const token = context.env.TURSO_AUTH_TOKEN ?? context.env.VITE_TURSO_AUTH_TOKEN;
   if (!url || !token) {
     return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 500, headers });
   }
@@ -97,6 +99,46 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   }
   if (!gameData || typeof gameData !== 'object' || Array.isArray(gameData)) {
     return new Response(JSON.stringify({ error: 'Invalid gameData' }), { status: 400, headers });
+  }
+
+  // Ownership check — a shared game can only be written by its owner.
+  // Without this, any authenticated user could overwrite any shared game
+  // (and reassign its owner) if they knew the shortId.
+  try {
+    const checkRes = await fetch(`${httpUrl}/v2/pipeline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            type: 'execute',
+            stmt: {
+              sql: 'SELECT uid FROM shared_games WHERE short_id = ?',
+              args: [toArg(shortId)],
+            },
+          },
+        ],
+      }),
+    });
+
+    if (!checkRes.ok) {
+      return new Response(JSON.stringify({ error: 'Turso read failed' }), { status: 502, headers });
+    }
+
+    const checkData = await checkRes.json() as { results?: Array<{ response?: { result?: { rows?: unknown[] } } }> };
+    const rows = checkData.results?.[0]?.response?.result?.rows ?? [];
+    if (rows.length > 0) {
+      const existingUid = (rows[0] as Array<{ value?: string }>)?.[0]?.value;
+      if (existingUid !== uid) {
+        return new Response(JSON.stringify({ error: 'Forbidden: this game belongs to another user' }), { status: 403, headers });
+      }
+    }
+  } catch (err) {
+    console.error('game ownership check error:', err instanceof Error ? err.stack : err);
+    return new Response(JSON.stringify({ error: 'Save failed' }), { status: 500, headers });
   }
 
   try {

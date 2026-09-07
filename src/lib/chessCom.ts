@@ -108,7 +108,7 @@ function parseResultFromHeaders(pgn: string): string | null {
   return match ? match[1] : null;
 }
 
-export function parsePgnToMoves(pgn: string): AnalyzedMove[] {
+function parsePgnToMoves(pgn: string): AnalyzedMove[] {
   if (pgn === '') return [];
   const chess = new Chess();
   const moves: AnalyzedMove[] = [];
@@ -144,7 +144,7 @@ export function parsePgnToMoves(pgn: string): AnalyzedMove[] {
 /**
  * Elite tournament chess games provided as elegant presets
  */
-export async function fetchChessComPlayerAvatar(username: string): Promise<string | undefined> {
+async function fetchChessComPlayerAvatar(username: string): Promise<string | undefined> {
   if (username === '') return undefined;
   try {
     const res = await fetch(`https://api.chess.com/pub/player/${encodeURIComponent(username)}`);

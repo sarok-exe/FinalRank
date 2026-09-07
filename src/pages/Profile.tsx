@@ -99,7 +99,7 @@ export default function Profile(): React.ReactElement {
       // 1. Instant render from device cache — no loading spinner needed.
       const local = getLocalFavorites();
       if (local.length > 0) {
-        setSavedGames(local.filter(g => g.userSaved === true) as SavedGame[]);
+        setSavedGames(local.filter(g => g.userSaved === true));
         setLoadingSaved(false);
       } else {
         setLoadingSaved(true);
@@ -119,7 +119,7 @@ export default function Profile(): React.ReactElement {
       // 1. Instant render from device cache.
       const local = getLocalFavorites();
       if (local.length > 0) {
-        setRecentGames(local as SavedGame[]);
+        setRecentGames(local);
         setLoadingRecent(false);
       } else {
         setLoadingRecent(true);
@@ -192,7 +192,7 @@ export default function Profile(): React.ReactElement {
     return () => { cancelled = true; };
   }, [user, user?.id]);
 
-  const handleGuestLogin = (e: React.FormEvent<HTMLFormElement>): void => {
+  const handleGuestLogin = (e: React.SubmitEvent<HTMLFormElement>): void => {
     e.preventDefault();
     if (typedName.trim()) {
       loginAsGuest(typedName.trim());
@@ -510,14 +510,14 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <input
                 type="text"
                 value={chessComInput}
-                onChange={e => setChessComInput(e.target.value)}
+                onChange={e => { setChessComInput(e.target.value); }}
                 placeholder="Chess.com username"
                 id="chesscom-link-input"
                 className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
               />
               <button
                 onClick={() => {
-                  useAuthStore.getState().setChessComUsername(chessComInput.trim());
+                  void useAuthStore.getState().setChessComUsername(chessComInput.trim());
                 }}
               className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_12px_-4px_var(--color-primary)]"
             >
@@ -536,14 +536,14 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
               <input
                 type="text"
                 value={lichessInput}
-                onChange={e => setLichessInput(e.target.value)}
+                onChange={e => { setLichessInput(e.target.value); }}
                 placeholder="Lichess username"
                 id="lichess-link-input"
                 className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0 outline-none focus:border-[var(--color-primary)]"
               />
               <button
                 onClick={() => {
-                  useAuthStore.getState().setLichessUsername(lichessInput.trim());
+                  void useAuthStore.getState().setLichessUsername(lichessInput.trim());
                 }}
               className="bg-[var(--color-primary)] text-white text-[11px] font-bold px-3 py-2 rounded-lg transition-all duration-200 hover:brightness-110 hover:shadow-[0_0_12px_-4px_var(--color-primary)]"
             >
@@ -737,7 +737,10 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
             try {
               const { clearFenCache } = await import('../lib/engine/evaluate');
               clearFenCache();
-            } catch {}
+            } catch {
+              // In-memory cache clear is best-effort; the SW/Cache Storage
+              // clears below still run as the authoritative fallback.
+            }
             // Clear Service Worker caches
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
               navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_CACHE' });

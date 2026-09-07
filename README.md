@@ -163,9 +163,11 @@ firebase deploy
 
 The server-side API (`/api/*`) runs as Cloudflare Pages Functions. Set the following secrets in the Cloudflare Pages dashboard:
 
-- `VITE_TURSO_DATABASE_URL`
-- `VITE_TURSO_AUTH_TOKEN`
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
 - `LICHESS_API_TOKEN` (optional, for puzzle pool refills)
+
+> **Important:** the Turso secrets must **not** be `VITE_`-prefixed. `VITE_`-prefixed variables are inlined into the public client bundle, so a `VITE_TURSO_*` secret would ship the database credential to every visitor if ever referenced via `import.meta.env`. The functions read `TURSO_*` first and fall back to `VITE_TURSO_*` for backward compatibility — rename existing secrets to the unprefixed names.
 
 ---
 

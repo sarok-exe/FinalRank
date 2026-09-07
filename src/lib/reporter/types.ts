@@ -25,7 +25,7 @@ export type AnalysisOptions = {
   isInBook?: boolean;
 }
 
-export type ExtractedNode = {
+type ExtractedNode = {
   board: Chess;
   fen: string;
   topLine: EngineLine;

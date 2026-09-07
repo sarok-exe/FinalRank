@@ -24,7 +24,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
   handleCopy = () => {
     if (!this.state.error) return;
     const text = `${this.state.error.name}: ${this.state.error.message}\n\n${this.state.error.stack}`;
-    navigator.clipboard?.writeText(text);
+    navigator.clipboard?.writeText(text).catch(() => { /* clipboard write is best-effort */ });
   };
 
   render() {

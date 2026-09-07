@@ -51,7 +51,7 @@ export type FullGame = {
 // Internal shape
 // ---------------------------------------------------------------------------
 
-interface CacheBlob {
+type CacheBlob = {
   favorites: FavoriteMeta[];
   games: Record<string, FullGame>;
   order: string[];       // insertion-ordered shortIds for LRU eviction
@@ -113,11 +113,6 @@ export function setLocalFavorites(favs: FavoriteMeta[]): void {
 // Public API — Full games
 // ---------------------------------------------------------------------------
 
-/** Get a single game by shortId (sync). Returns undefined if not cached. */
-export function getLocalGame(shortId: string): FullGame | undefined {
-  return readBlob().games[shortId];
-}
-
 /** Get all locally-cached games as an array (sync). */
 export function getLocalGames(): FullGame[] {
   const blob = readBlob();
@@ -135,14 +130,6 @@ export function setLocalGame(game: FullGame): void {
   }
   blob.games[sid] = game;
   evictIfNeeded(blob);
-  writeBlob(blob);
-}
-
-/** Remove a game from the local cache by shortId (sync). */
-export function removeLocalGame(shortId: string): void {
-  const blob = readBlob();
-  delete blob.games[shortId];
-  blob.order = blob.order.filter(s => s !== shortId);
   writeBlob(blob);
 }
 
@@ -185,35 +172,4 @@ export function markGameUnsavedById(id: string): void {
   }
   blob.favorites = blob.favorites.filter(f => f.id !== id);
   writeBlob(blob);
-}
-
-/** Remove a game from local cache by its document id (sync). */
-export function removeLocalGameById(id: string): void {
-  const blob = readBlob();
-  for (const sid of Object.keys(blob.games)) {
-    if (blob.games[sid].id === id) {
-      delete blob.games[sid];
-      blob.order = blob.order.filter(s => s !== sid);
-    }
-  }
-  blob.favorites = blob.favorites.filter(f => f.id !== id);
-  writeBlob(blob);
-}
-
-/** Check if a game is in the local cache by its document id (sync). */
-export function hasLocalGame(id: string): boolean {
-  const blob = readBlob();
-  for (const sid of Object.keys(blob.games)) {
-    if (blob.games[sid].id === id) return true;
-  }
-  return false;
-}
-
-/** Get a game from the local cache by its document id (sync). */
-export function getLocalGameById(id: string): FullGame | undefined {
-  const blob = readBlob();
-  for (const sid of Object.keys(blob.games)) {
-    if (blob.games[sid].id === id) return blob.games[sid];
-  }
-  return undefined;
 }

@@ -40,12 +40,12 @@ export function getWinPercent(evaluation: Evaluation, sideToMove: 'w' | 'b'): nu
 // ─── Chess.com-style Win% (flatter sigmoid) ────────────────────────────
 // 50 + 50 * (2/(1+exp(-k1*cp)) - 1)  ≡  100/(1+exp(-k1*cp))
 // cp clamped to ±1000 (chess.com caps win% at ~91.7% for a full pawn+).
-export function getWinPercentChesscom(evaluation: Evaluation, sideToMove: 'w' | 'b'): number {
+function getWinPercentChesscom(evaluation: Evaluation, sideToMove: 'w' | 'b'): number {
   const cp = Math.max(-1000, Math.min(1000, evalToCentiPawns(evaluation, sideToMove)));
   return 100 / (1 + Math.exp(-CC_SIGMOID_GRADIENT * cp));
 }
 
-// ─── Lichess-style per-move accuracy (kept for getGameAccuracyForColor) ──
+// ─── Lichess-style per-move accuracy ────────────────────────────────────
 // If after >= before → 100; else A·exp(-K·Δwp) + B, clamped [0,100]
 export function getMoveAccuracyFromWin(winPercentBefore: number, winPercentAfter: number): number {
   if (winPercentAfter >= winPercentBefore) return 100;
@@ -69,7 +69,7 @@ export function getMoveAccuracyFromWinChesscom(
 
 // ─── Classification helpers (unchanged) ─────────────────────────────────
 
-export function getExpectedPoints(evaluation: Evaluation, moveColour: 'w' | 'b'): number {
+function getExpectedPoints(evaluation: Evaluation, moveColour: 'w' | 'b'): number {
   const centipawnGradient = 0.0035;
   if (evaluation.type === 'mate') {
     if (evaluation.value === 0) return moveColour === 'w' ? 1 : 0;
@@ -121,22 +121,6 @@ export function getGameAccuracy(accuracies: number[], _winPercents?: number[]): 
   if (accuracies.length === 0) return 0;
   const sum = accuracies.reduce((s, a) => s + Math.pow(a, CC_GAME_POWER), 0);
   return Math.pow(sum / accuracies.length, 1 / CC_GAME_POWER);
-}
-
-// Convenience: compute game accuracy from evaluation pairs for one color
-export function getGameAccuracyForColor(
-  evals: { before: Evaluation; after: Evaluation }[],
-  color: 'w' | 'b'
-): number {
-  const accuracies: number[] = [];
-
-  for (const { before, after } of evals) {
-    const wpBefore = getWinPercentChesscom(before, color);
-    const wpAfter = getWinPercentChesscom(after, color);
-    accuracies.push(getMoveAccuracyFromWinChesscom(wpBefore, wpAfter));
-  }
-
-  return getGameAccuracy(accuracies);
 }
 
 // ─── Game Rating estimation ─────────────────────────────────────────────

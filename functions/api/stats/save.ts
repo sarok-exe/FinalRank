@@ -3,7 +3,9 @@ import { checkRateLimits, clientIp } from '../_rateLimit';
 import { isAllowedAvatar } from '../_validate';
 
 interface Env {
+  TURSO_DATABASE_URL?: string;
   VITE_TURSO_DATABASE_URL?: string;
+  TURSO_AUTH_TOKEN?: string;
   VITE_TURSO_AUTH_TOKEN?: string;
   VITE_FIREBASE_PROJECT_ID?: string;
 }
@@ -108,8 +110,8 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
   }
   const userId = auth.uid;
 
-  const url = context.env.VITE_TURSO_DATABASE_URL;
-  const token = context.env.VITE_TURSO_AUTH_TOKEN;
+  const url = context.env.TURSO_DATABASE_URL ?? context.env.VITE_TURSO_DATABASE_URL;
+  const token = context.env.TURSO_AUTH_TOKEN ?? context.env.VITE_TURSO_AUTH_TOKEN;
   if (!url || !token) {
     return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 500, headers });
   }
@@ -168,8 +170,43 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
     return new Response(JSON.stringify({ error: 'Depth must be at least 15' }), { status: 400, headers });
   }
 
+  // Clamp client-supplied metrics to sane ranges — the server never trusts
+  // the client's accuracy/brilliantCount/depth values beyond these bounds.
+  const clampedAccuracy = accuracy == null ? null : Math.min(100, Math.max(0, accuracy));
+  const clampedBrilliantCount = Math.min(200, Math.max(0, Math.floor(brilliantCount)));
+  const clampedDepth = Math.min(30, Math.max(15, Math.floor(depth)));
+
   try {
     await ensureSchema(httpUrl, token);
+
+    // Verify the shared game actually exists — prevents leaderboard entries
+    // for fabricated games (pgnHash/shortId are client-supplied).
+    const results = await pipeline(httpUrl, token, [
+      {
+        type: 'execute',
+        stmt: {
+          sql: `CREATE TABLE IF NOT EXISTS shared_games (
+            short_id TEXT PRIMARY KEY,
+            game_data TEXT NOT NULL,
+            uid TEXT NOT NULL DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT DEFAULT (datetime('now'))
+          )`,
+          args: [],
+        },
+      },
+      {
+        type: 'execute',
+        stmt: {
+          sql: 'SELECT short_id FROM shared_games WHERE short_id = ?',
+          args: [toArg(shortId)],
+        },
+      },
+    ]);
+    const rows = (results[1] as { response?: { result?: { rows?: unknown[] } } })?.response?.result?.rows ?? [];
+    if (rows.length === 0) {
+      return new Response(JSON.stringify({ error: 'Game not found' }), { status: 400, headers });
+    }
 
     await pipeline(httpUrl, token, [
       {
@@ -185,9 +222,9 @@ export async function onRequest(context: { request: Request; env: Env }): Promis
             toArg(pgnHash),
             toArg(shortId),
             toArg(gameLabel),
-            accuracy == null ? { type: 'null', value: null } : toArg(accuracy),
-            toArg(brilliantCount),
-            toArg(depth),
+            clampedAccuracy == null ? { type: 'null', value: null } : toArg(clampedAccuracy),
+            toArg(clampedBrilliantCount),
+            toArg(clampedDepth),
           ],
         },
       },

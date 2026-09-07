@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import type { Firestore} from 'firebase/firestore';
 import {
-  getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, serverTimestamp,
+  getFirestore, doc, getDoc, deleteDoc,
   collection, getDocs, query, orderBy, limit,
 } from 'firebase/firestore';
 
@@ -63,7 +63,7 @@ export function probeFirestore(): Promise<boolean> {
     const projectId = firebaseConfig.projectId;
     if (!projectId) return false;
     try {
-      let headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       const current = auth?.currentUser;
       if (!current) return false; // defer until signed in — unauthenticated probe is useless
       try { headers['Authorization'] = `Bearer ${await current.getIdToken()}`; } catch { /* token unavailable */ }
@@ -74,7 +74,7 @@ export function probeFirestore(): Promise<boolean> {
         structuredQuery: { from: [{ collectionId: 'games' }], limit: 1 },
       });
       const probeController = new AbortController();
-      const probeTimer = setTimeout(() => probeController.abort(), 3000);
+      const probeTimer = setTimeout(() => { probeController.abort(); }, 3000);
       let res: Response;
       try {
         res = await fetch(
@@ -96,7 +96,7 @@ export function probeFirestore(): Promise<boolean> {
     }
   })();
   firestoreProbe = firestoreProbe.catch(() => false);
-  firestoreProbe.then(ok => {
+  void firestoreProbe.then(ok => {
     if (ok) {
       // Probe passed — materialize the SDK instance for the next caller.
       if (app) db = getFirestore(app);
@@ -144,7 +144,7 @@ const FIRESTORE_TIMEOUT_MS = 4000;
 
 export function withTimeout<T>(promise: Promise<T>, ms: number = FIRESTORE_TIMEOUT_MS): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Firestore timed out')), ms);
+    const timer = setTimeout(() => { reject(new Error('Firestore timed out')); }, ms);
     promise.then(
       v => { clearTimeout(timer); resolve(v); },
       e => { clearTimeout(timer); reject(e); }
@@ -209,7 +209,7 @@ export async function saveUserProfile(uid: string, data: Record<string, unknown>
     timestamp: Date.now(),
   });
   // Trigger async flush if it's time (non-blocking)
-  flushQueue();
+  void flushQueue();
   return true;
 }
 
@@ -224,7 +224,7 @@ export async function updateUserProfile(uid: string, data: Record<string, unknow
     merge: true,
     timestamp: Date.now(),
   });
-  flushQueue();
+  void flushQueue();
   return true;
 }
 
@@ -323,7 +323,7 @@ export async function saveUserGame(uid: string, gameId: string, data: Record<str
         timestamp: Date.now(),
       });
     }
-    flushQueue();
+    void flushQueue();
   }
 
   // 3. Always resolve successfully — never throw on Firestore failure.
@@ -368,7 +368,7 @@ export async function fetchUserFavorites(uid: string): Promise<Record<string, un
         noteFirestoreFailure();
       }
     })();
-    return cached as unknown as Record<string, unknown>[];
+    return cached;
   }
 
   // 2. Firestore last (skip if unavailable).
@@ -436,7 +436,7 @@ export async function fetchUserGames(uid: string): Promise<Record<string, unknow
         noteFirestoreFailure();
       }
     })();
-    return cached as unknown as Record<string, unknown>[];
+    return cached;
   }
 
   // 2. Firestore last (skip if unavailable).
@@ -494,7 +494,7 @@ export async function deleteUserGame(uid: string, gameId: string) {
       merge: true,
       timestamp: Date.now(),
     });
-    flushQueue();
+    void flushQueue();
   }
 }
 

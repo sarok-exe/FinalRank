@@ -35,7 +35,7 @@ export function moveCreatesGreaterThreat(board: Chess, threatenedPiece: BoardPie
     });
 }
 
-export function moveLeavesGreaterThreat(board: Chess, threatenedPiece: BoardPiece, actingMove: RawMove): boolean {
+function moveLeavesGreaterThreat(board: Chess, threatenedPiece: BoardPiece, actingMove: RawMove): boolean {
   const actionBoard = new Chess(board.fen());
   try { actionBoard.move(actingMove); } catch { return false; }
   const relativeAttacks = relativeUnsafePieceAttacks(actionBoard, threatenedPiece, actingMove.color);

@@ -230,7 +230,7 @@ const getInitialSettings = (): UserSettings => {
   try {
     const cached = localStorage.getItem('finalrank_settings');
     if (cached) {
-      const parsed = JSON.parse(cached);
+      const parsed = JSON.parse(cached) as Partial<UserSettings>;
       // Migrate old default depth (10) to new default (15)
       if (parsed.engineDepth === 10) {
         parsed.engineDepth = 15;
@@ -239,7 +239,9 @@ const getInitialSettings = (): UserSettings => {
       applyThemeCss(merged);
       return merged;
     }
-  } catch {}
+  } catch {
+    // Corrupt or unreadable stored settings — fall back to defaults.
+  }
   applyThemeCss(DEFAULT_SETTINGS);
   return DEFAULT_SETTINGS;
 };
@@ -252,11 +254,13 @@ function debouncedSyncSettings(settings: UserSettings) {
     const userRaw = localStorage.getItem('finalrank_user');
     if (!userRaw) return;
     try {
-      const user = JSON.parse(userRaw);
-      if (user.authProvider === 'google') {
-        updateUserProfile(user.id, { settings });
+      const user = JSON.parse(userRaw) as { authProvider?: string; id?: string };
+      if (user.authProvider === 'google' && user.id) {
+        void updateUserProfile(user.id, { settings });
       }
-    } catch {}
+    } catch {
+      // Corrupt stored user — skip sync.
+    }
   }, 2000);
 }
 
@@ -284,7 +288,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         useAuthStore.setState({ user: synced });
         localStorage.setItem('finalrank_user', JSON.stringify(synced));
       }
-    } catch {}
+    } catch {
+      // localStorage full / unavailable — settings still apply in-memory.
+    }
     return { settings: updated };
   }); },
   resetSettings: () => { set(() => {
@@ -298,7 +304,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         useAuthStore.setState({ user: synced });
         localStorage.setItem('finalrank_user', JSON.stringify(synced));
       }
-    } catch {}
+    } catch {
+      // localStorage full / unavailable — defaults still apply in-memory.
+    }
     return { settings: defaults };
   }); },
 }));

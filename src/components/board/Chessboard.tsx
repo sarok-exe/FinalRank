@@ -7,7 +7,7 @@ import { PieceIcon } from './PieceIcon';
 import type { PieceHandlerArgs, PieceRenderObject } from 'react-chessboard';
 import './board-animations.css';
 
-export type Arrow = { from: string; to: string; color?: string };
+type Arrow = { from: string; to: string; color?: string };
 
 function findKingSquare(fen: string, side: 'w' | 'b'): string | null {
   const boardPart = fen.split(' ')[0];
@@ -55,7 +55,7 @@ type ChessboardProps = {
   premoveEnabled?: boolean;
   premoveColor?: 'w' | 'b';
   canDragPiece?: boolean;
-  onPremoveChange?: (premove: { from: string; to: string } | null) => void;
+  onPremoveChange?(premove: { from: string; to: string } | null): void;
   hypothesisActive?: boolean;
   hypothesisBaseIndex?: number;
 };
@@ -234,8 +234,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
   const badgeCls = highlightSquares?.classification;
   if (badgeTo != null && badgeCls != null) {
     if (
-      lastBadge == null ||
-      lastBadge.square !== badgeTo ||
+      lastBadge?.square !== badgeTo ||
       lastBadge.classification !== badgeCls ||
       lastBadge.fen !== fen
     ) {
@@ -419,7 +418,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       clearPremoveSelection();
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    return () => { document.removeEventListener('keydown', onKeyDown); };
   }, [premove, premoveFrom, clearPremove, clearPremoveSelection]);
 
   const handleSquareClick = useCallback(
@@ -535,7 +534,7 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
       style={{
         minWidth: 0,
         minHeight: 0,
-      } as React.CSSProperties}
+      }}
     >
       <RCChessboard
         key={hypothesisActive ? `hyp-${hypothesisBaseIndex}` : undefined}

@@ -18,7 +18,7 @@ export function depthStrictnessScale(depth: number): number {
 export function pointLossClassify(
   previousEvaluation: Evaluation,
   current: ExtractedCurrentNode,
-  depth: number = 12
+  depth = 12
 ): MoveClassification {
   const scale = depthStrictnessScale(depth);
   const previousSubjectiveValue = previousEvaluation.value * (current.playedMove.color === WHITE ? 1 : -1);

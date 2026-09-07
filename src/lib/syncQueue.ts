@@ -12,9 +12,9 @@
 // Types
 // ---------------------------------------------------------------------------
 
-export type SyncPriority = 'high' | 'medium' | 'low';
+type SyncPriority = 'high' | 'medium' | 'low';
 
-export interface SyncEntry {
+export type SyncEntry = {
   id: string; // unique key, e.g. `profile:${uid}`, `fav:${uid}:${gameId}`
   priority: SyncPriority;
   collection: string; // Firestore collection path segment
@@ -63,7 +63,7 @@ function writeQueue(queue: SyncQueue): void {
 // Offset & timing
 // ---------------------------------------------------------------------------
 
-export function getUserOffset(): number {
+function getUserOffset(): number {
   try {
     const stored = localStorage.getItem(OFFSET_KEY);
     if (stored !== null) {
@@ -111,14 +111,6 @@ export function queueWrite(entry: SyncEntry): void {
   writeQueue(queue);
 }
 
-/** Remove specific entries from the queue (called after successful flush). */
-export function removeEntries(ids: string[]): void {
-  if (ids.length === 0) return;
-  const idSet = new Set(ids);
-  const queue = readQueue().filter(e => !idSet.has(e.id));
-  writeQueue(queue);
-}
-
 /** Replace the entire queue (e.g. after a flush that keeps some failed entries). */
 export function replaceQueue(queue: SyncQueue): void {
   writeQueue(queue);
@@ -127,11 +119,6 @@ export function replaceQueue(queue: SyncQueue): void {
 /** Read-only snapshot of the current queue. */
 export function getQueueSnapshot(): SyncEntry[] {
   return readQueue();
-}
-
-/** Number of pending entries. */
-export function pendingCount(): number {
-  return readQueue().length;
 }
 
 // ---------------------------------------------------------------------------
@@ -164,7 +151,7 @@ export async function flushQueue(): Promise<void> {
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && shouldFlush()) {
-      flushQueue();
+      void flushQueue();
     }
   });
 }

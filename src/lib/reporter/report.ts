@@ -73,9 +73,6 @@ export function getGameAnalysis(
     return { ...move, engineLines: currEngineLines, evaluation, classification: result.classification, opening: result.opening, accuracy };
   });
 
-  const whiteMoves = updatedMoves.filter(m => m.color === 'w' && m.accuracy !== undefined);
-  const blackMoves = updatedMoves.filter(m => m.color === 'b' && m.accuracy !== undefined);
-
   // Collect accuracies + winPercents for Lichess-style game accuracy.
   // winPercents used for volatility must be from the player's perspective consistently.
   // Engine eval is always from white's perspective:

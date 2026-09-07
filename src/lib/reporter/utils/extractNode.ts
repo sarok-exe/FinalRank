@@ -1,5 +1,5 @@
 import { Chess, WHITE, type Move } from 'chess.js';
-import type { EngineLine, Evaluation } from '../../../types';
+import type { EngineLine } from '../../../types';
 import { getTopEngineLine, getLineGroupSibling } from '../../engine';
 import type { RawMove, ExtractedCurrentNode, ExtractedPreviousNode } from '../types';
 import { getSubjectiveEvaluation } from '../chess';

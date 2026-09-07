@@ -117,7 +117,7 @@ function importAndAnalyzeMatch(pgn: string, navigate: ReturnType<typeof useNavig
       useToastStore.getState().addToast({ type: 'error', message: 'The match could not be saved for analysis. Please try again.' });
       return;
     }
-    navigate(`/game/${imported.shortId}?post=1`);
+    void navigate(`/game/${imported.shortId}?post=1`);
   } catch {
     useToastStore.getState().addToast({ type: 'error', message: 'The match could not be saved for analysis. Please try again.' });
   }

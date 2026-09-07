@@ -23,6 +23,7 @@ export function useFullscreen() {
       try {
         await document.exitFullscreen();
       } catch {
+        // exitFullscreen can reject if the browser is mid-transition — ignore.
       }
     }
   }, [toggleFullscreenMode]);

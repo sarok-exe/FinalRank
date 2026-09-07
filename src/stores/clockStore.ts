@@ -28,7 +28,7 @@ type ClockState = {
   tick(elapsedMs: number): void;
 }
 
-export const CLOCK_PRESETS: ClockPreset[] = [
+const CLOCK_PRESETS: ClockPreset[] = [
   { id: '1+0', name: 'Bullet 1+0', timeLimit: 60, increment: 0, type: 'bullet' },
   { id: '1+1', name: 'Bullet 1+1', timeLimit: 60, increment: 1, type: 'bullet' },
   { id: '2+1', name: 'Bullet 2+1', timeLimit: 120, increment: 1, type: 'bullet' },
@@ -91,7 +91,7 @@ export const useClockStore = create<ClockState>((set, get) => ({
   },
 
   startClock: () => {
-    const { activeColor, isRunning, winner } = get();
+    const { activeColor, winner } = get();
     if (winner) return;
     set({
       isRunning: true,

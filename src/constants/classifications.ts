@@ -13,9 +13,6 @@ export const classificationImages: Record<string, string> = {
   risky: '/img/classifications/sharp.svg',
 };
 
-export const loadingClassificationIcon = '/img/classifications/correct.svg';
-export const errorClassificationIcon = '/img/classifications/incorrect.svg';
-
 export const classificationColours: Record<string, string> = {
   brilliant: '#1baaa6',
   critical: '#5b8baf',

@@ -101,43 +101,4 @@ export async function precacheAssets(): Promise<void> {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Generic asset cache                                                */
-/* ------------------------------------------------------------------ */
 
-/**
- * Return the cached `Response` for `url`, or `null` if it is not in the
- * cache (or the Cache API is unavailable).
- */
-export async function getCachedAsset(url: string): Promise<Response | null> {
-  const cache = await openCache();
-  if (!cache) return null;
-  try {
-    const response = await cache.match(url);
-    return response ?? null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Fetch `url` from the network and store the response in the cache.
- * Intended for background caching (callers should not block on this).
- */
-export async function cacheAsset(url: string): Promise<void> {
-  const cache = await openCache();
-  if (!cache) return;
-  try {
-    const response = await fetch(url);
-    if (response.ok) {
-      await cache.put(url, response);
-    }
-  } catch {
-    // Silent — degrade to network.
-  }
-}
-
-/**
- * Convenience alias used by engine caching to store the engine JS file.
- */
-export const cacheEngine = cacheAsset;

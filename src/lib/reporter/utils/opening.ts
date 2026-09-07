@@ -4,7 +4,7 @@ const db = openings as Record<string, string>;
 
 /** Book classifications only apply inside the first N plies; after that the game
  *  is out of opening theory even if the piece placement re-transposes into book. */
-export const BOOK_MAX_PLY = 20;
+const BOOK_MAX_PLY = 20;
 
 export function getOpeningName(fen: string): string | undefined {
   const parts = fen.split(' ');

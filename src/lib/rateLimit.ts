@@ -21,8 +21,3 @@ export function isAllowed(key: string, maxRequests: number, windowMs: number): b
   bucket.count++;
   return true;
 }
-
-/** Reset a rate limit bucket */
-export function resetLimit(key: string): void {
-  buckets.delete(key);
-}

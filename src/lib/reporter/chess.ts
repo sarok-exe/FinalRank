@@ -1,5 +1,4 @@
-import type { Move, Square, PieceSymbol, Color} from 'chess.js';
-import { PAWN } from 'chess.js';
+import type { Move, Square, Color} from 'chess.js';
 import type { Evaluation } from '../../types';
 
 export function setFenTurn(fen: string, colour: Color): string {
@@ -20,9 +19,4 @@ export function getSubjectiveEvaluation(evaluation: Evaluation, colour: Color): 
     type: evaluation.type,
     value: evaluation.value * (colour === 'w' ? 1 : -1),
   };
-}
-
-export function isMovePromotion(piece: PieceSymbol, to: Square): boolean {
-  const rank = to.charAt(1);
-  return piece === PAWN && (rank === '8' || rank === '1');
 }

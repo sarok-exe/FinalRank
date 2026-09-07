@@ -57,15 +57,7 @@ function writeCache(entries: CacheEntry[]): void {
   }
 }
 
-export async function getCachedAnalysis(pgn: string, minDepth: number, engine: string = ''): Promise<ChessGame | null> {
-  const hash = hashPgn(pgn);
-  const entries = readCache()
-    .filter((e) => e.hash === hash && e.depth >= minDepth && (!engine || e.engine === engine))
-    .sort((a, b) => b.depth - a.depth);
-  return entries.length > 0 ? entries[0].game : null;
-}
-
-export async function saveCachedAnalysis(game: ChessGame, depth: number, engine: string = ''): Promise<void> {
+export async function saveCachedAnalysis(game: ChessGame, depth: number, engine = ''): Promise<void> {
   const hash = hashPgn(game.pgn);
   const key = `${hash}|${depth}|${engine}`;
   const analyzedAt = new Date().toISOString();
@@ -77,7 +69,7 @@ export async function saveCachedAnalysis(game: ChessGame, depth: number, engine:
   writeCache(entries);
 }
 
-export async function getCachedAnalysisByKey(pgn: string, depth: number, engine: string = ''): Promise<ChessGame | null> {
+export async function getCachedAnalysisByKey(pgn: string, depth: number, engine = ''): Promise<ChessGame | null> {
   const key = `${hashPgn(pgn)}|${depth}|${engine}`;
   const entry = readCache().find((e) => e.key === key);
   return entry ? entry.game : null;
@@ -125,7 +117,7 @@ export async function hasAnyAnalysis(pgn: string): Promise<boolean> {
   return readCache().some((e) => e.hash === hash);
 }
 
-export async function batchCheckAnalysis(games: ChessGame[], minDepth: number, engine: string = ''): Promise<Record<string, boolean>> {
+export async function batchCheckAnalysis(games: ChessGame[], minDepth: number, engine = ''): Promise<Record<string, boolean>> {
   const result: Record<string, boolean> = {};
   if (games.length === 0) return result;
   const entries = readCache();

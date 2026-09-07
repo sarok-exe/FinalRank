@@ -32,7 +32,7 @@ export default function Report(): React.JSX.Element {
       {/* Header */}
       <div className="flex items-center gap-3">
         <button
-          onClick={() => { navigate(-1); }}
+          onClick={() => { void navigate(-1); }}
           className="group w-10 h-10 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] flex items-center justify-center hover:bg-[var(--color-background)] hover:border-[var(--color-primary)]/50 hover:scale-105 transition-all duration-200"
         >
           <ArrowLeft className="w-5 h-5 text-[var(--color-text)] transition-transform duration-200 group-hover:-translate-x-0.5" />

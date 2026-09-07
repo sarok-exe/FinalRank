@@ -1,5 +1,7 @@
 interface Env {
+  TURSO_DATABASE_URL?: string;
   VITE_TURSO_DATABASE_URL?: string;
+  TURSO_AUTH_TOKEN?: string;
   VITE_TURSO_AUTH_TOKEN?: string;
 }
 
@@ -54,8 +56,8 @@ export async function onRequest(context: { request: Request; env: Env; params: {
     return new Response(JSON.stringify({ error: 'Missing game id' }), { status: 400, headers });
   }
 
-  const url = context.env.VITE_TURSO_DATABASE_URL;
-  const token = context.env.VITE_TURSO_AUTH_TOKEN;
+  const url = context.env.TURSO_DATABASE_URL ?? context.env.VITE_TURSO_DATABASE_URL;
+  const token = context.env.TURSO_AUTH_TOKEN ?? context.env.VITE_TURSO_AUTH_TOKEN;
   if (!url || !token) {
     return new Response(JSON.stringify({ error: 'Database not configured' }), { status: 500, headers });
   }

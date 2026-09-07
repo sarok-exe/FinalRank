@@ -10,7 +10,7 @@ import {
 type CoachPanelProps = {
   notes: CoachNote[];
   activeMoveIndex: number;          // which move the user is currently viewing (-1 = none)
-  onTryMove: (note: CoachNote) => void;
+  onTryMove(note: CoachNote): void;
 };
 
 export default function CoachPanel({ notes, activeMoveIndex, onTryMove }: CoachPanelProps): React.ReactElement {

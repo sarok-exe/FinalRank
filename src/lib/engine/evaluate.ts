@@ -279,7 +279,7 @@ export function createPositionEvaluator(
     const key = getCacheKey(fen, [], options.depth);
     const cached = fenCache.get(key);
     if (cached && cached.depth >= options.depth) {
-      engines.forEach(e => e.terminate());
+      engines.forEach(e => { e.terminate(); });
       return cached.lines;
     }
 
@@ -295,7 +295,7 @@ export function createPositionEvaluator(
             const first = fenCache.keys().next().value;
             if (first) fenCache.delete(first);
           }
-          engines.forEach(e => e.terminate());
+          engines.forEach(e => { e.terminate(); });
           resolve(lines);
         }).catch(err => {
           // Once aborted, never retry — surface the abort to the caller.
@@ -311,7 +311,7 @@ export function createPositionEvaluator(
             runAttempt(attempt + 1);
           } else {
             rejectEvaluate = null;
-            engines.forEach(e => e.terminate());
+            engines.forEach(e => { e.terminate(); });
             reject(err);
           }
         });
@@ -322,7 +322,7 @@ export function createPositionEvaluator(
   }
 
   controller.signal.addEventListener('abort', () => {
-    engines.forEach(e => e.terminate());
+    engines.forEach(e => { e.terminate(); });
     if (rejectEvaluate) {
       rejectEvaluate(new Error('aborted'));
       rejectEvaluate = null;

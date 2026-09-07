@@ -42,7 +42,7 @@ export default function ToastContainer(): React.ReactElement | null {
                 <button
                   onClick={() => {
                     removeToast(toast.id);
-                    navigate(`/game/${toast.gameId}`);
+                    void navigate(`/game/${toast.gameId}`);
                   }}
                   className="text-[10px] font-bold text-white/70 hover:text-white mt-1 underline"
                 >
