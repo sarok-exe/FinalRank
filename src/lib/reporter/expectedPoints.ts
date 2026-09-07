@@ -138,3 +138,17 @@ export function getGameAccuracyForColor(
 
   return getGameAccuracy(accuracies);
 }
+
+// ─── Game Rating estimation ─────────────────────────────────────────────
+// Maps accuracy to an estimated game rating, inspired by chess.com's
+// Game Review. Linear fit calibrated to chess.com reference data:
+//   accuracy 80.8% → rating 1900, accuracy 67.0% → rating 1400
+// Formula: rating = accuracy × 36.2 − 1025, floored at 300.
+export function estimateGameRating(accuracy: number): number {
+  return Math.max(300, Math.round(accuracy * 36.2 - 1025));
+}
+
+// Skill-level classification based on estimated game rating.
+export function skillLevel(estimatedRating: number): 'Professional' | 'Amateur' {
+  return estimatedRating >= 2000 ? 'Professional' : 'Amateur';
+}
