@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import {
@@ -55,6 +55,8 @@ import AnalysisReport from '../components/AnalysisReport';
 import CoachPanel from '../components/CoachPanel';
 import { buildCoachNotes } from '../lib/reporter/coach';
 import type { CoachNote } from '../lib/reporter/coach';
+import { evaluateLiveMove, buildLiveNoteFromAnalyzedMove } from '../lib/reporter/liveCoach';
+import { generateAiCoachNote, getAiApiKey } from '../lib/aiCoach';
 
 type SavedGame = {
   id: string;
@@ -188,6 +190,7 @@ export default function Analysis() {
     selectedGame,
     currentMoveIndex,
     analyzing,
+    autoAnalyzing,
     analysisProgress,
     importError,
     loadingGames,
@@ -292,6 +295,12 @@ export default function Analysis() {
     return () => { window.removeEventListener('resize', onResize); };
   }, []);
 
+  // Live coach: per-move feedback state
+  const [liveNote, setLiveNote] = useState<CoachNote | null>(null);
+  const [liveEvaluating, setLiveEvaluating] = useState(false);
+  const liveCoachSeqRef = useRef(0);
+  const liveCoachCacheRef = useRef(new Map<string, import('../types').EngineLine[]>());
+
   // Switching to Regular strips the what-if UI away, so any active hypothesis
   // line is exited cleanly first (the store keeps its own what-if state).
   const handleModeChange = React.useCallback((mode: 'regular' | 'advanced') => {
@@ -309,6 +318,89 @@ const currentMove = selectedGame?.moves[currentMoveIndex];
 // all moves of the analysis instead of vanishing past the book prefix.
 const openingName = selectedGame?.moves.find(m => m.opening)?.opening ?? null;
 const coachNotes = React.useMemo(() => (selectedGame ? buildCoachNotes(selectedGame) : []), [selectedGame]);
+
+// Live coach: evaluate a single just-played move and surface feedback.
+const runLiveCoach = useCallback(async (
+  prevFen: string,
+  currFen: string,
+  san: string,
+  color: 'w' | 'b',
+  ply: number,
+  moveIndex: number,
+  prevMove?: { engineLines?: import('../types').EngineLine[] },
+  currMove?: { engineLines?: import('../types').EngineLine[]; classification?: string },
+) => {
+  const fresh = useGameStore.getState();
+  if (fresh.analyzing || fresh.autoAnalyzing || !fresh.selectedGame) return;
+
+  const seq = ++liveCoachSeqRef.current;
+  setLiveEvaluating(true);
+
+  try {
+    let note: CoachNote;
+
+    // Fast path: if the move already has engine data (analyzed game),
+    // build the note without re-evaluating.
+    if (prevMove?.engineLines && prevMove.engineLines.length > 0
+        && currMove?.engineLines && currMove.engineLines.length > 0
+        && currMove.classification) {
+      note = buildLiveNoteFromAnalyzedMove(
+        { san, color, engineLines: currMove.engineLines, classification: currMove.classification },
+        { engineLines: prevMove.engineLines },
+        moveIndex,
+      );
+    } else if (settings.aiCoach.enabled && getAiApiKey()) {
+      // AI coach path: evaluate quickly to get classification + best move,
+      // then let the LLM write the note text.
+      const engineNote = await evaluateLiveMove({
+        prevFen, currFen, san, color, ply, moveIndex,
+        depth: 10, engineVersion: settings.engineVersion,
+        cache: liveCoachCacheRef.current,
+      });
+      // Stale check: a newer call may have started
+      if (seq !== liveCoachSeqRef.current) return;
+
+      const aiText = await generateAiCoachNote(
+        {
+          baseUrl: settings.aiCoach.baseUrl,
+          apiKey: getAiApiKey(),
+          model: settings.aiCoach.model,
+        },
+        {
+          san,
+          classification: engineNote.classification,
+          color,
+          ply,
+          fromEval: engineNote.fromEval,
+          toEval: engineNote.toEval,
+          bestSan: engineNote.bestSan,
+          bestPv: engineNote.bestPv,
+        },
+      );
+      if (seq !== liveCoachSeqRef.current) return;
+      note = { ...engineNote, note: aiText };
+    } else {
+      // Rule-based path: full engine evaluation + built-in note text.
+      note = await evaluateLiveMove({
+        prevFen, currFen, san, color, ply, moveIndex,
+        depth: 10, engineVersion: settings.engineVersion,
+        cache: liveCoachCacheRef.current,
+      });
+    }
+
+    if (seq !== liveCoachSeqRef.current) return;
+    setLiveNote(note);
+  } catch {
+    // Evaluation failure — clear any pending note.
+    if (seq === liveCoachSeqRef.current) {
+      setLiveNote(null);
+    }
+  } finally {
+    if (seq === liveCoachSeqRef.current) {
+      setLiveEvaluating(false);
+    }
+  }
+}, [settings.aiCoach.enabled, settings.aiCoach.baseUrl, settings.aiCoach.model, settings.engineVersion]);
 
 function formatDuration(ms: number | undefined): string {
   if (!ms || ms <= 0) return '';
@@ -345,6 +437,14 @@ function formatDuration(ms: number | undefined): string {
       }));
       void navigate(`/game/${shortId}`, { replace: true });
     }
+  }, [selectedGame?.id]);
+
+  // Clear live coach feedback when the game changes or analysis completes.
+  React.useEffect(() => {
+    setLiveNote(null);
+    setLiveEvaluating(false);
+    liveCoachSeqRef.current++;
+    liveCoachCacheRef.current.clear();
   }, [selectedGame?.id]);
 
   useEffect(() => {
@@ -472,6 +572,8 @@ void fetchLinkedUserGames();
           setCurrentMoveIndex(target);
         }
       }
+      // Clear live coach feedback when analysis run finishes or is aborted.
+      setLiveNote(null);
     }
     prevAnalyzingRef.current = analyzing;
   }, [analyzing, setCurrentMoveIndex]);
@@ -1317,7 +1419,17 @@ void fetchLinkedUserGames();
           const ok = playHypothesisMove(from, to);
           if (ok) {
             const moves = useGameStore.getState().hypothesisMoves;
-            if (moves.length > 0) playFromSan(moves[moves.length - 1].san);
+            if (moves.length > 0) {
+              playFromSan(moves[moves.length - 1].san);
+              // Live coach on hypothesis extension: the tip sits at
+              // hypothesisBaseIndex + tip.index + 1 in game-move terms.
+              const tip = moves[moves.length - 1];
+              const prevFen = moves.length >= 2
+                ? moves[moves.length - 2].fen
+                : (fresh.selectedGame?.moves[fresh.hypothesisBaseIndex]?.fen ?? STARTING_FEN);
+              const moveIndex = fresh.hypothesisBaseIndex + tip.index + 1;
+              void runLiveCoach(prevFen, tip.fen, tip.san, tip.color, moveIndex + 1, moveIndex);
+            }
           }
           return ok;
         }
@@ -1330,6 +1442,9 @@ void fetchLinkedUserGames();
         if (nextReal?.from === from && nextReal.to === to) {
           updateSettings({ followBestLine: false });
           setCurrentMoveIndex(idx + 1);
+          // Live coach on real-line move
+          const prevFen = game.moves[idx]?.fen ?? STARTING_FEN;
+          void runLiveCoach(prevFen, nextReal.fen, nextReal.san, nextReal.color, idx + 2, idx + 1, game.moves[idx], nextReal);
           return true;
         }
         // Deviation → silently start exploring this position. The store refuses
@@ -1340,7 +1455,13 @@ void fetchLinkedUserGames();
           const ok = playHypothesisMove(from, to);
           if (ok) {
             const moves = useGameStore.getState().hypothesisMoves;
-            if (moves.length > 0) playFromSan(moves[moves.length - 1].san);
+            if (moves.length > 0) {
+              playFromSan(moves[moves.length - 1].san);
+              // Live coach on deviation entry
+              const tip = moves[moves.length - 1];
+              const prevFen = game.moves[idx]?.fen ?? STARTING_FEN;
+              void runLiveCoach(prevFen, tip.fen, tip.san, tip.color, idx + 2, idx + 1);
+            }
           }
           return ok;
         }
@@ -1903,8 +2024,11 @@ void fetchLinkedUserGames();
 
           <CoachPanel
             notes={coachNotes}
+            liveNote={liveNote}
+            liveEvaluating={liveEvaluating}
             activeMoveIndex={currentMoveIndex}
             onTryMove={handleTryCoachMove}
+            onTryLiveMove={() => { if (liveNote) handleTryCoachMove(liveNote); }}
           />
           </>
           )}

@@ -22,14 +22,14 @@ const TOP_CLASSIFICATIONS = new Set(['best', 'brilliant', 'critical']);
 const SKIPPED_CLASSIFICATIONS = new Set(['book', 'forced']);
 
 /** White-perspective eval in pawns; mate lines become ±20 with the mate's sign. */
-function evalToPawns(line: EngineLine | undefined): number | null {
+export function evalToPawns(line: EngineLine | undefined): number | null {
   if (!line) return null;
   if (line.evaluation.type === 'centipawn') return line.evaluation.value / 100;
   return line.evaluation.value > 0 ? 20 : -20;
 }
 
 /** Flip a white-perspective eval into the player's own perspective. */
-function playerPerspective(whitePersp: number | null, color: 'w' | 'b'): number | null {
+export function playerPerspective(whitePersp: number | null, color: 'w' | 'b'): number | null {
   if (whitePersp == null) return null;
   return color === 'b' ? -whitePersp : whitePersp;
 }
@@ -177,4 +177,42 @@ export function buildCoachNotes(game: ChessGame): CoachNote[] {
   }
 
   return notes;
+}
+
+export type LiveCoachArgs = {
+  moveIndex: number;
+  ply: number;
+  san: string;
+  color: 'w' | 'b';
+  classification: string;
+  swing: number;
+  fromEval: number | null;
+  toEval: number | null;
+  bestSan: string | null;
+  bestPv: string[];
+};
+
+/** Build a single CoachNote for one move (used by the live coach after each user move). */
+export function buildLiveCoachNote(args: LiveCoachArgs): CoachNote {
+  const { moveIndex, ply, san, color, classification, swing, fromEval, toEval, bestSan, bestPv } = args;
+  const isError = ERROR_CLASSIFICATIONS.has(classification);
+  const isPraise = PRAISE_CLASSIFICATIONS.has(classification);
+  const base: NoteArgs = { ply, san, color, classification, swing, fromEval, toEval, bestSan, bestPv };
+
+  let note: string;
+  if (isError) {
+    const allowedMate =
+      (toEval != null && toEval < -15)
+      || (fromEval != null && fromEval > 15 && !(toEval != null && toEval > 15));
+    note = buildErrorNote({ ...base, allowedMate, variant: ply });
+  } else if (isPraise) {
+    note = buildPraiseNote({ ...base, variant: ply });
+  } else if (classification === 'best') {
+    note = buildSwingNote({ ...base, variant: ply });
+  } else {
+    // Fallback for book/forced/other — neutral note
+    note = `Move ${ply}: ${san} — ${classification}.`;
+  }
+
+  return { moveIndex, ply, san, color, classification, swing, fromEval, toEval, bestSan, bestPv, note };
 }

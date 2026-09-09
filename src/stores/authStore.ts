@@ -69,6 +69,11 @@ const DEFAULT_GUEST: User = {
         showCoordinates: true,
         autoAnalyze: true,
       },
+      aiCoach: {
+        enabled: false,
+        baseUrl: 'https://api.openai.com/v1',
+        model: 'gpt-4o-mini',
+      },
     },
 };
 

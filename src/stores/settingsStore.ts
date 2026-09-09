@@ -209,6 +209,11 @@ const DEFAULT_SETTINGS: UserSettings = {
     showCoordinates: true,
     autoAnalyze: true,
   },
+  aiCoach: {
+    enabled: false,
+    baseUrl: 'https://api.openai.com/v1',
+    model: 'gpt-4o-mini',
+  },
 };
 
 function applyThemeCss(settings: UserSettings) {
@@ -267,9 +272,19 @@ function debouncedSyncSettings(settings: UserSettings) {
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: getInitialSettings(),
   updateSettings: (newSettings) => { set((state) => {
-    const updated = typeof newSettings === 'function'
+    const raw = typeof newSettings === 'function'
       ? { ...state.settings, ...newSettings(state.settings) }
       : { ...state.settings, ...newSettings };
+    // Deep-merge nested objects so callers can update a single sub-field
+    // without clobbering sibling keys (mirrors featureToggles / aiCoach).
+    const updated: UserSettings = {
+      ...raw,
+      featureToggles: { ...state.settings.featureToggles, ...raw.featureToggles },
+      aiCoach: { ...state.settings.aiCoach, ...raw.aiCoach },
+      highlightColors: { ...state.settings.highlightColors, ...raw.highlightColors },
+      siteColors: { ...state.settings.siteColors, ...raw.siteColors },
+      boardCustomColors: { ...state.settings.boardCustomColors, ...raw.boardCustomColors },
+    };
     // Clamp numeric settings to valid ranges
     if (updated.engineDepth != null) updated.engineDepth = clamp(updated.engineDepth, 1, 30);
     if (updated.audioVolume != null) updated.audioVolume = clamp(updated.audioVolume, 0, 1);

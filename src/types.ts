@@ -70,6 +70,11 @@ export type UserSettings = {
     showCoordinates: boolean;
     autoAnalyze: boolean;
   };
+  aiCoach: {
+    enabled: boolean;
+    baseUrl: string;
+    model: string;
+  };
 }
 
 export const CLASSIFICATION_VALUES = {

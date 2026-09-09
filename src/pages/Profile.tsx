@@ -5,7 +5,7 @@ import {
   User as UserIcon, Trophy, Volume2,
   Palette, Zap, LogOut, Keyboard, Clock,
   Eye, Monitor, ChevronRight, Paintbrush,
-  Heart, Sparkles, Coffee,
+  Heart, Sparkles, Coffee, GraduationCap,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useSettingsStore, THEME_PRESETS } from '../stores/settingsStore';
@@ -17,9 +17,10 @@ import { estimateRating } from '../lib/community';
 import type { CommunityUserStats } from '../lib/community';
 import ColorPicker from '../components/ColorPicker';
 import { Search } from 'lucide-react';
+import { getAiApiKey, setAiApiKey } from '../lib/aiCoach';
 import type { UserSettings } from '../types';
 
-type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors';
+type Tab = 'account' | 'engine' | 'board' | 'audio' | 'clock' | 'colors' | 'coach';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'account', label: 'Account', icon: UserIcon },
@@ -28,6 +29,7 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'audio', label: 'Audio', icon: Volume2 },
   { id: 'clock', label: 'Clock', icon: Clock },
   { id: 'colors', label: 'Colors', icon: Paintbrush },
+  { id: 'coach', label: 'Coach', icon: GraduationCap },
 ];
 
 const AVAILABLE_THEMES: { id: UserSettings['boardColor']; name: string; light: string; dark: string }[] = [
@@ -91,6 +93,7 @@ export default function Profile(): React.ReactElement {
   const [communityStats, setCommunityStats] = useState<CommunityUserStats | null>(null);
   const [chessComInput, setChessComInput] = useState(user?.chessComUsername ?? '');
   const [lichessInput, setLichessInput] = useState(user?.lichessUsername ?? '');
+  const [apiKeyInput, setApiKeyInput] = useState(() => getAiApiKey());
 
   const canSave = user != null && (user.authProvider === 'google' || user.authProvider === 'anonymous');
 
@@ -1057,6 +1060,74 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
     );
   };
 
+  const renderCoachTab = (): React.ReactElement => {
+    const aiCoach = settings.aiCoach ?? { enabled: false, baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' };
+
+    return (
+      <div className="space-y-5">
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] flex items-center gap-1.5 uppercase tracking-wider">
+            <GraduationCap className="w-4 h-4 text-[var(--color-accent)]" />
+            <span>AI Coach</span>
+          </label>
+          <SettingToggle
+            label="Enable AI Coach"
+            desc="Get real-time move feedback powered by an LLM"
+            checked={aiCoach.enabled}
+            onChange={v => { updateSettings({ aiCoach: { ...aiCoach, enabled: v } }); }}
+          />
+        </div>
+
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Base URL</label>
+          <input
+            type="text"
+            value={aiCoach.baseUrl}
+            onChange={e => { updateSettings({ aiCoach: { ...aiCoach, baseUrl: e.target.value } }); }}
+            placeholder="https://api.openai.com/v1"
+            className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+          />
+          <p className="text-[10px] text-[var(--color-text-muted)]">
+            OpenAI-compatible endpoint. Works with OpenAI, OpenRouter, local servers, etc.
+          </p>
+        </div>
+
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">Model</label>
+          <input
+            type="text"
+            value={aiCoach.model}
+            onChange={e => { updateSettings({ aiCoach: { ...aiCoach, model: e.target.value } }); }}
+            placeholder="gpt-4o-mini"
+            className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+          />
+          <p className="text-[10px] text-[var(--color-text-muted)]">
+            Model name sent to the API. Smaller models are faster and cheaper.
+          </p>
+        </div>
+
+        <div className="space-y-2.5">
+          <label className="text-xs font-bold text-[var(--color-text)] uppercase tracking-wider">API Key</label>
+          <input
+            type="password"
+            value={apiKeyInput}
+            onChange={e => {
+              const v = e.target.value;
+              setApiKeyInput(v);
+              setAiApiKey(v);
+            }}
+            onBlur={e => { setAiApiKey(e.target.value); }}
+            placeholder="sk-..."
+            className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text)] w-full outline-none focus:border-[var(--color-primary)]"
+          />
+          <p className="text-[10px] text-[var(--color-text-muted)]">
+            Your key stays in this browser only. It is never sent to our servers.
+          </p>
+        </div>
+      </div>
+    );
+  };
+
   const renderTabContent = (): React.ReactElement => {
     switch (activeTab) {
       case 'account': return renderAccountTab();
@@ -1065,6 +1136,7 @@ VITE_FIREBASE_APP_ID=your_app_id</pre>
       case 'audio': return renderAudioTab();
       case 'clock': return renderClockTab();
       case 'colors': return renderColorsTab();
+      case 'coach': return renderCoachTab();
     }
   };
 
