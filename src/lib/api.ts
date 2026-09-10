@@ -14,14 +14,13 @@ export async function fetchGameFromApi(shortId: string): Promise<ChessGame | nul
 }
 
 export async function saveGameToApi(shortId: string, gameData: ChessGame): Promise<boolean> {
+  const user = getFirebaseUser();
+  if (!user) return false; // guests can't save to the shared DB — skip the call
   try {
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    const user = getFirebaseUser();
-    if (user) {
-      try {
-        headers['Authorization'] = `Bearer ${await user.getIdToken()}`;
-      } catch { /* token unavailable — send without auth */ }
-    }
+    try {
+      headers['Authorization'] = `Bearer ${await user.getIdToken()}`;
+    } catch { /* token unavailable — send without auth */ }
     const res = await fetch(`${API_BASE}/game/save`, {
       method: 'POST',
       headers,

@@ -34,6 +34,8 @@ export async function saveAnalysisStats(
 ): Promise<void> {
   // Brilliants are only accepted from analyses at depth 15+.
   if (depth < 15) return;
+  // Guests have no Firebase token, so the server would 401 — skip the call.
+  if (!getFirebaseUser()) return;
 
   try {
     const pgnHash = hashPgn(game.pgn);

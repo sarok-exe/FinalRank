@@ -1023,13 +1023,16 @@ async function runEvaluationPipeline(game: ChessGame, depth: number, gameId: str
   void saveCachedAnalysis(analysedGame, depth, engineVersion).catch(e => { console.warn('[Cache] save failed:', e); });
 
   const authUser = useAuthStore.getState().user;
-  if (authUser != null) {
+  const isFirebaseUser = authUser != null && (authUser.authProvider === 'google' || authUser.authProvider === 'anonymous');
+  if (isFirebaseUser) {
     void saveAnalysisStats(authUser, analysedGame, effectiveDepth)
       .catch((e: unknown) => { console.warn('[Community] stats save failed:', e); });
   }
 
   const shortId = analysedGame.shortId ?? game.shortId ?? gameId;
-  void saveGameToApi(shortId, analysedGame).catch(e => { console.warn('[API] save failed:', e); });
+  if (isFirebaseUser) {
+    void saveGameToApi(shortId, analysedGame).catch(e => { console.warn('[API] save failed:', e); });
+  }
 
   const gameForFirestore = {
     ...analysedGame,

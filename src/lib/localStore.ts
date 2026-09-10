@@ -5,12 +5,22 @@
  *   { favorites: FavoriteMeta[], games: { [shortId]: FullGame }, order: string[] }
  *
  * Reads and writes are synchronous (localStorage).
- * Games are capped at MAX_GAMES; oldest (by insertion order) evicted first.
+ * Games are capped at MAX_GAMES and at MAX_BLOB_CHARS (oldest evicted first).
  * Favorites are uncapped.
  */
 
+import type { EngineLine } from '../types';
+
 const CACHE_KEY = 'finalrank_local_cache';
 const MAX_GAMES = 50;
+// localStorage quota is ~5MB per origin (measured in UTF-16 units, so
+// JSON.stringify(...).length ≈ 2 bytes/char). Keep the game blob well under
+// it so other keys (settings, analysis cache) always have room.
+const MAX_BLOB_CHARS = 1_500_000;
+// Cached moves keep at most 2 engine lines and 12 plies each — enough for
+// the report, coach, and what-if features at a fraction of the size.
+const MAX_CACHED_LINES = 2;
+const MAX_CACHED_PLIES = 12;
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -77,20 +87,71 @@ function readBlob(): CacheBlob {
 }
 
 function writeBlob(blob: CacheBlob): void {
+  evictToFit(blob);
   try {
     localStorage.setItem(CACHE_KEY, JSON.stringify(blob));
   } catch (e) {
+    // Quota exceeded — evict the oldest games until the write fits.
+    while (blob.order.length > 0) {
+      const oldest = blob.order.shift();
+      if (oldest && blob.games[oldest]) {
+        delete blob.games[oldest];
+      }
+      try {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(blob));
+        return;
+      } catch { /* keep evicting */ }
+    }
     console.warn('[LocalStore] write failed:', e);
   }
 }
 
-function evictIfNeeded(blob: CacheBlob): void {
+/** Estimated serialized size of the blob in UTF-16 units. */
+function estimatedChars(blob: CacheBlob): number {
+  try {
+    return JSON.stringify(blob).length;
+  } catch {
+    return Number.MAX_SAFE_INTEGER;
+  }
+}
+
+/** Enforce the count cap, then the size cap — oldest games evicted first. */
+function evictToFit(blob: CacheBlob): void {
   while (blob.order.length > MAX_GAMES) {
     const oldest = blob.order.shift();
     if (oldest && blob.games[oldest]) {
       delete blob.games[oldest];
     }
   }
+  let size = estimatedChars(blob);
+  while (blob.order.length > 0 && size > MAX_BLOB_CHARS) {
+    const oldest = blob.order.shift();
+    if (oldest && blob.games[oldest]) {
+      delete blob.games[oldest];
+    }
+    size = estimatedChars(blob);
+  }
+}
+
+/**
+ * Trim a game for caching: cap engine lines and PV length per move so the
+ * local cache stays small. Classifications and evals are already stored on
+ * each move, so the report/coach/what-if features keep working.
+ */
+function trimGameForCache(game: FullGame): FullGame {
+  const moves = game.moves.map(m => {
+    const move = m as { engineLines?: EngineLine[] } | null;
+    if (move == null || typeof move !== 'object' || !Array.isArray(move.engineLines)) {
+      return m;
+    }
+    return {
+      ...move,
+      engineLines: move.engineLines
+        .slice(0, MAX_CACHED_LINES)
+        .map(line => ({ ...line, moves: line.moves.slice(0, MAX_CACHED_PLIES) })),
+    };
+  });
+  return { ...game, moves };
 }
 
 // ---------------------------------------------------------------------------
@@ -128,8 +189,7 @@ export function setLocalGame(game: FullGame): void {
   if (!blob.games[sid]) {
     blob.order.push(sid);
   }
-  blob.games[sid] = game;
-  evictIfNeeded(blob);
+  blob.games[sid] = trimGameForCache(game);
   writeBlob(blob);
 }
 
