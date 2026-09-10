@@ -1,6 +1,6 @@
 # FinalRank ♟️
 
-**A free, open-source chess coach that watches your games move-by-move.** It grades every move you play, explains your mistakes in plain English, and shows you the better move — then lets you replay it. Deep Stockfish analysis, training puzzles, and a full chess toolbox, all in your browser. No subscriptions. No ads. No locked features.
+**A free, open-source chess analysis platform.** Deep Stockfish analysis, move-by-move classifications, plain-English explanations of every mistake, training puzzles, and a full chess toolbox — all in your browser. No subscriptions. No ads. No locked features.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
@@ -11,13 +11,11 @@
 
 ## 🤔 Why not just use Lichess?
 
-Fair question. Lichess is great — and it's free, so we can't compete on price. We compete on **coaching**.
-
-Lichess analyzes your game *after* you finish. FinalRank coaches you *while you play*: a coach character watches the game, grades each move as it happens, explains your mistakes, and offers the better move on the spot. It's a coach, not an analysis board.
+Fair question. Lichess is great — and it's free, so we can't compete on price. We compete on analysis: deep Stockfish runs in your browser, every move gets a classification, and every mistake gets a plain-English explanation.
 
 | | **FinalRank** | **Lichess** | **Chess.com** |
 |---|---|---|---|
-| **Live per-move coach** | ✅ Reacts to every move, explains mistakes, offers the better move | ❌ Post-game review only | ❌ Post-game review only |
+| **Move-by-move feedback** | ✅ Every move graded and explained, better move offered | ❌ Post-game review only | ❌ Post-game review only |
 | **Price** | Free forever | Free (donation-based) | Free tier + paid premium |
 | **Open source** | ✅ Apache 2.0 | ✅ AGPL | ❌ Closed source |
 | **Deep analysis** | Free, up to depth 18 | Available | Requires paid subscription |
@@ -30,11 +28,11 @@ Lichess analyzes your game *after* you finish. FinalRank coaches you *while you 
 
 ## ✨ Features
 
-### 🎓 The Live Coach
-- **Reacts to every move** — the coach character watches your game and grades each move as it happens: brilliant, best, inaccuracy, mistake, blunder.
+### 🎓 Move-by-Move Feedback
+- **Every move gets graded** as it happens: brilliant, best, inaccuracy, mistake, blunder.
 - **Plain-English explanations** — why a move was bad, what you should have played instead.
 - **"Try the better move"** — one click replays the improved line so you feel the difference.
-- **Optional AI coach** — bring your own API key (OpenAI-compatible) for LLM-powered coaching notes. Your key stays in your browser.
+- **Optional AI coach** — bring your own API key (OpenAI-compatible) for LLM-powered notes. Your key stays in your browser.
 
 ### 📥 Game Import
 - **Chess.com import** — pull up to 50 of your recent games straight from your Chess.com account, or link your account for one-click access.
