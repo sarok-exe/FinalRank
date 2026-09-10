@@ -1,13 +1,40 @@
 # FinalRank ♟️
 
-**A completely free & open-source chess analysis platform** — deep Stockfish engine analysis, AI coaching, move-by-move classifications, training puzzles, and a full chess toolbox, all running in your browser. No subscriptions. No ads. No locked features.
+**A free, open-source chess coach that watches your games move-by-move.** It grades every move you play, explains your mistakes in plain English, and shows you the better move — then lets you replay it. Deep Stockfish analysis, training puzzles, and a full chess toolbox, all in your browser. No subscriptions. No ads. No locked features.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
 
+> 🎥 **Demo:** *screen recording of the live coach reacting to moves — drop it here*
+
+---
+
+## 🤔 Why not just use Lichess?
+
+Fair question. Lichess is great — and it's free, so we can't compete on price. We compete on **coaching**.
+
+Lichess analyzes your game *after* you finish. FinalRank coaches you *while you play*: a coach character watches the game, grades each move as it happens, explains your mistakes, and offers the better move on the spot. It's a coach, not an analysis board.
+
+| | **FinalRank** | **Lichess** | **Chess.com** |
+|---|---|---|---|
+| **Live per-move coach** | ✅ Reacts to every move, explains mistakes, offers the better move | ❌ Post-game review only | ❌ Post-game review only |
+| **Price** | Free forever | Free (donation-based) | Free tier + paid premium |
+| **Open source** | ✅ Apache 2.0 | ✅ AGPL | ❌ Closed source |
+| **Deep analysis** | Free, up to depth 18 | Available | Requires paid subscription |
+| **Engine location** | In-browser (offline-capable) | Server-side | Server-side |
+| **Account** | Guest login, no account needed | Account optional | Account required |
+| **Import** | Chess.com **and** Lichess | Chess.com and Lichess | Lichess only (limited) |
+| **Ads** | None | None | Ads on free tier |
+
 ---
 
 ## ✨ Features
+
+### 🎓 The Live Coach
+- **Reacts to every move** — the coach character watches your game and grades each move as it happens: brilliant, best, inaccuracy, mistake, blunder.
+- **Plain-English explanations** — why a move was bad, what you should have played instead.
+- **"Try the better move"** — one click replays the improved line so you feel the difference.
+- **Optional AI coach** — bring your own API key (OpenAI-compatible) for LLM-powered coaching notes. Your key stays in your browser.
 
 ### 📥 Game Import
 - **Chess.com import** — pull up to 50 of your recent games straight from your Chess.com account, or link your account for one-click access.
@@ -30,9 +57,6 @@ Every move is graded with a rich classification system powered by expected-point
 `Brilliant` · `Best` · `Excellent` · `Good` · `Book` · `Inaccuracy` · `Mistake` · `Blunder` · `Missed Win` · `Critical` · `Forced` · `Free Piece` · `Sharp` · `Threat` · `Take Back` · `Checkmate` · `Resign` · `Draw` · `Winner`
 
 Each move gets a clear badge on the board so you instantly see where you gained or lost the game.
-
-### 🎓 AI Coach
-An AI Coach panel explains your mistakes in **plain English** — why a move was bad, what you should have played instead, and a "try the better move" replay of the improved line.
 
 ### 🔮 What-If / Hypothesis Mode
 Explore alternative lines on the board and watch the evaluation change in real time.
@@ -79,22 +103,6 @@ Explore alternative lines on the board and watch the evaluation change in real t
 - **100% free** — no subscriptions, no paywalls, no premium tiers.
 - **Open source** — the entire codebase is public under the Apache 2.0 license.
 - **Runs in your browser** — heavy analysis happens on your own device, not on a server that tracks you.
-
----
-
-## 🆚 vs Chess.com & Lichess
-
-| | **FinalRank** | **Chess.com** | **Lichess** |
-|---|---|---|---|
-| **Price** | Free forever | Free tier + paid premium (deep analysis locked behind Diamond) | Free (donation-based) |
-| **Open source** | ✅ Apache 2.0 | ❌ Closed source | ✅ AGPL |
-| **Deep analysis** | Free, up to depth 18 | Requires paid subscription | Available |
-| **Engine location** | In-browser (runs on YOUR device, offline) | Server-side | Server-side |
-| **Ads** | None | Ads on free tier | None |
-| **Account** | Guest login, no account needed | Account required for most features | Account optional |
-| **Import** | Chess.com **and** Lichess | Lichess only (limited) | Chess.com and Lichess |
-| **AI Coach** | Plain-English explanations | Limited free analysis | Basic game review |
-| **Architecture** | Local-first, offline-capable | Cloud-dependent | Cloud-dependent |
 
 ---
 

@@ -1104,10 +1104,10 @@ void fetchLinkedUserGames();
 
         <div className="text-center space-y-2 mb-2">
           <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Analyze a Chess Game
+            A Chess Coach That Watches Your Games
           </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
-            Import from Chess.com or paste a PGN to start analyzing with Stockfish 18 Lite.
+            Import from Chess.com, Lichess, or paste a PGN — the coach grades every move, explains your mistakes, and shows you the better move. Free, in your browser, no account needed.
           </p>
         </div>
 
