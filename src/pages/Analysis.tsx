@@ -1092,7 +1092,7 @@ void fetchLinkedUserGames();
         .map(g => g.id)
     );
     return (
-      <div className="max-w-2xl mx-auto space-y-6" id="analysis-import-view">
+      <div className="space-y-5" id="analysis-import-view">
         {urlGameNotFound && (
           <div className="bg-red-900/30 border border-red-700/50 rounded-2xl p-6 text-center space-y-2 relative">
             <button
@@ -1150,6 +1150,10 @@ void fetchLinkedUserGames();
   // On phones give the board the full available width; the eval bar moves below it.
   const desiredW = focusMode ? 720 : fullscreenMode ? 700 : vpW < 640 ? vpW - pad : 600;
   const boardWidth = Math.min(desiredW, vpW - pad);
+  // The desktop eval bar sits in a fixed 30px column beside the board (EvalBar is
+  // w-[30px]); add it so the board itself is exactly boardWidth, matching the
+  // home screen board size.
+  const boardBlockWidth = boardWidth + 30;
 
   const isLastMove = selectedGame ? currentMoveIndex >= selectedGame.moves.length - 1 : false;
 
@@ -1718,14 +1722,14 @@ void fetchLinkedUserGames();
           </div>
           )}
           {/* Top player bar — hugs the board, chess.com style */}
-          <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-top">
+          <div className="w-full" style={{ maxWidth: boardBlockWidth }} id="player-bar-top">
             <PlayerBar player={topPlayer} side={topSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
           {/* Single board, reordered with CSS grid: phones get a horizontal eval
               bar below, desktop gets a vertical bar on the left. Rendering the
               board twice (hidden via display:none) made react-chessboard's piece
               animation read a 0-width square and throw 'Square width not found'. */}
-          <div className="w-full grid grid-cols-1 lg:grid-cols-[min-content_1fr] lg:items-stretch" style={{ maxWidth: boardWidth }} id="board-single-layout">
+          <div className="w-full grid grid-cols-1 lg:grid-cols-[min-content_1fr] lg:items-stretch" style={{ maxWidth: boardBlockWidth }} id="board-single-layout">
             <div className="hidden lg:flex lg:self-stretch lg:min-h-[300px]">
               <EvalBar score={displayScore} mate={displayMate} flipped={false} />
             </div>
@@ -1746,7 +1750,7 @@ void fetchLinkedUserGames();
           </div>
 
           {/* Bottom player bar — hugs the board, chess.com style */}
-          <div className="w-full" style={{ maxWidth: boardWidth }} id="player-bar-bottom">
+          <div className="w-full" style={{ maxWidth: boardBlockWidth }} id="player-bar-bottom">
             <PlayerBar player={bottomPlayer} side={bottomSide} result={selectedGame.result} accuracy={selectedGame.accuracy} />
           </div>
 
