@@ -4,6 +4,7 @@ import type { EngineLine } from '../types';
 import { STARTING_FEN } from '../types';
 import { evaluateLiveMove } from '../lib/reporter/liveCoach';
 import { useSettingsStore } from '../stores/settingsStore';
+import { useSound } from './useSound';
 
 export type FreePlayEval = {
   score: number;
@@ -39,6 +40,9 @@ export function useFreePlayBoard() {
   const cacheRef = useRef(new Map<string, EngineLine[]>());
   // Guards against stale async evaluations after undo/reset/new moves.
   const seqRef = useRef(0);
+  // Move sounds: SAN → sound type (move/capture/castle/check/promote), respects
+  // the audio settings. Stable useCallback — safe in the onMove deps.
+  const { playFromSan } = useSound();
 
   const onMove = useCallback((from: string, to: string, promotion?: string): boolean => {
     const settings = useSettingsStore.getState().settings;
@@ -52,6 +56,7 @@ export function useFreePlayBoard() {
     }
     const currFen = board.fen();
     const san = move.san;
+    playFromSan(san);
     const color = move.color;
     const ply = moveCountRef.current + 1;
     const moveIndex = moveCountRef.current;
@@ -98,7 +103,7 @@ export function useFreePlayBoard() {
     });
 
     return true;
-  }, []);
+  }, [playFromSan]);
 
   const undo = useCallback(() => {
     const board = boardRef.current;

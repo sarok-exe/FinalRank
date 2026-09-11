@@ -284,16 +284,26 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
     for (const sq of rightClickedSquares) {
       setBg(sq, hexToRgba(rcColor, isDarkSquare(sq, orientation) ? 0.55 : 0.40));
     }
-    // 2px inner border on every legal-move square when a piece is selected.
+    // Classic chess.com-style legal-move indicators when a piece is selected:
+    // a centered dot on empty squares, a ring around the piece on captures.
     for (const sq of validMoves) {
-      if (!styles[sq]) styles[sq] = {};
-      styles[sq] = {
-        ...styles[sq],
-        boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.8)',
-      };
+      if (pieceMap[sq]) {
+        // Capture square — ring around the piece.
+        styles[sq] = {
+          ...styles[sq],
+          boxShadow: 'inset 0 0 0 3px rgba(0,0,0,0.35)',
+        };
+      } else {
+        // Empty square — centered dot, keeping the square's own color around it.
+        const squareColor = isDarkSquare(sq, orientation) ? colors.dark : colors.light;
+        styles[sq] = {
+          ...styles[sq],
+          background: `radial-gradient(circle, rgba(0,0,0,0.35) 22%, ${squareColor} 23%)`,
+        };
+      }
     }
     return styles;
-  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor, validMoves]);
+  }, [highlightSquares, selectedSquare, hintSquare, orientation, mtColor, ssColor, rightClickedSquares, rcColor, validMoves, colors, pieceMap]);
 
   const boardArrows = useMemo(() => {
     const result: { startSquare: string; endSquare: string; color: string }[] = [];
@@ -476,13 +486,11 @@ const Chessboard = memo(function Chessboard(props: ChessboardProps) {
 
   const squareRenderer = useCallback(
     ({ square, children }: { square: string; children?: React.ReactNode }) => {
-      const isTo = highlightSquares?.to === square;
       const isBadge = lastBadge?.square === square;
       const isHint = hintSquare === square;
-      if (!isBadge && !isHint && !isTo) return <>{children}</>;
-
+      const style = squareStyles[square];
       return (
-        <div style={{ width: '100%', height: '100%', position: 'relative', ...(squareStyles[square] ?? {}) }}>
+        <div style={{ width: '100%', height: '100%', position: 'relative', ...(style ?? {}) }}>
           {children}
           {isBadge && lastBadge != null && (
             <div key={`badge-${lastBadge.fen}-${lastBadge.square}-${lastBadge.classification}`} style={{ display: 'contents' }}>
