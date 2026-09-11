@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { Chess } from 'chess.js';
 import {
@@ -48,6 +48,7 @@ import EvalBar from '../components/eval/EvalBar';
 import PlayerAvatar from '../components/PlayerAvatar';
 import { classificationImages, classificationColours, classificationNames, classificationBadgeStyles } from '../constants/classifications';
 import { getTopEngineLine } from '../lib/engine';
+import { buildShareUrl, decodeSharePayload } from '../lib/sharePayload';
 import { useSound } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { useFreePlayBoard } from '../hooks/useFreePlayBoard';
@@ -258,6 +259,7 @@ export default function Analysis() {
   const [savedGameIds, setSavedGameIds] = useState<Set<string>>(new Set());
   const [favoriteGames, setFavoriteGames] = useState<SavedGame[]>([]);
   const [showShare, setShowShare] = useState(false);
+  const shareUrl = useMemo(() => (selectedGame ? buildShareUrl(selectedGame) : ''), [showShare, selectedGame]);
   const [priorAnalyses, setPriorAnalyses] = useState<AnalysisRunMeta[]>([]);
   const [allAnalyses, setAllAnalyses] = useState<AllAnalysisEntry[]>([]);
   const [showPriorAnalyses, setShowPriorAnalyses] = useState(false);
@@ -433,6 +435,16 @@ function formatDuration(ms: number | undefined): string {
       setUrlGameNotFound(false);
       loadGameByShortId(urlGameId, { select: false }).then(game => {
         if (!game) {
+          const embedded = decodeSharePayload(window.location.hash);
+          if (embedded) {
+            useGameStore.setState(s => ({
+              games: [embedded, ...s.games.filter(g => g.id !== embedded.id)],
+              analysisCache: { ...s.analysisCache, [embedded.id]: embedded },
+              analyzedPgnHashes: { ...s.analyzedPgnHashes, [hashPgn(embedded.pgn)]: true },
+            }));
+            setPreviewGame(embedded);
+            return;
+          }
           setUrlGameNotFound(true);
           useToastStore.getState().addToast({
             type: 'error',
@@ -2456,10 +2468,10 @@ void fetchLinkedUserGames();
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)] font-bold mb-1 block">Game URL</label>
                 <div className="flex gap-2">
-                  <input readOnly value={`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`} className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => { (e.target as HTMLInputElement).select(); }} />
+                  <input readOnly value={shareUrl} className="flex-1 bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-xs text-white font-mono" onClick={e => { (e.target as HTMLInputElement).select(); }} />
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/game/${selectedGame.shortId || selectedGame.id}`).catch(() => { /* clipboard write is best-effort */ });
+                      navigator.clipboard.writeText(shareUrl).catch(() => { /* clipboard write is best-effort */ });
                       setCopied(true);
                       setTimeout(() => { setCopied(false); }, 1500);
                     }}
