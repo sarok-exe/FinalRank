@@ -305,11 +305,9 @@ export default function Analysis() {
   // Free-play board: moves from the starting position, each analyzed live.
   const {
     fen: boardFen,
-    history: boardHistory,
+    moves: boardMoves,
     evaluating: boardEvaluating,
     eval: boardEval,
-    classification: boardClassification,
-    note: boardNote,
     onMove: onBoardMove,
     undo: onUndoBoardMove,
     reset: onResetBoard,
@@ -1137,12 +1135,10 @@ void fetchLinkedUserGames();
           linkedLoading={linkedLoading}
           onRefreshLinked={fetchLinkedUserGames}
           boardFen={boardFen}
+          boardMoves={boardMoves}
           onBoardMove={onBoardMove}
           boardEvaluating={boardEvaluating}
           boardEval={boardEval}
-          boardClassification={boardClassification}
-          boardNote={boardNote}
-          boardHistory={boardHistory}
           onUndoBoardMove={onUndoBoardMove}
           onResetBoard={onResetBoard}
         />

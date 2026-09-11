@@ -118,7 +118,7 @@ export default function GameLibrary(props: GameLibraryProps) {
   const showEmptyNoMatch = !loading && games.length > 0 && filteredGames.length === 0;
 
   return (
-    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="game-library">
+    <div className="flex flex-col h-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="game-library">
       {/* ── Import tabs ── */}
       <div className="flex border-b border-[var(--color-border)] mb-4 overflow-x-auto">
         <button
@@ -236,75 +236,78 @@ export default function GameLibrary(props: GameLibraryProps) {
         </div>
       </div>
 
-      {/* ── Game list ── */}
-      <div className="mt-4">
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
-          Games ({filteredGames.length})
+      {/* ── Scrollable area: game list + linked games ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto mt-4 space-y-4 pr-1">
+        {/* Game list */}
+        <div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
+            Games ({filteredGames.length})
+          </div>
+          {showSkeleton ? (
+            <div className="space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => <GameCardSkeleton key={i} />)}
+            </div>
+          ) : showEmptyNoGames ? (
+            <p className="text-xs text-[var(--color-text-muted)] italic py-6 text-center">
+              No games yet — fetch your games above.
+            </p>
+          ) : showEmptyNoMatch ? (
+            <p className="text-xs text-[var(--color-text-muted)] italic py-6 text-center">
+              No matches for this filter.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {filteredGames.map((g) => (
+                <GameCard
+                  key={g.id}
+                  game={g}
+                  analyzed={analyzedGameIds.has(g.id)}
+                  saved={savedGameIds.has(g.id)}
+                  onPick={onPickGame}
+                />
+              ))}
+            </div>
+          )}
         </div>
-        {showSkeleton ? (
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-            {Array.from({ length: 4 }).map((_, i) => <GameCardSkeleton key={i} />)}
-          </div>
-        ) : showEmptyNoGames ? (
-          <p className="text-xs text-[var(--color-text-muted)] italic py-6 text-center">
-            No games yet — fetch your games above.
-          </p>
-        ) : showEmptyNoMatch ? (
-          <p className="text-xs text-[var(--color-text-muted)] italic py-6 text-center">
-            No matches for this filter.
-          </p>
-        ) : (
-          <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-            {filteredGames.map((g) => (
-              <GameCard
-                key={g.id}
-                game={g}
-                analyzed={analyzedGameIds.has(g.id)}
-                saved={savedGameIds.has(g.id)}
-                onPick={onPickGame}
-              />
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* ── Linked games ── */}
-      <div className="mt-6 pt-4 border-t border-[var(--color-border)]">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
-            Linked Games
-          </h3>
-          <button
-            onClick={onRefreshLinked}
-            disabled={linkedLoading}
-            className="text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50 hover:bg-[var(--color-primary)]/10 transition-colors flex items-center gap-1"
-          >
-            <RefreshCw className={`w-3 h-3 ${linkedLoading ? 'animate-spin' : ''}`} />
-            {linkedLoading ? 'Loading...' : 'Refresh'}
-          </button>
+        {/* Linked games */}
+        <div className="pt-4 border-t border-[var(--color-border)]">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
+              Linked Games
+            </h3>
+            <button
+              onClick={onRefreshLinked}
+              disabled={linkedLoading}
+              className="text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50 hover:bg-[var(--color-primary)]/10 transition-colors flex items-center gap-1"
+            >
+              <RefreshCw className={`w-3 h-3 ${linkedLoading ? 'animate-spin' : ''}`} />
+              {linkedLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+          {linkedLoading && linkedGames.length === 0 ? (
+            <div className="space-y-2">
+              {Array.from({ length: 2 }).map((_, i) => <GameCardSkeleton key={i} />)}
+            </div>
+          ) : linkedGames.length > 0 ? (
+            <div className="space-y-2">
+              {linkedGames.map((g) => (
+                <GameCard
+                  key={g.id}
+                  game={g}
+                  analyzed={analyzedGameIds.has(g.id)}
+                  saved={savedGameIds.has(g.id)}
+                  onPick={onPickGame}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--color-text-muted)] italic py-2 text-center">
+              No linked games yet.
+            </p>
+          )}
         </div>
-        {linkedLoading && linkedGames.length === 0 ? (
-          <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-            {Array.from({ length: 2 }).map((_, i) => <GameCardSkeleton key={i} />)}
-          </div>
-        ) : linkedGames.length > 0 ? (
-          <div className="space-y-2 max-h-[240px] overflow-y-auto pr-1">
-            {linkedGames.map((g) => (
-              <GameCard
-                key={g.id}
-                game={g}
-                analyzed={analyzedGameIds.has(g.id)}
-                saved={savedGameIds.has(g.id)}
-                onPick={onPickGame}
-              />
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-[var(--color-text-muted)] italic py-2 text-center">
-            No linked games yet.
-          </p>
-        )}
       </div>
     </div>
   );

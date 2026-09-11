@@ -1,8 +1,10 @@
-import { Chessboard } from 'react-chessboard';
 import { Undo2, RotateCcw } from 'lucide-react';
 import type { ChessGame } from '../../types';
+import type { FreePlayMove } from '../../hooks/useFreePlayBoard';
+import type { MoveClassification } from '../../types';
+import Chessboard from '../board/Chessboard';
 import GameLibrary from './GameLibrary';
-import { classificationBadgeStyles } from '../../constants/classifications';
+import { classificationBadgeStyles, classificationImages } from '../../constants/classifications';
 
 export type HomeScreenProps = {
   games: ChessGame[];
@@ -25,12 +27,10 @@ export type HomeScreenProps = {
   linkedLoading: boolean;
   onRefreshLinked(): void;
   boardFen: string;
-  onBoardMove(from: string, to: string, promotion?: string): void;
+  boardMoves: FreePlayMove[];
+  onBoardMove(from: string, to: string, promotion?: string): boolean;
   boardEvaluating: boolean;
   boardEval: { score: number; isMate: boolean } | null;
-  boardClassification: string | null;
-  boardNote: string | null;
-  boardHistory: string[];
   onUndoBoardMove(): void;
   onResetBoard(): void;
 };
@@ -57,15 +57,15 @@ export default function HomeScreen(props: HomeScreenProps) {
     linkedLoading,
     onRefreshLinked,
     boardFen,
+    boardMoves,
     onBoardMove,
     boardEvaluating,
     boardEval,
-    boardClassification,
-    boardNote,
-    boardHistory,
     onUndoBoardMove,
     onResetBoard,
   } = props;
+
+  const lastMove = boardMoves.length > 0 ? boardMoves[boardMoves.length - 1] : null;
 
   // ── Eval bar: white share, linear mapping consistent with the app's EvalBar ──
   const whitePct = boardEval && !boardEval.isMate
@@ -80,46 +80,35 @@ export default function HomeScreen(props: HomeScreenProps) {
         : boardEval.score.toFixed(1)
     : '';
 
-  const classificationStyle = boardClassification
-    ? classificationBadgeStyles[boardClassification]
-    : undefined;
+  const lastCls = lastMove?.classification as MoveClassification | undefined;
+  const classificationStyle = lastCls ? classificationBadgeStyles[lastCls] : undefined;
 
   return (
     <div
-      className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)] gap-6 items-start"
+      className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start"
       id="home-screen"
     >
       {/* ═══════════════ LEFT — free-play board ═══════════════ */}
-      <section className="min-w-0">
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5">
+      <div className="lg:col-span-7 xl:col-span-8 min-w-0 flex flex-col items-center">
+        <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 flex flex-col items-center">
           {/* Board + eval bar */}
-          <div className="flex gap-3 items-stretch">
-            <div className="flex-1 min-w-0">
-              <div className="relative aspect-square w-full min-w-0">
-                <Chessboard
-                  options={{
-                    id: 'finalrank-home',
-                    position: boardFen,
-                    boardOrientation: 'white',
-                    boardStyle: {
-                      border: '4px solid var(--color-surface)',
-                      borderRadius: '8px',
-                      overflow: 'visible',
-                    },
-                    lightSquareStyle: { backgroundColor: 'var(--board-light)' },
-                    darkSquareStyle: { backgroundColor: 'var(--board-dark)' },
-                    showNotation: true,
-                    allowDragging: true,
-                    showAnimations: true,
-                    animationDurationInMs: 300,
-                    onPieceDrop: ({ sourceSquare, targetSquare }) => {
-                      if (!targetSquare || sourceSquare === targetSquare) return false;
-                      onBoardMove(sourceSquare, targetSquare, undefined);
-                      return true;
-                    },
-                  }}
-                />
-              </div>
+          <div className="w-full flex gap-3 items-stretch justify-center">
+            <div className="flex-1 min-w-0 max-w-[min(100%,600px)]">
+              <Chessboard
+                fen={boardFen}
+                playable
+                orientation="white"
+                onMove={(from, to) => {
+                  const ok = onBoardMove(from, to);
+                  return ok;
+                }}
+                highlightSquares={
+                  lastMove && lastCls
+                    ? { from: lastMove.from, to: lastMove.to, classification: lastCls }
+                    : undefined
+                }
+                animationDurationInMs={300}
+              />
             </div>
 
             {/* Eval bar — slim vertical column beside the board */}
@@ -143,37 +132,48 @@ export default function HomeScreen(props: HomeScreenProps) {
             </div>
           </div>
 
-          {/* Move history — compact SAN chips */}
-          <div className="mt-4">
+          {/* Move history — compact SAN chips with per-move classification icons */}
+          <div className="w-full mt-4">
             <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
               Moves
             </div>
-            {boardHistory.length === 0 ? (
+            {boardMoves.length === 0 ? (
               <p className="text-xs text-[var(--color-text-muted)] italic">
                 Make a move to start.
               </p>
             ) : (
               <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                {boardHistory.map((san, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 text-xs font-mono font-bold text-white"
-                  >
-                    {i % 2 === 0 && (
-                      <span className="text-[10px] font-sans font-bold text-[var(--color-text-muted)]">
-                        {Math.floor(i / 2) + 1}.
-                      </span>
-                    )}
-                    {san}
-                  </span>
-                ))}
+                {boardMoves.map((m, i) => {
+                  const clsImg = m.classification ? classificationImages[m.classification] : undefined;
+                  return (
+                    <span
+                      key={i}
+                      className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 text-xs font-mono font-bold text-white"
+                    >
+                      {i % 2 === 0 && (
+                        <span className="text-[10px] font-sans font-bold text-[var(--color-text-muted)]">
+                          {Math.floor(i / 2) + 1}.
+                        </span>
+                      )}
+                      {m.san}
+                      {clsImg && (
+                        <img
+                          src={clsImg}
+                          alt={m.classification!}
+                          className="w-3 h-3 inline-block shrink-0"
+                          title={m.classification!}
+                        />
+                      )}
+                    </span>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          {/* Classification badge + coach note */}
-          {(classificationStyle || boardNote) && (
-            <div className="mt-4 flex items-start gap-2.5">
+          {/* Last move classification badge + coach note */}
+          {(classificationStyle || lastMove?.note) && (
+            <div className="w-full mt-4 flex items-start gap-2.5">
               {classificationStyle && (
                 <span
                   className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded shrink-0 mt-px"
@@ -186,19 +186,19 @@ export default function HomeScreen(props: HomeScreenProps) {
                   {classificationStyle.label}
                 </span>
               )}
-              {boardNote && (
+              {lastMove?.note && (
                 <p className="text-xs text-[var(--color-text-muted)] leading-relaxed">
-                  {boardNote}
+                  {lastMove.note}
                 </p>
               )}
             </div>
           )}
 
           {/* Undo / Reset controls */}
-          <div className="mt-4 flex items-center gap-2">
+          <div className="w-full mt-4 flex items-center gap-2">
             <button
               onClick={onUndoBoardMove}
-              disabled={boardHistory.length === 0}
+              disabled={boardMoves.length === 0}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <Undo2 className="w-4 h-4" />
@@ -206,7 +206,7 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
             <button
               onClick={onResetBoard}
-              disabled={boardHistory.length === 0}
+              disabled={boardMoves.length === 0}
               className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-bold bg-[var(--color-background)] border border-[var(--color-border)] text-[var(--color-text)] hover:border-[var(--color-primary)]/50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
@@ -214,10 +214,10 @@ export default function HomeScreen(props: HomeScreenProps) {
             </button>
           </div>
         </div>
-      </section>
+      </div>
 
       {/* ═══════════════ RIGHT — game library ═══════════════ */}
-      <section className="min-w-0">
+      <div className="lg:col-span-5 xl:col-span-4 min-w-0 min-h-0">
         <GameLibrary
           games={games}
           filteredGames={filteredGames}
@@ -239,7 +239,7 @@ export default function HomeScreen(props: HomeScreenProps) {
           linkedLoading={linkedLoading}
           onRefreshLinked={onRefreshLinked}
         />
-      </section>
+      </div>
     </div>
   );
 }
