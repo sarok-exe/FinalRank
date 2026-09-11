@@ -295,10 +295,9 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
     return () => { window.removeEventListener('resize', onResize); };
   }, []);
   const pad = 16;
-  let bW1Desired = 644;
+  let bW1Desired = 668;
   if (focusMode) bW1Desired = 700;
   else if (fullscreenMode) bW1Desired = 990;
-  else if (vpW < 640) bW1Desired = 500;
   const boardWidth = Math.min(bW1Desired, vpW - pad);
 
   const announceGameEnd = useCallback((game: Chess) => {
@@ -423,7 +422,7 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
   }, [gameInstance, moveHistory.length, runMatchAnalysis]);
 
   return (
-    <div className="space-y-4" id="play-vs-computer-feature">
+    <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 page-enter" id="play-vs-computer-feature">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={() => { destroyEngine(); props.onBack(); }}
@@ -480,9 +479,9 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
         </div>
       ) : (
         <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
-        <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}>
+        <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'flex flex-col lg:flex-row gap-5 items-start'}>
           {/* Left: Board + Eval */}
-          <div className={`space-y-4 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+          <div className={`flex flex-col gap-3 lg:gap-4 items-center ${focusMode || fullscreenMode ? '' : 'w-full lg:w-[668px] lg:shrink-0'}`}>
             <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
               <div className="self-stretch min-h-[300px]">
                 <EvalBar
@@ -511,9 +510,9 @@ function PlayVsComputerFeature(props: Readonly<{ onBack(): void }>): React.React
 
           {/* Right: Controls */}
           {!focusMode && (
-          <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
-            <div className="grid grid-cols-2 gap-4 w-full">
-              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5" id="tools-engine-controls-panel">
+          <div className="w-full lg:flex-1 lg:self-stretch min-w-0 flex flex-col gap-3 lg:gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 w-full">
+              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 space-y-2.5" id="tools-engine-controls-panel">
                 <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
                   <Cpu className="w-4 h-4 text-[var(--color-accent)]" />
                   Engine Strength
@@ -685,10 +684,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
   const currentCategoryPresets = PRESET_CATEGORIES[clockCategory].presets;
   // Same sizing as the Play-vs-Computer board so both tools render identically.
   const pad = 16;
-  let boardWidthTarget = 644;
+  let boardWidthTarget = 668;
   if (focusMode) boardWidthTarget = 700;
   else if (fullscreenMode) boardWidthTarget = 990;
-  else if (vpW2 < 640) boardWidthTarget = 500;
   const boardWidth = Math.min(boardWidthTarget, vpW2 - pad);
 
   // Spacebar for clock turn switching (like Chess Clock feature)
@@ -843,7 +841,7 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
   }, [moveHistory.length, gameOver, runMatchAnalysis]);
 
   return (
-    <div className="space-y-4" id="player-vs-player-feature">
+    <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 space-y-4 page-enter" id="player-vs-player-feature">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <button
           onClick={onBack}
@@ -889,9 +887,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
       </div>
 
       <div className={fullscreenMode ? 'flex justify-center items-center min-h-[80vh]' : ''}>
-      <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'grid grid-cols-1 gap-5 lg:grid-cols-12'}>
+      <div className={focusMode ? 'flex flex-row justify-center items-center gap-6' : 'flex flex-col lg:flex-row gap-5 items-start'}>
         {/* Left: Board + Turn indicator */}
-        <div className={`space-y-3 flex flex-col items-center ${focusMode ? '' : 'lg:col-span-7'}`}>
+        <div className={`flex flex-col gap-3 lg:gap-4 items-center ${focusMode || fullscreenMode ? '' : 'w-full lg:w-[668px] lg:shrink-0'}`}>
           <div className="flex w-full gap-3" style={{ maxWidth: boardWidth }}>
             <div className="flex-1">
               <Chessboard
@@ -935,9 +933,9 @@ function PlayerVsPlayerFeature({ onBack }: { onBack(this: void): void }): React.
 
         {/* Right: Controls */}
         {!focusMode && (
-        <div className="lg:col-span-5 space-y-4 flex flex-col h-auto min-h-[400px]">
-          <div className="grid grid-cols-2 gap-4 w-full">
-            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl p-4 space-y-2.5 text-center" id="pvp-settings-card">
+        <div className="w-full lg:flex-1 lg:self-stretch min-w-0 flex flex-col gap-3 lg:gap-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-4 w-full">
+            <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 space-y-2.5 text-center" id="pvp-settings-card">
               <h3 className="text-xs font-bold text-white flex items-center justify-center gap-1.5">
                 <Users className="w-4 h-4 text-[var(--color-accent)]" />
                 Local Two-Player

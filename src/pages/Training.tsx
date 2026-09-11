@@ -435,15 +435,15 @@ export default function Training() {
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="w-full max-w-[1100px] mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 page-enter" id="training-page">
+    <div className="w-full px-3 sm:px-4 lg:px-6 py-4 sm:py-6 page-enter" id="training-page">
 
       {/* ── Desktop: two-column  /  Mobile: stacked ── */}
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-5">
+      <div className="flex flex-col lg:flex-row gap-5 items-start">
 
         {/* ════════════════════════════════════════════════════
             LEFT — Board
             ════════════════════════════════════════════════════ */}
-        <div className="flex-1 min-w-0 flex flex-col gap-3 lg:gap-4">
+        <div className="w-full lg:w-[668px] lg:shrink-0 flex flex-col gap-3 lg:gap-4">
 
           {/* Rating badge + queue count (mobile top bar) */}
           <div className="flex items-center justify-between gap-2 lg:hidden">
@@ -458,7 +458,7 @@ export default function Training() {
           </div>
 
           {/* Board card */}
-          <div className="w-full max-w-[550px] mx-auto rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-2 sm:p-3">
+          <div className="w-full rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-2 sm:p-3">
             <Chessboard
               fen={active.game.fen()}
               onMove={handleMove}
@@ -544,7 +544,7 @@ export default function Training() {
         {/* ════════════════════════════════════════════════════
             RIGHT — Sidebar
             ════════════════════════════════════════════════════ */}
-        <div className="w-full lg:w-[320px] shrink-0 flex flex-col gap-3">
+        <div className="w-full lg:flex-1 lg:self-stretch min-w-0 flex flex-col gap-3 lg:gap-4">
 
           {/* ── Turn indicator + Rating ── */}
           <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
@@ -585,7 +585,7 @@ export default function Training() {
           </div>
 
           {/* ── Stats cards ── */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {/* Streak */}
             <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-3 flex flex-col items-center gap-1">
               <div className="flex items-center gap-1.5">
@@ -638,11 +638,11 @@ export default function Training() {
           </div>
 
           {/* ── Action buttons ── */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={handleHint}
               disabled={!canHint}
-              className={`group flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 hover:shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)] active:scale-[0.97] transition-all ${isFailed ? 'col-span-2' : ''}`}
+              className="group flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-400 px-4 py-2.5 rounded-xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed hover:bg-amber-500/25 hover:shadow-[0_0_16px_-4px_rgba(245,158,11,0.5)] active:scale-[0.97] transition-all"
             >
               <Lightbulb className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Hint
               {hintLevel > 0 && <span className="text-[10px] font-mono bg-amber-500/20 rounded px-1 leading-4">{hintLevel}/2</span>}
@@ -651,7 +651,7 @@ export default function Training() {
             {isFailed && (
               <button
                 onClick={() => { retry(); }}
-                className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
+                className="group flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-3 rounded-xl font-bold text-base hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
                 <RotateCcw className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Retry
               </button>
@@ -660,7 +660,7 @@ export default function Training() {
             {isFailed && (
               <button
                 onClick={() => { skip(); }}
-                className="group col-span-2 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] active:scale-[0.97] transition-all"
+                className="group flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] active:scale-[0.97] transition-all"
               >
                 <SkipForward className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" /> Skip puzzle
               </button>
@@ -669,7 +669,7 @@ export default function Training() {
             {isSolved && (
               <button
                 onClick={() => { advance(); }}
-                className="group flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
+                className="group flex-1 min-w-[150px] flex items-center justify-center gap-1.5 bg-[var(--color-primary)] text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:brightness-110 hover:shadow-[0_0_16px_-4px_var(--color-primary)] active:scale-[0.97] transition-all"
               >
                 Next puzzle <ChevronRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-0.5" />
               </button>
@@ -706,37 +706,41 @@ export default function Training() {
 
           {/* ── Rating range settings ── */}
           <form onSubmit={applyRange} className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4">
-            <p className="text-xs text-[var(--color-text-muted)] mb-3 font-bold uppercase tracking-wider">Puzzle range</p>
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] text-[var(--color-text-muted)]">Min rating</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={3500}
-                  value={settings.min}
-                  onChange={e => { updateRange(parseInt(e.target.value, 10) || 0, settings.max); }}
-                  className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] text-[var(--color-text-muted)]">Max rating</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={3500}
-                  value={settings.max}
-                  onChange={e => { updateRange(settings.min, parseInt(e.target.value, 10) || 0); }}
-                  className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
-                />
-              </label>
+            <div className="flex flex-col lg:flex-row lg:items-end gap-3">
+              <div className="lg:flex-1 min-w-0">
+                <p className="text-xs text-[var(--color-text-muted)] mb-3 font-bold uppercase tracking-wider">Puzzle range</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--color-text-muted)]">Min rating</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={3500}
+                      value={settings.min}
+                      onChange={e => { updateRange(parseInt(e.target.value, 10) || 0, settings.max); }}
+                      className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-[10px] text-[var(--color-text-muted)]">Max rating</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={3500}
+                      value={settings.max}
+                      onChange={e => { updateRange(settings.min, parseInt(e.target.value, 10) || 0); }}
+                      className="bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm w-full text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)]"
+                    />
+                  </label>
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="group w-full lg:w-auto lg:shrink-0 flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] px-4 py-2 rounded-lg font-bold text-xs active:scale-[0.97] transition-all"
+              >
+                <RotateCcw className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> Reload with range
+              </button>
             </div>
-            <button
-              type="submit"
-              className="group w-full flex items-center justify-center gap-1.5 bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-white hover:border-[var(--color-text-muted)] hover:bg-[var(--color-background)] px-4 py-2 rounded-lg font-bold text-xs active:scale-[0.97] transition-all"
-            >
-              <RotateCcw className="w-3.5 h-3.5 transition-transform duration-200 group-hover:scale-110" /> Reload with range
-            </button>
           </form>
 
           {/* ── Puzzle ID ── */}
