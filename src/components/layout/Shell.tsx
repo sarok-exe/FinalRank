@@ -302,7 +302,7 @@ export default function Shell({ children }: ShellProps): React.JSX.Element {
       )}
 
       <main
-        className={`flex-1 w-full mx-auto p-3 sm:p-4 md:p-6 min-w-0 ${fullscreenMode ? 'max-w-full' : 'max-w-7xl'}`}
+        className={`flex-1 w-full mx-auto p-3 sm:p-4 md:p-6 min-w-0 max-w-full`}
         id="main-stage"
         style={{ paddingBottom: `calc(1rem + var(--safe-bottom))` }}
       >

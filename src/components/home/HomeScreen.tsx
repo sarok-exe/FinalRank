@@ -85,12 +85,12 @@ export default function HomeScreen(props: HomeScreenProps) {
 
   return (
     <div
-      className="grid grid-cols-1 gap-5 lg:grid-cols-12 items-start"
+      className="flex flex-col lg:flex-row gap-5 items-start"
       id="home-screen"
     >
-      {/* ═══════════════ LEFT — free-play board ═══════════════ */}
-      <div className="lg:col-span-7 xl:col-span-8 min-w-0 flex flex-col items-center">
-        <div className="w-full bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 flex flex-col items-center">
+      {/* ═══════════════ LEFT — free-play board at its own size ═══════════════ */}
+      <div className="w-full lg:w-auto lg:shrink-0 flex flex-col items-center">
+        <div className="w-full lg:w-[668px] bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-4 sm:p-5 flex flex-col items-center">
           {/* Board + eval bar */}
           <div className="w-full flex gap-3 items-stretch justify-center">
             <div className="flex-1 min-w-0 max-w-[min(100%,600px)]">
@@ -216,8 +216,8 @@ export default function HomeScreen(props: HomeScreenProps) {
         </div>
       </div>
 
-      {/* ═══════════════ RIGHT — game library ═══════════════ */}
-      <div className="lg:col-span-5 xl:col-span-4 min-w-0 min-h-0">
+      {/* ═══════════════ RIGHT — game library fills remaining width ═══════════════ */}
+      <div className="w-full lg:flex-1 lg:self-stretch min-w-0">
         <GameLibrary
           games={games}
           filteredGames={filteredGames}
