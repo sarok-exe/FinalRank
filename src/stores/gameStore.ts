@@ -67,7 +67,7 @@ type GameState = {
   clearGames(): void;
   fetchLinkedUserGames(): Promise<void>;
   loadUserGames(): Promise<void>;
-  loadGameByShortId(shortId: string): Promise<ChessGame | null>;
+  loadGameByShortId(shortId: string, opts?: { select?: boolean }): Promise<ChessGame | null>;
   consumeImportFlag(): void;
   enterHypothesisMode(depth?: number): boolean;
   exitHypothesisMode(): void;
@@ -718,13 +718,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     applyParsed(parseGames(raw));
   },
 
-  loadGameByShortId: async (shortId: string) => {
+  loadGameByShortId: async (shortId: string, opts?: { select?: boolean }) => {
+    const select = opts?.select !== false;
     const state = get();
     const existing = state.games.find(g => g.shortId === shortId || g.id === shortId);
     if (existing) {
       const hydratedMoves = existing.moves.length > 0 ? existing.moves : hydratePgnMoves(existing.pgn);
       const updatedGame = { ...existing, moves: hydratedMoves };
-      set({ selectedGame: updatedGame, currentMoveIndex: -1 });
+      if (select) {
+        set({ selectedGame: updatedGame, currentMoveIndex: -1 });
+      }
       return updatedGame;
     }
     let data: Record<string, unknown> | null = null;
@@ -759,8 +762,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           };
           set(state2 => ({
             games: [game, ...state2.games.filter(g => g.id !== game.id)],
-            selectedGame: game,
-            currentMoveIndex: -1,
+            ...(select ? { selectedGame: game, currentMoveIndex: -1 } : {}),
           }));
           if (game.analyzedAt != null) {
             set(state2 => ({
@@ -794,8 +796,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     };
     set(state => ({
       games: [game, ...state.games.filter(g => g.id !== game.id)],
-      selectedGame: game,
-      currentMoveIndex: -1,
+      ...(select ? { selectedGame: game, currentMoveIndex: -1 } : {}),
     }));
     if (game.analyzedAt != null) {
       set(state => ({

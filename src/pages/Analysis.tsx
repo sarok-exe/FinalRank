@@ -37,7 +37,7 @@ import { hashPgn, getPriorAnalyses, getAllAnalyses, engineLabel } from '../lib/a
 import type { AllAnalysisEntry } from '../lib/analysisCache';
 import type { AnalysisRunMeta } from '../lib/analysisCache';
 import { shortIdFromKey } from '../lib/shortId';
-import { STARTING_FEN } from '../types';
+import { STARTING_FEN, type ChessGame } from '../types';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useUIStore } from '../stores/uiStore';
 import { isValidUsername } from '../lib/validator';
@@ -264,6 +264,10 @@ export default function Analysis() {
   const [showEngineSettings, setShowEngineSettings] = useState(false);
   const [copied, setCopied] = useState(false);
   const [urlGameNotFound, setUrlGameNotFound] = useState(false);
+  // Home preview mode: a game loaded into the free-play board (via a match link
+  // or a library click) without entering the arena. "Open Full Analysis" moves
+  // it into the arena; "Back to Import" clears it back to plain free-play.
+  const [previewGame, setPreviewGame] = useState<ChessGame | null>(null);
   const [rightClickedSquares, setRightClickedSquares] = useState<string[]>([]);
   // What-if navigation: which hypothesis move's position the board is showing
   // (-1 = the base position before the line). It stays pinned to the tip whenever
@@ -311,6 +315,7 @@ export default function Analysis() {
     onMove: onBoardMove,
     undo: onUndoBoardMove,
     reset: onResetBoard,
+    loadPgn,
   } = useFreePlayBoard();
 
   // Switching to Regular strips the what-if UI away, so any active hypothesis
@@ -426,15 +431,19 @@ function formatDuration(ms: number | undefined): string {
   useEffect(() => {
     if (urlGameId) {
       setUrlGameNotFound(false);
-      loadGameByShortId(urlGameId).then(game => {
+      loadGameByShortId(urlGameId, { select: false }).then(game => {
         if (!game) {
           setUrlGameNotFound(true);
           useToastStore.getState().addToast({
             type: 'error',
             message: 'Game not found. It may not have been saved yet.',
           });
+        } else {
+          setPreviewGame(game);
         }
       }).catch(() => { /* load failure is surfaced by the not-found toast path */ });
+    } else {
+      setPreviewGame(null);
     }
   }, [urlGameId]);
 
@@ -963,13 +972,13 @@ void fetchLinkedUserGames();
 
   const handleBackToImport = () => {
     selectGame('');
+    setPreviewGame(null);
     setNotificationDismissed(false);
     void navigate('/', { replace: true });
   };
 
   const handleSelectGame = (gameId: string) => {
     onResetBoard();
-    selectGame(gameId);
     let game = useGameStore.getState().games.find(g => g.id === gameId);
     if (!game?.shortId) {
       const shortId = shortIdFromKey(gameId);
@@ -988,6 +997,12 @@ void fetchLinkedUserGames();
     } else {
       void navigate(`/game/${game.shortId}`, { replace: true });
     }
+    if (game) setPreviewGame(game);
+  };
+
+  // Preview mode → arena: select the previewed game so the full analysis renders.
+  const handleOpenFullAnalysis = () => {
+    if (previewGame) selectGame(previewGame.id);
   };
 
   // The hypothesis move whose position the board shows while in what-if mode:
@@ -1141,6 +1156,9 @@ void fetchLinkedUserGames();
           boardEval={boardEval}
           onUndoBoardMove={onUndoBoardMove}
           onResetBoard={onResetBoard}
+          previewGame={previewGame}
+          onOpenFullAnalysis={handleOpenFullAnalysis}
+          loadPgn={loadPgn}
         />
       </div>
     );

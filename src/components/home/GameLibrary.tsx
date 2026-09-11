@@ -41,8 +41,10 @@ function GameCard({ game, analyzed, saved, onPick }: {
   return (
     <button
       onClick={() => { onPick(game.id); }}
-      className={`text-left w-full p-3 rounded-xl border flex flex-col justify-between min-h-[100px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${
-        analyzed ? 'border-green-600' : 'border-[var(--color-border)]'
+      className={`text-left w-full p-3 rounded-xl border flex flex-col justify-between min-h-[100px] bg-[var(--color-surface)] hover:-translate-y-0.5 transition-all ${
+        analyzed
+          ? 'border-[var(--color-primary)] hover:shadow-[0_10px_15px_-3px_rgba(0,0,0,0.25),0_4px_6px_-4px_rgba(0,0,0,0.25),0_0_14px_-4px_var(--color-primary)]'
+          : 'border-[var(--color-border)] hover:shadow-lg hover:shadow-black/25'
       }`}
     >
       <div className="space-y-1.5">

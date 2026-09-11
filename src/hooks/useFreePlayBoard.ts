@@ -121,5 +121,39 @@ export function useFreePlayBoard() {
     setEvaluating(false);
   }, []);
 
-  return { fen, moves, evaluating, eval: evalResult, onMove, undo, reset };
+  /**
+   * Load a full PGN into the board (used by the home preview mode). The board
+   * is replaced with a fresh chess.js instance carrying the game's history, so
+   * undo() keeps working against the real move list. Returns false if the PGN
+   * can't be parsed — the board is left untouched in that case.
+   */
+  const loadPgn = useCallback((
+    pgn: string,
+    analyzedMoves?: ReadonlyArray<{ classification?: string | null; note?: string | null }>,
+  ): boolean => {
+    const board = new Chess();
+    try {
+      board.loadPgn(pgn);
+    } catch {
+      return false;
+    }
+    const history = board.history({ verbose: true });
+    const moves: FreePlayMove[] = history.map((h, i) => ({
+      san: h.san,
+      from: h.from,
+      to: h.to,
+      classification: analyzedMoves?.[i]?.classification ?? null,
+      note: analyzedMoves?.[i]?.note ?? null,
+    }));
+    boardRef.current = board;
+    moveCountRef.current = history.length;
+    seqRef.current++;
+    setFen(board.fen());
+    setMoves(moves);
+    setEvalResult(null);
+    setEvaluating(false);
+    return true;
+  }, []);
+
+  return { fen, moves, evaluating, eval: evalResult, onMove, undo, reset, loadPgn };
 }

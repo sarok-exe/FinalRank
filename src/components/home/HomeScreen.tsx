@@ -1,9 +1,11 @@
+import { useEffect } from 'react';
 import { Undo2, RotateCcw } from 'lucide-react';
 import type { ChessGame } from '../../types';
 import type { FreePlayMove } from '../../hooks/useFreePlayBoard';
 import type { MoveClassification } from '../../types';
 import Chessboard from '../board/Chessboard';
 import GameLibrary from './GameLibrary';
+import PlayerAvatar from '../PlayerAvatar';
 import { classificationBadgeStyles, classificationImages } from '../../constants/classifications';
 
 export type HomeScreenProps = {
@@ -33,6 +35,9 @@ export type HomeScreenProps = {
   boardEval: { score: number; isMate: boolean } | null;
   onUndoBoardMove(): void;
   onResetBoard(): void;
+  previewGame?: ChessGame | null;
+  onOpenFullAnalysis?(): void;
+  loadPgn(pgn: string, analyzedMoves?: ReadonlyArray<{ classification?: string | null; note?: string | null }>): boolean;
 };
 
 export default function HomeScreen(props: HomeScreenProps) {
@@ -63,7 +68,24 @@ export default function HomeScreen(props: HomeScreenProps) {
     boardEval,
     onUndoBoardMove,
     onResetBoard,
+    previewGame,
+    onOpenFullAnalysis,
+    loadPgn,
   } = props;
+
+  // Preview mode: load the game's PGN into the free-play board (final position
+  // shown, moves listed with their classifications). Leaving preview mode resets
+  // the board back to the free-play starting position.
+  useEffect(() => {
+    if (previewGame) {
+      loadPgn(previewGame.pgn, previewGame.moves);
+    } else {
+      onResetBoard();
+    }
+    // loadPgn / onResetBoard are stable useCallbacks — previewGame is the only
+    // meaningful dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewGame]);
 
   const lastMove = boardMoves.length > 0 ? boardMoves[boardMoves.length - 1] : null;
 
@@ -213,6 +235,41 @@ export default function HomeScreen(props: HomeScreenProps) {
               Reset
             </button>
           </div>
+
+          {/* Preview mode — game metadata + open full analysis */}
+          {previewGame && (
+            <>
+              <div className="w-full mt-4 pt-4 border-t border-[var(--color-border)] space-y-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <PlayerAvatar name={previewGame.white.username} avatar={previewGame.white.avatar} size={22} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] shrink-0">White</span>
+                  <span className="text-xs font-bold text-white truncate">{previewGame.white.username}</span>
+                  {previewGame.white.rating != null && (
+                    <span className="ml-auto shrink-0 text-[11px] font-mono font-bold text-[var(--color-text-muted)]">{previewGame.white.rating}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 min-w-0">
+                  <PlayerAvatar name={previewGame.black.username} avatar={previewGame.black.avatar} size={22} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)] shrink-0">Black</span>
+                  <span className="text-xs font-bold text-white truncate">{previewGame.black.username}</span>
+                  {previewGame.black.rating != null && (
+                    <span className="ml-auto shrink-0 text-[11px] font-mono font-bold text-[var(--color-text-muted)]">{previewGame.black.rating}</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-muted)]">{previewGame.date}</span>
+                  <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-background)] border border-[var(--color-border)] text-white">{previewGame.result}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={onOpenFullAnalysis}
+                className="w-full mt-4 bg-[var(--color-primary)] text-white font-bold rounded-lg py-2.5 text-sm hover:opacity-90 transition-opacity"
+              >
+                Open Full Analysis
+              </button>
+            </>
+          )}
         </div>
       </div>
 
