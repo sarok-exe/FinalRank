@@ -30,7 +30,7 @@ import {
   X,
   Settings2,
 } from 'lucide-react';
-import { useGameStore, getRecentGames } from '../stores/gameStore';
+import { useGameStore } from '../stores/gameStore';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { hashPgn, getPriorAnalyses, getAllAnalyses, engineLabel } from '../lib/analysisCache';
@@ -50,7 +50,9 @@ import { classificationImages, classificationColours, classificationNames, class
 import { getTopEngineLine } from '../lib/engine';
 import { useSound } from '../hooks/useSound';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
-import { SkeletonGameGrid } from '../components/Skeleton';
+import { useFreePlayBoard } from '../hooks/useFreePlayBoard';
+import { filterGames } from '../lib/gameFilters';
+import HomeScreen from '../components/home/HomeScreen';
 import AnalysisReport from '../components/AnalysisReport';
 import CoachPanel from '../components/CoachPanel';
 import { buildCoachNotes } from '../lib/reporter/coach';
@@ -192,7 +194,6 @@ export default function Analysis() {
     analyzing,
     autoAnalyzing,
     analysisProgress,
-    importError,
     loadingGames,
     analysisCache,
     analyzedPgnHashes,
@@ -217,7 +218,6 @@ export default function Analysis() {
     triggerEvaluationPipeline,
     loadPriorAnalysis,
     loadCachedGame,
-    clearGames,
     fetchLinkedUserGames,
     loadUserGames,
     loadGameByShortId,
@@ -248,7 +248,8 @@ export default function Analysis() {
   const isPostFlow = searchParams.get('post') === '1';
 
   const [usernameInput, setUsernameInput] = useState('');
-  const [pgnInput, setPgnInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateRange, setDateRange] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [importMode, setImportMode] = useState<'chesscom' | 'lichess' | 'pgn'>('chesscom');
   const [notificationDismissed, setNotificationDismissed] = useState(false);
   const [showGameList, setShowGameList] = useState(false);
@@ -300,6 +301,19 @@ export default function Analysis() {
   const [liveEvaluating, setLiveEvaluating] = useState(false);
   const liveCoachSeqRef = useRef(0);
   const liveCoachCacheRef = useRef(new Map<string, import('../types').EngineLine[]>());
+
+  // Free-play board: moves from the starting position, each analyzed live.
+  const {
+    fen: boardFen,
+    history: boardHistory,
+    evaluating: boardEvaluating,
+    eval: boardEval,
+    classification: boardClassification,
+    note: boardNote,
+    onMove: onBoardMove,
+    undo: onUndoBoardMove,
+    reset: onResetBoard,
+  } = useFreePlayBoard();
 
   // Switching to Regular strips the what-if UI away, so any active hypothesis
   // line is exited cleanly first (the store keeps its own what-if state).
@@ -868,8 +882,8 @@ void fetchLinkedUserGames();
     },
   ]);
 
-  const handleChessComSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleChessComSubmit = (e?: React.SubmitEvent<HTMLFormElement>) => {
+    e?.preventDefault();
     if (!isValidUsername(usernameInput.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
       return;
@@ -878,8 +892,8 @@ void fetchLinkedUserGames();
     setShowGameList(true);
   };
 
-  const handleLichessSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleLichessSubmit = (e?: React.SubmitEvent<HTMLFormElement>) => {
+    e?.preventDefault();
     if (!isValidUsername(usernameInput.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid username. Use 1-30 alphanumeric characters, underscores, or hyphens.' });
       return;
@@ -888,14 +902,12 @@ void fetchLinkedUserGames();
     setShowGameList(true);
   };
 
-  const handlePgnImportSubmit = (e: React.SubmitEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!isValidPgn(pgnInput.trim())) {
+  const handlePgnImportSubmit = (pgn: string) => {
+    if (!isValidPgn(pgn.trim())) {
       useToastStore.getState().addToast({ type: 'error', message: 'Invalid PGN. Make sure it contains valid chess moves.' });
       return;
     }
-    importPgnDirectly(pgnInput.trim());
-    setPgnInput('');
+    importPgnDirectly(pgn.trim());
   };
 
   const handleBackToStart = () => { updateSettings({ followBestLine: false }); setCurrentMoveIndex(-1); };
@@ -958,6 +970,7 @@ void fetchLinkedUserGames();
   };
 
   const handleSelectGame = (gameId: string) => {
+    onResetBoard();
     selectGame(gameId);
     let game = useGameStore.getState().games.find(g => g.id === gameId);
     if (!game?.shortId) {
@@ -1070,17 +1083,18 @@ void fetchLinkedUserGames();
   }
 
   if (!isInAnalysis) {
-    // Games matching the active import tab, newest first, capped at 3.
-    const recentGames = getRecentGames(games, importMode, 3);
-    const platformLabel = importMode === 'chesscom' ? 'Chess.com' : importMode === 'lichess' ? 'Lichess' : 'PGN';
-    const handleClearHistory = (): void => {
-      if (window.confirm('Clear all match history?')) {
-        clearGames();
-      }
-    };
+    const filteredGames = filterGames(games, searchQuery, dateRange);
+    const analyzedGameIds = new Set<string>(
+      [...games, ...linkedGames]
+        .filter(g =>
+          !!analysisCache[g.id]?.analyzedAt ||
+          !!analyzedPgnHashes[hashPgn(g.pgn)] ||
+          !!analyzedAnyPgnHashes[hashPgn(g.pgn)]
+        )
+        .map(g => g.id)
+    );
     return (
       <div className="max-w-2xl mx-auto space-y-6" id="analysis-import-view">
-
         {urlGameNotFound && (
           <div className="bg-red-900/30 border border-red-700/50 rounded-2xl p-6 text-center space-y-2 relative">
             <button
@@ -1102,249 +1116,36 @@ void fetchLinkedUserGames();
           </div>
         )}
 
-        <div className="text-center space-y-2 mb-2">
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">
-            Analyze Your Chess Games
-          </h1>
-          <p className="text-sm text-[var(--color-text-muted)]">
-            Import from Chess.com, Lichess, or paste a PGN — deep Stockfish 18 analysis, move-by-move classifications, and plain-English explanations of every mistake. Free, in your browser, no account needed.
-          </p>
-        </div>
-
-        <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-6" id="analysis-settings-card">
-          <div className="flex border-b border-[var(--color-border)] mb-4 overflow-x-auto">
-            <button
-              onClick={() => { setImportMode('chesscom'); }}
-              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
-                importMode === 'chesscom'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)]'
-              }`}
-            >
-              <img src="/img/icons/chesscom.svg" alt="" className="w-5 h-5 inline mr-1" />
-              Chess.com Username
-            </button>
-            <button
-              onClick={() => { setImportMode('lichess'); }}
-              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
-                importMode === 'lichess'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)]'
-              }`}
-            >
-              <img src="/img/icons/lichess.svg" alt="" className="w-5 h-5 inline mr-1" />
-              Lichess Username
-            </button>
-            <button
-              onClick={() => { setImportMode('pgn'); }}
-              className={`pb-3 px-2.5 sm:px-4 text-xs sm:text-sm font-semibold border-b-2 whitespace-nowrap flex-shrink-0 ${
-                importMode === 'pgn'
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)]'
-              }`}
-            >
-              <FileText className="w-4 h-4 inline mr-1" />
-              Paste PGN
-            </button>
-          </div>
-
-          {importMode === 'chesscom' || importMode === 'lichess' ? (
-            <form onSubmit={importMode === 'lichess' ? handleLichessSubmit : handleChessComSubmit} className="flex flex-col sm:flex-row gap-2">
-              <input
-                type="text"
-                value={usernameInput}
-                onChange={(e) => { setUsernameInput(e.target.value); }}
-                placeholder={importMode === 'lichess' ? 'e.g. DrNykterstein' : 'e.g. Hikaru'}
-                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[var(--color-text-muted)] flex-1 min-w-0"
-                id="chesscom-user-input"
-              />
-              <button
-                type="submit"
-                disabled={loadingGames}
-                className="bg-[var(--color-primary)] text-white text-sm px-5 py-2.5 rounded-lg font-bold disabled:opacity-50 flex-shrink-0"
-                id="api-fetch-submit"
-              >
-                {loadingGames ? 'Searching...' : 'Fetch Games'}
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handlePgnImportSubmit} className="flex flex-col gap-2">
-              <textarea
-                value={pgnInput}
-                onChange={(e) => { setPgnInput(e.target.value); }}
-                placeholder="Paste PGN here..."
-                rows={3}
-                className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg p-3 text-xs font-mono text-white placeholder-[var(--color-text-muted)]"
-                id="pgn-textarea-input"
-              />
-              <button
-                type="submit"
-                className="bg-[var(--color-primary)] text-white font-bold text-sm py-2.5 rounded-lg self-end px-6"
-                id="pgn-import-submit"
-              >
-                Analyze PGN
-              </button>
-            </form>
-          )}
-
-          {importError && (
-            <div className="flex items-center space-x-2 text-xs bg-[var(--color-surface)] text-[var(--color-accent)] p-2.5 rounded-lg mt-3" id="import-error-banner">
-              <AlertTriangle className="w-4 h-4 shrink-0" />
-              <span>{importError}</span>
-            </div>
-          )}
-        </div>
-
-        {showGameList && loadingGames && games.length === 0 && (
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card-loading">
-            <div className="h-4 w-32 bg-[var(--color-border)] rounded animate-pulse mb-4" />
-            <SkeletonGameGrid count={6} />
-          </div>
-        )}
-        {(showGameList || games.length > 0) && !loadingGames && games.length > 0 && (
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5" id="games-archive-card">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-              <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
-              <span>Recent Games ({recentGames.length})</span>
-              <button
-                onClick={handleClearHistory}
-                className="ml-auto text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50"
-              >
-                Clear History
-              </button>
-            </h3>
-            {recentGames.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                 {recentGames.map((g) => {
-// selectedGame is always null in this branch (no game
-                     // selected), so no game can be the selected one.
-                     const isSel = false;
-                  const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
-                  let borderClass = 'border-[var(--color-border)]';
-                  if (isSel) borderClass = 'border-[var(--color-primary)]';
-                  else if (isAnalyzed) borderClass = 'border-green-600';
-                  return (
-                    <button
-                      key={g.id}
-                      onClick={() => { handleSelectGame(g.id); }}
-                      className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${borderClass}`}
-                      id={`game-selector-${g.id}`}
-                    >
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
-                          <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
-                        </div>
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
-                            <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
-                          </div>
-                          <div className="flex items-center gap-2 min-w-0">
-                            <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
-                            <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
-                          </div>
-                        </div>
-                        <div className="text-[10px] text-[var(--color-text-muted)] font-medium pt-0.5">
-                          {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 self-start mt-2">
-                        {isAnalyzed && (
-                          <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
-                        )}
-                        {savedGameIds.has(g.id) && (
-                          <Heart className="w-3 h-3 text-[var(--color-accent)] fill-current ml-auto" />
-                        )}
-                      </div>
-                    </button>
-                  );
-               })}
-            </div>
-            ) : (
-              <p className="text-xs text-[var(--color-text-muted)] italic py-4 text-center">
-                No {platformLabel} matches yet — fetch your games above.
-              </p>
-            )}
-          </div>
-        )}
-
-        {(authUser?.chessComUsername || authUser?.lichessUsername) && linkedLoading && linkedGames.length === 0 && (
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
-            <div className="h-4 w-40 bg-[var(--color-border)] rounded animate-pulse mb-4" />
-            <SkeletonGameGrid count={3} />
-          </div>
-        )}
-        {(authUser?.chessComUsername || authUser?.lichessUsername) && !linkedLoading && linkedGames.length > 0 && (
-          <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center space-x-2">
-                <BookOpen className="w-4 h-4 text-[var(--color-accent)]" />
-                <span>
-                  {authUser?.chessComUsername && authUser?.lichessUsername
-                    ? 'Linked Recent Games'
-                    : authUser?.lichessUsername
-                      ? `${authUser.lichessUsername}&apos;s Recent Games`
-                      : `${authUser?.chessComUsername}&apos;s Recent Games`}
-                </span>
-              </h3>
-              <button
-                onClick={fetchLinkedUserGames}
-                disabled={linkedLoading}
-                className="text-[11px] font-bold text-[var(--color-primary)] border border-[var(--color-primary)] px-3 py-1 rounded-lg disabled:opacity-50"
-              >
-                {linkedLoading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
-            {linkedAnalyzing && linkedAnalysisProgress && (
-              <div className="text-[11px] text-[var(--color-accent)] font-semibold mb-3">
-                {linkedAnalysisProgress}
-              </div>
-            )}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {getRecentGames(linkedGames, 'all', 3).map((g) => {
-                const isAnalyzed = !!analysisCache[g.id]?.analyzedAt || !!analyzedPgnHashes[hashPgn(g.pgn)] || !!analyzedAnyPgnHashes[hashPgn(g.pgn)];
-                return (
-                  <button
-                    key={g.id}
-                    onClick={() => { handleSelectGame(g.id); }}
-                    className={`text-left p-4 rounded-xl border flex flex-col justify-between min-h-[136px] bg-[var(--color-surface)] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/25 transition-all ${
-                      isAnalyzed ? 'border-green-600' : 'border-[var(--color-border)]'
-                    }`}
-                  >
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-[var(--color-text-muted)] font-semibold truncate">{g.date}</span>
-                        <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-[var(--color-surface)] border border-[var(--color-border)] text-white shrink-0">{g.result}</span>
-                      </div>
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <PlayerAvatar name={g.white.username} avatar={g.white.avatar} size={22} />
-                          <span className="text-xs font-bold text-white truncate">{g.white.username}</span>
-                        </div>
-                        <div className="flex items-center gap-2 min-w-0">
-                          <PlayerAvatar name={g.black.username} avatar={g.black.avatar} size={22} />
-                          <span className="text-xs font-bold text-white truncate">{g.black.username}</span>
-                        </div>
-                      </div>
-                      <div className="text-[10px] text-[var(--color-text-muted)] font-medium pt-0.5">
-                        {g.white.rating && `White: ${g.white.rating}`}{g.white.rating && g.black.rating && ' | '}{g.black.rating && `Black: ${g.black.rating}`}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 self-start mt-2">
-                      {isAnalyzed && (
-                        <span className="text-[10px] font-bold text-green-500">&#x2713; Analyzed{formatDuration(analysisCache[g.id]?.analysisDurationMs) && ` (${formatDuration(analysisCache[g.id]?.analysisDurationMs)})`}</span>
-                      )}
-                      {savedGameIds.has(g.id) && (
-                        <Heart className="w-3 h-3 text-[var(--color-accent)] fill-current ml-auto" />
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        <HomeScreen
+          games={games}
+          filteredGames={filteredGames}
+          loading={loadingGames}
+          importMode={importMode}
+          onImportModeChange={setImportMode}
+          usernameInput={usernameInput}
+          onUsernameInputChange={setUsernameInput}
+          onFetchGames={importMode === 'lichess' ? handleLichessSubmit : handleChessComSubmit}
+          onPgnSubmit={handlePgnImportSubmit}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          onPickGame={handleSelectGame}
+          analyzedGameIds={analyzedGameIds}
+          savedGameIds={savedGameIds}
+          linkedGames={linkedGames}
+          linkedLoading={linkedLoading}
+          onRefreshLinked={fetchLinkedUserGames}
+          boardFen={boardFen}
+          onBoardMove={onBoardMove}
+          boardEvaluating={boardEvaluating}
+          boardEval={boardEval}
+          boardClassification={boardClassification}
+          boardNote={boardNote}
+          boardHistory={boardHistory}
+          onUndoBoardMove={onUndoBoardMove}
+          onResetBoard={onResetBoard}
+        />
       </div>
     );
   }
