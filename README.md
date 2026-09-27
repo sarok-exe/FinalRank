@@ -1,5 +1,7 @@
 # FinalRank ♟️
 
+🌐 **Languages / اللغات:** [English](README.md) | [العربية](#-finalrank--باللغة-العربية)
+
 **A free, open-source chess analysis platform.** Deep Stockfish analysis, move-by-move classifications, plain-English explanations of every mistake, training puzzles, and a full chess toolbox — all in your browser. No subscriptions. No ads. No locked features.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -134,78 +136,3 @@ npm run lint
 
 # Production build
 npm run build
-```
-
-### Environment Variables
-
-| Variable | Purpose |
-|---|---|
-| `VITE_FIREBASE_API_KEY` | Firebase web API key |
-| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase auth domain |
-| `VITE_FIREBASE_PROJECT_ID` | Firebase project ID |
-| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase storage bucket |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase messaging sender ID |
-| `VITE_FIREBASE_APP_ID` | Firebase app ID |
-| `VITE_SUPABASE_URL` | Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Supabase anon (publishable) key |
-| `TURSO_DATABASE_URL` | Turso DB URL (server-side only — **never** `VITE_`-prefixed) |
-| `TURSO_AUTH_TOKEN` | Turso auth token (server-side only — **never** `VITE_`-prefixed) |
-
-> **Security note:** `VITE_`-prefixed variables are inlined into the public client bundle. Turso credentials are deliberately **not** `VITE_`-prefixed — they are only used server-side by the Cloudflare Pages Functions and the puzzle sync script.
-
----
-
-## ☁️ Deployment
-
-### Firebase Hosting
-
-```bash
-firebase login
-npm run build
-firebase deploy
-```
-
-### Cloudflare Pages Functions
-
-The server-side API (`/api/*`) runs as Cloudflare Pages Functions. Set the following secrets in the Cloudflare Pages dashboard:
-
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
-- `LICHESS_API_TOKEN` (optional, for puzzle pool refills)
-
-> **Important:** the Turso secrets must **not** be `VITE_`-prefixed. `VITE_`-prefixed variables are inlined into the public client bundle, so a `VITE_TURSO_*` secret would ship the database credential to every visitor if ever referenced via `import.meta.env`. The functions read `TURSO_*` first and fall back to `VITE_TURSO_*` for backward compatibility — rename existing secrets to the unprefixed names.
-
----
-
-## 🔐 Security
-
-- Turso credentials are **never** exposed to the client — all database access is proxied through server-side Cloudflare Pages Functions using `context.env` secrets.
-- Analysis cache is stored locally on-device (localStorage), not in a shared database.
-- Firestore rules are user-scoped: users can only read/write their own documents.
-- Supabase uses Row-Level Security with per-user policies.
-- A strict Content-Security-Policy is shipped with the app.
-
----
-
-## 📄 License
-
-[Apache License 2.0](LICENSE) — free to use, modify, and share.
-
----
-
-## ☕ Support the Project
-
-FinalRank is 100% free and open source. If it helps you improve your chess, consider supporting the project:
-
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/sarok_ibnx)
-
-Donations help cover database costs, enable server-side analysis options on Cloudflare, and fund a proper domain for the site.
-
----
-
-## 🙏 Credits
-
-- [Stockfish](https://stockfishchess.org/) — the strongest open-source chess engine
-- [Lichess](https://lichess.org/) — puzzle database and game import
-- [Chess.com](https://www.chess.com/) — game import
-- [chess.js](https://github.com/jhlywa/chess.js) — chess logic
